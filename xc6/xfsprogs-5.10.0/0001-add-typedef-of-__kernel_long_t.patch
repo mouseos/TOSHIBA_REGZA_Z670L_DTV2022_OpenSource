@@ -1,0 +1,31 @@
+From e1508775a848c2ab7e5b6745f0fbe07e5137e862 Mon Sep 17 00:00:00 2001
+From: "yuta3.sasaki" <yuta3.sasaki@partners.toshiba-visual.com>
+Date: Thu, 14 Oct 2021 10:42:48 +0900
+Subject: [PATCH] add typedef of __kernel_long_t
+
+---
+ include/xfs.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/include/xfs.h b/include/xfs.h
+index e97158c..9576fdf 100644
+--- a/include/xfs.h
++++ b/include/xfs.h
+@@ -23,6 +23,14 @@ extern int xfs_assert_largefile[sizeof(off_t)-8];
+ #define __user
+ #endif
+ 
++/*
++ * modification to use xfsprogs5.10.0 in kernel 3.2
++ */
++#ifndef __kernel_long_t
++typedef long            __kernel_long_t;
++typedef unsigned long   __kernel_ulong_t;
++#endif
++
+ /*
+  * kernel struct packing shortcut
+  */
+-- 
+2.17.1
+

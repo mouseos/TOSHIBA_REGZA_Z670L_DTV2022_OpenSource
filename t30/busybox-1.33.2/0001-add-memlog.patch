@@ -1,0 +1,543 @@
+From 424e7b48c25f07575079413d0e380e7b52994bd2 Mon Sep 17 00:00:00 2001
+From: "katsuki.uwatoko" <katsuki.uwatoko@regza.com>
+Date: Wed, 22 Sep 2021 13:19:45 +0900
+Subject: [PATCH 1/1] add memlog
+
+http://gitlab.dpsw.toshiba-visual.com/dtv/sys/busybox-1_30/commit/023dc170d5d8d46cef7c5faa6aa7b34afae616c8
+---
+ procps/memlog.c | 523 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 523 insertions(+)
+ create mode 100644 procps/memlog.c
+
+diff --git a/procps/memlog.c b/procps/memlog.c
+new file mode 100644
+index 0000000..fcec0a7
+--- /dev/null
++++ b/procps/memlog.c
+@@ -0,0 +1,523 @@
++/*
++ * memlog: log memory usage
++ */
++
++//config:config MEMLOG
++//config:	bool "memlog"
++//config:	default y
++//config:	help
++//config:	  log memory usage
++
++//applet:IF_MEMLOG(APPLET(memlog, BB_DIR_BIN, BB_SUID_DROP))
++
++//kbuild:lib-$(CONFIG_MEMLOG) += memlog.o
++
++//usage:#define memlog_trivial_usage
++//usage:       "[-O FILE] [-D DIR] [-s SIZE] [-b NUM] [-n COUNT] [-d SECONDS] [-p pid[,...]|NONE|ALL]"
++//usage:#define memlog_full_usage "\n\n"
++//usage:       "Log kernel and process memory usage\n"
++//usage:     "\n	-O FILE		Log to FILE (default:/tmp/memlog)"
++//usage:     "\n	-D DIR		directory of log rotate (default: same as log FILE's)"
++//usage:     "\n	-s SIZE		Max size (KB) before rotate (default:200KB, 0=off)"
++//usage:     "\n	-b NUM		Number of rotated logs to keep (default:1, max=99, 0=purge)"
++//usage:     "\n	-n COUNT	Number of reports generated at interval seconds."
++//usage:     "\n			0 means nonstop (default: 0)"
++//usage:     "\n	-d SECONDS	interval seconds (default:10)"
++//usage:     "\n	-p pid[,...]|NONE|ALL	Select Processes or ALL or NONE. (default:ALL)"
++
++#include "libbb.h"
++
++#define MAX_PROCS	500
++#define GPUMEMFILE "/sys/kernel/debug/mali0/gpu_memory"
++#define MMAFILE "/sys/kernel/debug/mma/meminfo"
++
++enum {
++	OPT_O = (1 << 0),
++	OPT_D = (1 << 1),
++	OPT_s = (1 << 2),
++	OPT_b = (1 << 3),
++	OPT_n = (1 << 4),
++	OPT_d = (1 << 5),
++	OPT_p = (1 << 6),
++};
++
++struct meminfo {
++	unsigned long memavailable;
++	unsigned long swapfree;
++	unsigned long anonpages;
++	unsigned long shmem;
++	unsigned long sunreclaim;
++	unsigned long kernelstack;
++	unsigned long pagetables;
++	unsigned long malic;
++	unsigned long malim;
++	unsigned long mma;
++};
++
++struct pstat {
++	unsigned int pid;
++	char comm[COMM_LEN];
++	unsigned long rss;
++	unsigned long hwm;
++	unsigned long pss;
++	unsigned long dirty;
++};
++
++struct memlog {
++	FILE *logfile;
++	int nprocs;
++	bool overflowed;
++	bool have_mali;
++	bool have_mma;
++
++	struct meminfo minfo;
++	struct pstat pstats[MAX_PROCS];
++	int npstats;
++};
++
++static void log_label(const struct memlog *memlog)
++{
++	const struct pstat *ps = memlog->pstats;
++	int nps = memlog->npstats;
++	int i, j;
++	bool esc;
++	const char *labels[] = {
++		"VmRSS", "VmHWM", "PSS", "Dirty",
++	};
++
++	fprintf(memlog->logfile,
++		"#Timestamp,MemAvailable,AnonPages,Shmem,SUnreclaim,KernelStack,PageTables,SwapFree");
++	if (memlog->have_mali)
++		fprintf(memlog->logfile, ",maliC");
++	if (memlog->have_mma)
++		fprintf(memlog->logfile, ",mma(iommu)");
++	for (i = 0; i < nps; i++, ps++) {
++		esc = (strchr(ps->comm, ',') != NULL);
++		for (j = 0; j < ARRAY_SIZE(labels); j++)
++			fprintf(memlog->logfile,
++				esc ? ",\"%s (%u) %s\"" : ",%s (%u) %s",
++				ps->comm, ps->pid, labels[j]);
++	}
++	fprintf(memlog->logfile, "\n");
++	fflush(memlog->logfile);
++}
++
++static void log_mem_usage(const struct memlog *memlog)
++{
++	const struct pstat *ps = memlog->pstats;
++	int nps = memlog->npstats;
++	const struct meminfo *mi = &memlog->minfo;
++	int i;
++	char timestamp[16];
++	time_t timer;
++	struct tm tm;
++
++	time(&timer);
++	localtime_r(&timer, &tm);
++
++	strftime(timestamp, sizeof(timestamp), "%m%d %H%M.%S", &tm);
++	fprintf(memlog->logfile, "%s,%lu,%lu,%lu,%lu,%lu,%lu,%lu",
++		timestamp,
++		mi->memavailable, mi->anonpages, mi->shmem, mi->sunreclaim,
++		mi->kernelstack, mi->pagetables, mi->swapfree);
++	if (memlog->have_mali) {
++		fprintf(memlog->logfile, ",%lu",
++			mi->malic * 4);
++	}
++	if (memlog->have_mma) {
++		fprintf(memlog->logfile, ",%lu", mi->mma);
++	}
++	for (i = 0; i < nps; i++, ps++)
++		fprintf(memlog->logfile, ",%lu,%lu,%lu,%lu",
++			ps->rss, ps->hwm, ps->pss, ps->dirty);
++	fprintf(memlog->logfile, "\n");
++	fflush(memlog->logfile);
++}
++
++static void memlog_get_meminfo(struct memlog *memlog)
++{
++	struct meminfo *mi = &memlog->minfo;
++	FILE *file;
++	char buf[256];
++
++	memset(mi, 0, sizeof(*mi));
++
++	file = fopen_for_read("/proc/meminfo");
++	if (!file)
++		return;
++	while (fgets(buf, sizeof(buf), file)) {
++		char *tp;
++#define SCAN_TWO(str, name, statement)					\
++		if (strncmp(buf, str, sizeof(str)-1) == 0) {		\
++			tp = skip_whitespace(buf + sizeof(str)-1);	\
++			sscanf(tp, "%lu", &mi->name);			\
++			statement;					\
++		}
++		SCAN_TWO("MemAvailable:", memavailable, continue);
++		SCAN_TWO("SwapFree:", swapfree, continue);
++		SCAN_TWO("AnonPages:", anonpages, continue);
++		SCAN_TWO("Shmem:", shmem, continue);
++		SCAN_TWO("SUnreclaim:", sunreclaim, continue);
++		SCAN_TWO("KernelStack:", kernelstack, continue);
++		SCAN_TWO("PageTables:", pagetables, break);
++#undef SCAN_TWO
++	}
++	fclose(file);
++
++	if (memlog->have_mali) {
++		file = fopen_for_read(GPUMEMFILE);
++		if (file) {
++			if (fgets(buf, sizeof(buf), file)) {
++				if (sscanf(buf, "%*s %lu",
++					   &mi->malic) != 1) {
++					mi->malic = 0;
++					mi->malim = 0;
++				}
++			}
++			fclose(file);
++		}
++	}
++
++	if (memlog->have_mma) {
++		file = fopen_for_read(MMAFILE);
++		if (file) {
++			mi->mma = 0;
++			while (fgets(buf, sizeof(buf), file)) {
++				unsigned long size;
++				if (sscanf(buf, "%*d %*s %*x %lx %*d %*d %*d",
++					   &size) == 1)
++					mi->mma += size / 1024;
++			}
++			fclose(file);
++		}
++	}
++}
++
++/* read ps->comm, ps->hwm, ps->rss */
++static int memlog_read_status(pid_t pid, struct pstat *ps)
++{
++	char name[sizeof("/proc/%u/status") + sizeof(int)*3];
++	FILE *file;
++	char buf[256];
++	bool ret = true;
++
++	sprintf(name, "/proc/%u/status", pid);
++	file = fopen_for_read(name);
++	if (!file)
++		return false;
++	while (fgets(buf, sizeof(buf), file)) {
++		char *tp;
++		if (!ps->comm[0] && strncmp(buf, "Name:", 5) == 0) {
++			tp = skip_whitespace(buf + 5);
++			strncpy(ps->comm, tp, sizeof(ps->comm) - 1);
++			ps->comm[sizeof(ps->comm) - 1] = '\0';
++			chomp(ps->comm);
++			/* replace '"' */
++			tp = strchr(ps->comm, '"');
++			while (tp) {
++				*tp = '\'';
++				tp = strchr(tp + 1, '"');
++			}
++		}
++#define SCAN_TWO(str, name, statement)					\
++		if (strncmp(buf, str, sizeof(str)-1) == 0) {		\
++			tp = skip_whitespace(buf + sizeof(str)-1);	\
++			sscanf(tp, "%lu", &ps->name);			\
++			statement;					\
++		}
++		SCAN_TWO("VmHWM:", hwm, continue);
++		SCAN_TWO("VmRSS:", rss, break);
++#undef SCAN_TWO
++		if (strncmp(buf, "Threads:", 8) == 0) {
++			/* this is kernel thread */
++			ret = false;
++			break;
++		}
++	}
++	fclose(file);
++	return ret;
++}
++
++#if ENABLE_FEATURE_TOPMEM || ENABLE_PMAP
++static void dummy_smaps_cb(struct smaprec *currec, void *data)
++{
++	(void)currec; /* suppress "unused" warning */
++	(void)data; /* suppress "unused" warning */
++}
++#endif
++
++static void get_mem_usage(struct memlog *memlog)
++{
++	struct pstat *pstats = memlog->pstats;
++	int npstats = memlog->npstats;
++	int i;
++	struct dirent *entry;
++	DIR *dir;
++	struct pstat *ps;
++	struct smaprec total;
++	struct pstat tmpps;
++
++	memlog_get_meminfo(memlog);
++
++	if (memlog->nprocs == 0) /* -p NONE */
++		return;
++	for (i = 0; i < npstats; i++) {
++		ps = &pstats[i];
++		ps->rss = 0;
++		ps->hwm = 0;
++		ps->pss = 0;
++		ps->dirty = 0;
++	}
++
++	dir = opendir("/proc");
++	while ((entry = readdir(dir)) != NULL) {
++		unsigned pid = bb_strtou(entry->d_name, NULL, 10);
++
++		if (errno)
++			continue;
++
++		ps = NULL;
++		for (i = 0; i < npstats; i++) {
++			if (pstats[i].pid == pid) {
++				ps = &pstats[i];
++				break;
++			}
++		}
++		if (ps) {
++			memlog_read_status(pid, ps);
++		} else {
++			if (memlog->overflowed)
++				continue;
++			if (memlog->nprocs > 0)
++				continue;
++			/* -p ALL */
++			if (npstats >= MAX_PROCS) {
++				memlog->overflowed = true;
++				fprintf(memlog->logfile, "#too many processes\n");
++				fflush(memlog->logfile);
++				continue;
++			}
++			memset(&tmpps, 0, sizeof(tmpps));
++			if (!memlog_read_status(pid, &tmpps))
++				continue;
++			npstats++;
++			ps = &pstats[i];
++			*ps = tmpps;
++			ps->pid = pid;
++		}
++
++		memset(&total, 0, sizeof(total));
++#if ENABLE_FEATURE_TOPMEM || ENABLE_PMAP
++		procps_read_smaps(pid, &total, dummy_smaps_cb, NULL);
++		ps->pss = total.smap_pss;
++		ps->dirty = total.private_dirty;
++#endif
++	}
++	closedir(dir);
++	memlog->npstats = npstats;
++}
++
++static void do_logrotate(const char *logfilename,
++			 const char *rotdir, unsigned int numrotlogs)
++{
++	const char *basename = bb_basename(logfilename);
++	char *newfile;
++	char *oldfile;
++	int rotno;
++	int len;
++
++	if (numrotlogs) {
++		len = strlen(rotdir) + 1 + strlen(basename) + 3 + 1;
++		newfile = xzalloc(len * 2);
++		oldfile = newfile + len;
++		rotno = numrotlogs - 1;
++		while (1) {
++			sprintf(newfile, "%s/%s.%d", rotdir, basename, rotno);
++			if (rotno == 0)
++				break;
++			rotno--;
++			sprintf(oldfile, "%s/%s.%d", rotdir, basename, rotno);
++			rename(oldfile, newfile);
++		}
++		if (copy_file(logfilename, newfile,
++			      FILEUTILS_DEREFERENCE | FILEUTILS_FORCE))
++			bb_error_msg_and_die(newfile);
++		free(newfile);
++	}
++	unlink(logfilename);
++}
++
++static bool memlog_fill_from_rotatelog(const char *logfilename,
++				       const char *rotdir,
++				       unsigned int numrotlogs,
++				       unsigned int maxsize)
++{
++	const char *basename = bb_basename(logfilename);
++	char *rotfile;
++	int len;
++	struct stat stbuf;
++	bool ret = false;
++
++	if (!numrotlogs || !maxsize)
++		return false;
++
++	len = strlen(rotdir) + 1 + strlen(basename) + 3 + 1;
++	rotfile = xzalloc(len);
++	sprintf(rotfile, "%s/%s.%d", rotdir, basename, 0);
++
++	if (stat(rotfile, &stbuf) == 0 &&
++	    stbuf.st_size <= maxsize * 1024) {
++		/* unrotate */
++		if (copy_file(rotfile, logfilename,
++			      FILEUTILS_DEREFERENCE | FILEUTILS_FORCE))
++			bb_error_msg_and_die(logfilename);
++		ret = true;
++	}
++	free(rotfile);
++	return ret;
++}
++
++static void memlog_init(struct memlog *memlog, const char *logfilename)
++{
++	memlog->logfile = xfopen(logfilename, "a");
++	memlog->npstats = memlog->nprocs > 0 ? memlog->nprocs : 0;
++	memset(&memlog->pstats[memlog->npstats], 0,
++	       sizeof(memlog->pstats[0]) * (MAX_PROCS - memlog->npstats));
++	memlog->overflowed = false;
++}
++
++int memlog_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
++int memlog_main(int UNUSED_PARAM argc, char **argv)
++{
++	unsigned int col;
++	char *str_logfile;
++	char *str_rotdir;
++	char *str_size;
++	char *str_num;
++	char *str_count;
++	char *str_secs;
++	char *str_pids;
++	char *rotdir;
++	const char *logfilename;
++	unsigned int maxsize = 200; /* in KB */
++	unsigned int numrotlogs = 1;
++	unsigned int numreports = 0;
++	unsigned int interval = 10;
++	struct memlog memlog;
++	struct stat stbuf;
++	bool append;
++
++	memset(&memlog, 0, sizeof(memlog));
++	logfilename = "/tmp/memlog";
++	memlog.nprocs = -1;
++
++	col = getopt32(argv, "O:D:s:b:n:d:p:",
++		       &str_logfile,
++		       &str_rotdir,
++		       &str_size,
++		       &str_num,
++		       &str_count,
++		       &str_secs,
++		       &str_pids);
++	if (col & OPT_O)
++		logfilename = str_logfile;
++	if (col & OPT_D) {
++		rotdir = xstrdup(str_rotdir);
++	} else {
++		char *p;
++		rotdir = xstrdup(logfilename);
++		p = strrchr(rotdir, '/');
++		if (p) {
++			/* do not strip '/' if rotdir was "/" */
++			if (p == rotdir)
++				p++;
++			*p = '\0';
++		} else {
++			free(rotdir);
++			rotdir = xstrdup(".");
++		}
++	}
++	if (col & OPT_s)
++		maxsize = xatou(str_size);
++	if (col & OPT_b)
++		numrotlogs = xatou_range(str_num, 0, 99);
++	if (col & OPT_n)
++		numreports = xatou(str_count);
++	if (col & OPT_d)
++		interval = xatou(str_secs);
++	if (col & OPT_p) {
++		if (strcmp(str_pids, "ALL") == 0) {
++			memlog.nprocs = -1;
++		} else if (strcmp(str_pids, "NONE") == 0) {
++			memlog.nprocs = 0;
++		} else {
++			char *t;
++			memlog.nprocs = 0;
++			for (t = strtok(str_pids, ","); t;
++			     t = strtok(NULL, ",")) {
++				memlog.pstats[memlog.nprocs++].pid =
++					xatoi_positive(t);
++			}
++		}
++	}
++
++	memlog.have_mali = (access(GPUMEMFILE, R_OK) == 0);
++	memlog.have_mma = (access(MMAFILE, R_OK) == 0);
++
++	signal_no_SA_RESTART_empty_mask(SIGTERM, record_signo);
++	signal_no_SA_RESTART_empty_mask(SIGINT, record_signo);
++	signal(SIGHUP, SIG_IGN);
++
++	if (numrotlogs &&
++	    !is_directory(rotdir, 1))
++		bb_error_msg_and_die("%s: Not a directory", rotdir);
++
++	unlink(logfilename);
++	append = memlog_fill_from_rotatelog(logfilename, rotdir,
++					    numrotlogs, maxsize);
++	memlog_init(&memlog, logfilename);
++	get_mem_usage(&memlog);
++	if (append)
++		fprintf(memlog.logfile, "#start\n");
++	log_label(&memlog);
++	for (;;) {
++		log_mem_usage(&memlog);
++		if (numreports) {
++			numreports--;
++			if (numreports == 0)
++				break;
++		}
++		if (bb_got_signal)
++			break;
++
++		sleep(interval);
++
++		xfstat(fileno(memlog.logfile), &stbuf, logfilename);
++		if (maxsize && stbuf.st_size > maxsize * 1024) {
++			log_label(&memlog);
++			fclose(memlog.logfile);
++
++			if (append) {
++				append = false;
++				do_logrotate(logfilename, rotdir, 1);
++			} else {
++				do_logrotate(logfilename, rotdir, numrotlogs);
++			}
++
++			memlog_init(&memlog, logfilename);
++			get_mem_usage(&memlog);
++			log_label(&memlog);
++		} else {
++			get_mem_usage(&memlog);
++		}
++	}
++	log_label(&memlog);
++	fclose(memlog.logfile);
++	if (numrotlogs)
++		do_logrotate(logfilename, rotdir, append ? 1 : numrotlogs);
++
++	free(rotdir);
++	kill_myself_with_sig(bb_got_signal);
++
++	return EXIT_SUCCESS;
++}
+-- 
+2.23.0
+

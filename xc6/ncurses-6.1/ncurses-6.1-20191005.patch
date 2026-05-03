@@ -1,0 +1,231 @@
+# ncurses 6.1 - patch 20191005 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191005.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Oct  6 00:58:27 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |    6 +++++-
+# VERSION                          |    2 +-
+# dist.mk                          |    4 ++--
+# misc/gen-pkgconfig.in            |    5 +++--
+# misc/ncurses-config.in           |    4 ++--
+# package/debian-mingw/changelog   |    4 ++--
+# package/debian-mingw64/changelog |    4 ++--
+# package/debian/changelog         |    4 ++--
+# package/mingw-ncurses.nsi        |    4 ++--
+# package/mingw-ncurses.spec       |    2 +-
+# package/ncurses.spec             |    2 +-
+# package/ncursest.spec            |    2 +-
+# 12 files changed, 24 insertions(+), 19 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3380 
+--- ncurses-6.1-20190928+/NEWS	2019-09-28 12:57:39.000000000 +0000
++++ ncurses-6.1-20191005/NEWS	2019-10-05 22:53:18.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3380 2019/09/28 12:57:39 tom Exp $
++-- $Id: NEWS,v 1.3382 2019/10/05 22:53:18 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,10 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191005
++	+ modify the ncurse*-config and pc-files to more closely match for the
++	  -I and -l options.
++
+ 20190928
+ 	+ amend the ncurse*-config and pc-files to take into account the rpath
+ 	  hack which differed between those files.
+Index: VERSION
+--- ncurses-6.1-20190928+/VERSION	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/VERSION	2019-10-05 14:44:23.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190928
++5:0:10	6.1	20191005
+Index: dist.mk
+Prereq:  1.1307 
+--- ncurses-6.1-20190928+/dist.mk	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/dist.mk	2019-10-05 14:44:23.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1307 2019/09/27 18:43:59 tom Exp $
++# $Id: dist.mk,v 1.1308 2019/10/05 14:44:23 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190928
++NCURSES_PATCH = 20191005
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: misc/gen-pkgconfig.in
+Prereq:  1.36 
+--- ncurses-6.1-20190928+/misc/gen-pkgconfig.in	2019-09-28 12:53:53.000000000 +0000
++++ ncurses-6.1-20191005/misc/gen-pkgconfig.in	2019-10-05 22:25:47.000000000 +0000
+@@ -1,5 +1,5 @@
+ #!@SHELL@
+-# $Id: gen-pkgconfig.in,v 1.36 2019/09/28 12:53:53 tom Exp $
++# $Id: gen-pkgconfig.in,v 1.38 2019/10/05 22:25:47 tom Exp $
+ ##############################################################################
+ # Copyright (c) 2009-2018,2019 Free Software Foundation, Inc.                #
+ #                                                                            #
+@@ -70,11 +70,11 @@
+ if [ "$includedir" != "/usr/include" ]; then
+ 	includetop=`echo "$includedir" | sed -e 's,/include/[^/]*$,/include,'`
+ 	[ "$includetop" = "/usr/include" ] && includetop="$includedir"
++	CFLAGS="$CFLAGS -I\${includedir}"
+ 	if [ "x$includetop" != "x$includedir" ]
+ 	then
+ 		CFLAGS="$CFLAGS -I${includetop}"
+ 	fi
+-	CFLAGS="$CFLAGS -I\${includedir}"
+ fi
+ 
+ LDFLAGS=
+@@ -106,6 +106,7 @@
+ 	if [ $name = $MAIN_LIBRARY ]; then
+ 		desc="$desc library"
+ 		[ $NEED_TINFO = yes ] && LIBS="$LIBS -l$TINFO_ARG_SUFFIX"
++		[ -n "@LIBS@" ] && LIBS="$LIBS @LIBS@"
+ 	elif [ $name = $SUB_LIBRARY ]; then
+ 		desc="$desc terminal interface library"
+ 	elif expr $name : ".*${CXX_NAME}.*" >/dev/null ; then
+Index: misc/ncurses-config.in
+Prereq:  1.39 
+--- ncurses-6.1-20190928+/misc/ncurses-config.in	2019-09-28 12:54:17.000000000 +0000
++++ ncurses-6.1-20191005/misc/ncurses-config.in	2019-10-05 22:24:20.000000000 +0000
+@@ -1,5 +1,5 @@
+ #!@SHELL@
+-# $Id: ncurses-config.in,v 1.39 2019/09/28 12:54:17 tom Exp $
++# $Id: ncurses-config.in,v 1.40 2019/10/05 22:24:20 tom Exp $
+ ##############################################################################
+ # Copyright (c) 2006-2018,2019 Free Software Foundation, Inc.                #
+ #                                                                            #
+@@ -86,7 +86,7 @@
+ 	esac
+ fi
+ 
+-LIBS="@LIBS@ @PRIVATE_LIBS@"
++LIBS="@LIBS@"
+ if [ "@TINFO_NAME@" = "@LIB_NAME@" ]; then
+ 	LIBS="-l${THIS} $LIBS"
+ else
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190928+/package/debian-mingw/changelog	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/package/debian-mingw/changelog	2019-10-05 14:44:23.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190928) unstable; urgency=low
++ncurses6 (6.1+20191005) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 22 Sep 2019 14:43:59 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 05 Oct 2019 10:44:23 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190928+/package/debian-mingw64/changelog	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/package/debian-mingw64/changelog	2019-10-05 14:44:23.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190928) unstable; urgency=low
++ncurses6 (6.1+20191005) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 22 Sep 2019 14:43:59 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 05 Oct 2019 10:44:23 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190928+/package/debian/changelog	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/package/debian/changelog	2019-10-05 14:44:23.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190928) unstable; urgency=low
++ncurses6 (6.1+20191005) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 22 Sep 2019 14:43:59 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 05 Oct 2019 10:44:23 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.353 
+--- ncurses-6.1-20190928+/package/mingw-ncurses.nsi	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/package/mingw-ncurses.nsi	2019-10-05 14:44:23.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.353 2019/09/27 18:43:59 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.354 2019/10/05 14:44:23 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0928"
++!define VERSION_MMDD  "1005"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190928+/package/mingw-ncurses.spec	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/package/mingw-ncurses.spec	2019-10-05 14:44:23.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190928
++Release: 20191005
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190928+/package/ncurses.spec	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/package/ncurses.spec	2019-10-05 14:44:23.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190928
++Release: 20191005
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190928+/package/ncursest.spec	2019-09-27 18:43:59.000000000 +0000
++++ ncurses-6.1-20191005/package/ncursest.spec	2019-10-05 14:44:23.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190928
++Release: 20191005
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz

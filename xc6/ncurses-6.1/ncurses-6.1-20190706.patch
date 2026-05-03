@@ -1,0 +1,309 @@
+# ncurses 6.1 - patch 20190706 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190706.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Jul  7 00:14:47 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |    6 ++
+# VERSION                          |    2 
+# dist.mk                          |    4 -
+# misc/terminfo.src                |   77 +++++++++++++++++++++++++++++++++----
+# package/debian-mingw/changelog   |    4 -
+# package/debian-mingw64/changelog |    4 -
+# package/debian/changelog         |    4 -
+# package/mingw-ncurses.nsi        |    4 -
+# package/mingw-ncurses.spec       |    2 
+# package/ncurses.spec             |    2 
+# package/ncursest.spec            |    2 
+# 11 files changed, 89 insertions(+), 22 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3342 
+--- ncurses-6.1-20190630+/NEWS	2019-06-30 10:45:10.000000000 +0000
++++ ncurses-6.1-20190706/NEWS	2019-07-06 20:51:46.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3342 2019/06/30 10:45:10 tom Exp $
++-- $Id: NEWS,v 1.3344 2019/07/06 20:51:46 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,10 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190706
++	+ add domterm -TD
++	+ improve comments for recent changes, add alias xterm.js -TD
++
+ 20190630
+ 	+ add --with-tic-path and --with-infocmp-path to work around problems
+ 	  building fallback source using pre-6.0 tic/infocmp.
+Index: VERSION
+--- ncurses-6.1-20190630+/VERSION	2019-06-30 01:30:19.000000000 +0000
++++ ncurses-6.1-20190706/VERSION	2019-07-06 09:10:26.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190630
++5:0:10	6.1	20190706
+Index: dist.mk
+Prereq:  1.1292 
+--- ncurses-6.1-20190630+/dist.mk	2019-06-30 01:30:19.000000000 +0000
++++ ncurses-6.1-20190706/dist.mk	2019-07-06 09:10:26.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1292 2019/06/30 01:30:19 tom Exp $
++# $Id: dist.mk,v 1.1293 2019/07/06 09:10:26 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190630
++NCURSES_PATCH = 20190706
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: misc/terminfo.src
+--- ncurses-6.1-20190630+/misc/terminfo.src	2019-06-30 20:05:21.000000000 +0000
++++ ncurses-6.1-20190706/misc/terminfo.src	2019-07-06 20:35:26.000000000 +0000
+@@ -6,8 +6,8 @@
+ # Report bugs and new terminal descriptions to
+ #	bug-ncurses@gnu.org
+ #
+-#	$Revision: 1.749 $
+-#	$Date: 2019/06/30 20:05:21 $
++#	$Revision: 1.757 $
++#	$Date: 2019/07/06 20:35:26 $
+ #
+ # The original header is preserved below for reference.  It is noted that there
+ # is a "newer" version which differs in some cosmetic details (but actually
+@@ -4225,6 +4225,8 @@
+ 
+ # Windows 10 1903
+ # Version 0.2.1715.0
++# https://github.com/microsoft/terminal
++#
+ # The task manager shows this as "OpenConsole.exe", which differs
+ # from the "Windows Command Processor" used for the command-prompt.
+ #
+@@ -4247,9 +4249,9 @@
+ # - a few generic xterm features are supported (set window title), but
+ #   others are missing (such as the mouse).
+ # - the cursor visible/invisible works in the PowerShell tab, not in "Legacy"
+-# tack: 
++# tack:
+ # - blink, dim, bold, invis, protect do not work
+-# - bce works (but per vttest, with ED, EL, not BCE)
++# - bce works (but per vttest, with ED, EL, not ECH)
+ # - does not support keypad application mode
+ # - implements most of the xterm modified keys; sometimes modifiers are ignored
+ #   or simply incorrect
+@@ -4262,7 +4264,8 @@
+ 	use=xterm+pcfkeys, use=xterm-basic,
+ 
+ #### Visual Studio
+-# Visual Studio Code 1.35.1
++# Visual Studio Code 1.35.1 uses xterm.js (see https://xtermjs.org/).
++# https://code.visualstudio.com/docs/editor/integrated-terminal
+ #
+ # This sets TERM to xterm-256color, which is a little more successful than
+ # Windows Terminal.
+@@ -4289,11 +4292,11 @@
+ # - mouse mode is not reset by reset-sequence
+ # - supports italics and dim, but not cross-out or double-underline
+ # - color-palette cannot be changed
+-vscode|Visual Studio Code terminal,
++vscode|xterm.js|Visual Studio Code terminal using xterm.js,
+ 	npc,
+ 	kcbt=\E[Z, rmkx=\E[?1l, smkx=\E[?1h, use=xterm+256setaf,
+ 	use=ecma+index, use=xterm+sm+1006, use=xterm+pcfkeys,
+-	use=xterm-basic, use=xterm-basic,
++	use=xterm-basic,
+ vscode-direct|Visual Studio Code with direct-colors,
+ 	use=xterm+indirect, use=vscode,
+ 
+@@ -7012,6 +7015,62 @@
+ 	use=xterm+pce2, use=xterm+pcc2, use=ecma+italics,
+ 	use=xterm+alt1049,
+ 
++######## WEB CLIENTS
++
++#### DomTerm
++# https://domterm.org
++#
++# Quoting its webpage:
++#	The domterm command runs a server that manages sessions (usually shell
++#	processes).  The user interface and terminal emulation is handled by a
++#	JavaScript library that can run in a regular web browser or an embedded
++#	browser such as Electron, using Web Sockets to talk to the server.
++#
++# it can connect to, and display in, a web browser, or as a standalone Qt
++# application.  Either way, it displays in the current desktop session.
++#
++# Testing current code (2019/07/06) with Fedora 30:
++# tack
++#	no flash
++#	no beep
++#	no dim
++#	no blink
++#	no invis
++#	no italics
++#	ok smxx/rmxx
++#	bce screen shows diagonal lines...
++#	kf6 sends nothing
++#	kf11 toggles maximize
++#	cursor-key application mode works
++#	numeric keypad application does not work; keys always send face-codes
++#	sends utf-8 for meta, like xterm
++# vttest
++#	has problems with menu #1 (wrapping)
++#	DA = vt200 with 132 columns, color
++#	DA2 = 990, 100300 ("\E[>990;100300;0c")
++#	no VT52, no double-size characters
++#	vt220 ECH test works, SRM, DECSCA do not
++#	S7C1T/S8C1t does not work
++#	DECUDK does not work
++#	CNL does not work; the other ECMA-48 cursor-movement tests work
++#	REP sort-of works (does not match xterm)
++#	SD/SU work, but not SL/SR
++#	window reporting: works for size in chars/pixels, but not other tests
++#	X10 mouse clicks work -- but return 4 rather than 1 for codes
++#	any-event mouse mode acts like any-button mode
++#	implements SGR mouse-mode
++# other:
++#	does not implement initc
++#	does accept either colons or semicolon in 38/48 SGR.
++domterm|DomTerm web client,
++	npc,
++	bel@, blink@, dim@, invis@, kcbt=\E[Z, ritm@, rmkx=\E[?1l,
++	sgr=%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|
++	    %t;7%;m,
++	sitm@, smkx=\E[?1h, use=xterm+256setaf, use=ecma+index,
++	use=xterm+sm+1006, use=xterm+pcfkeys, use=xterm-basic,
++	use=xterm-basic,
++
+ ######## UNIX VIRTUAL TERMINALS, VIRTUAL CONSOLES, AND TELNET CLIENTS
+ #
+ 
+@@ -26282,4 +26341,8 @@
+ #	+ add vscode, vscode-direct -TD
+ #	+ use ecma+index in screen, st -TD
+ #
++# 2019-07-06
++#	+ add domterm -TD
++#	+ improve comments for recent changes, add alias xterm.js -TD
++#
+ ######## SHANTIH!  SHANTIH!  SHANTIH!
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190630+/package/debian-mingw/changelog	2019-06-30 01:30:19.000000000 +0000
++++ ncurses-6.1-20190706/package/debian-mingw/changelog	2019-07-06 09:10:26.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190630) unstable; urgency=low
++ncurses6 (6.1+20190706) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 29 Jun 2019 21:29:49 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 06 Jul 2019 05:10:26 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190630+/package/debian-mingw64/changelog	2019-06-30 01:30:19.000000000 +0000
++++ ncurses-6.1-20190706/package/debian-mingw64/changelog	2019-07-06 09:10:26.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190630) unstable; urgency=low
++ncurses6 (6.1+20190706) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 29 Jun 2019 21:29:49 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 06 Jul 2019 05:10:26 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190630+/package/debian/changelog	2019-06-30 01:30:19.000000000 +0000
++++ ncurses-6.1-20190706/package/debian/changelog	2019-07-06 09:10:26.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190630) unstable; urgency=low
++ncurses6 (6.1+20190706) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 29 Jun 2019 21:29:49 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 06 Jul 2019 05:10:26 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.338 
+--- ncurses-6.1-20190630+/package/mingw-ncurses.nsi	2019-06-30 01:30:19.000000000 +0000
++++ ncurses-6.1-20190706/package/mingw-ncurses.nsi	2019-07-06 09:10:26.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.338 2019/06/30 01:30:19 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.339 2019/07/06 09:10:26 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0630"
++!define VERSION_MMDD  "0706"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190630+/package/mingw-ncurses.spec	2019-06-30 18:34:07.000000000 +0000
++++ ncurses-6.1-20190706/package/mingw-ncurses.spec	2019-07-06 09:10:26.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190630
++Release: 20190706
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190630+/package/ncurses.spec	2019-06-30 01:30:19.000000000 +0000
++++ ncurses-6.1-20190706/package/ncurses.spec	2019-07-06 09:10:26.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190630
++Release: 20190706
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190630+/package/ncursest.spec	2019-06-30 01:30:19.000000000 +0000
++++ ncurses-6.1-20190706/package/ncursest.spec	2019-07-06 09:10:26.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190630
++Release: 20190706
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz

@@ -1,0 +1,960 @@
+# ncurses 6.1 - patch 20190817 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190817.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Aug 18 00:33:55 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |    7 ++++++-
+# VERSION                          |    2 +-
+# dist.mk                          |    4 ++--
+# ncurses/base/lib_bkgd.c          |   24 ++++++++++++++++++------
+# package/debian-mingw/changelog   |    4 ++--
+# package/debian-mingw64/changelog |    4 ++--
+# package/debian/changelog         |    4 ++--
+# package/mingw-ncurses.nsi        |    4 ++--
+# package/mingw-ncurses.spec       |    2 +-
+# package/ncurses.spec             |    2 +-
+# package/ncursest.spec            |    2 +-
+# test/blue.c                      |   20 ++++++++++----------
+# test/bs.c                        |   31 +++++++++++++++++--------------
+# test/cardfile.c                  |   28 ++++++++++++++++------------
+# test/chgat.c                     |    7 ++++---
+# test/clip_printw.c               |    9 +++++----
+# test/color_content.c             |    4 ++--
+# test/color_set.c                 |    7 ++++---
+# test/demo_altkeys.c              |   16 +++++++++-------
+# test/demo_defkey.c               |   17 +++++++++--------
+# test/demo_forms.c                |   19 +++++++++++--------
+# test/demo_menus.c                |   10 ++++------
+# test/test_sgr.c                  |    4 ++--
+# 23 files changed, 131 insertions(+), 100 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3361 
+--- ncurses-6.1-20190810+/NEWS	2019-08-10 19:05:52.000000000 +0000
++++ ncurses-6.1-20190817/NEWS	2019-08-17 21:47:27.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3361 2019/08/10 19:05:52 tom Exp $
++-- $Id: NEWS,v 1.3364 2019/08/17 21:47:27 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,11 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190817
++	+ amend 20181208 changes for wbkgd() and wbkgrnd(), fixing a few
++	  details where it still differed from SVr4.
++	+ fix some cppcheck warnings, mostly style, in ncurses test-programs.
++
+ 20190810
+ 	+ fix a few more coverity warnings.
+ 
+Index: VERSION
+--- ncurses-6.1-20190810+/VERSION	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/VERSION	2019-08-17 13:26:39.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190810
++5:0:10	6.1	20190817
+Index: dist.mk
+Prereq:  1.1300 
+--- ncurses-6.1-20190810+/dist.mk	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/dist.mk	2019-08-17 13:26:39.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1300 2019/08/10 12:52:53 tom Exp $
++# $Id: dist.mk,v 1.1301 2019/08/17 13:26:39 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190810
++NCURSES_PATCH = 20190817
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: ncurses/base/lib_bkgd.c
+Prereq:  1.52 
+--- ncurses-6.1-20190810+/ncurses/base/lib_bkgd.c	2018-12-09 00:09:17.000000000 +0000
++++ ncurses-6.1-20190817/ncurses/base/lib_bkgd.c	2019-08-17 20:59:41.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2016,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -36,7 +36,7 @@
+ 
+ #include <curses.priv.h>
+ 
+-MODULE_ID("$Id: lib_bkgd.c,v 1.52 2018/12/09 00:09:17 tom Exp $")
++MODULE_ID("$Id: lib_bkgd.c,v 1.53 2019/08/17 20:59:41 tom Exp $")
+ 
+ /*
+  * Set the window's background information.
+@@ -145,6 +145,11 @@
+ 	memset(&old_bkgd, 0, sizeof(old_bkgd));
+ 	(void) wgetbkgrnd(win, &old_bkgd);
+ 
++	if (!memcmp(&old_bkgd, &new_bkgd, sizeof(new_bkgd))) {
++	    T(("...unchanged"));
++	    returnCode(OK);
++	}
++
+ 	old_char = old_bkgd;
+ 	RemAttr(old_char, ~A_CHARTEXT);
+ 	old_attr = AttrOf(old_bkgd);
+@@ -153,6 +158,8 @@
+ 	if (!(old_attr & A_COLOR)) {
+ 	    old_pair = 0;
+ 	}
++	T(("... old background char %s, attr %s, pair %d",
++	   _tracechar(CharOf(old_char)), _traceattr(old_attr), old_pair));
+ 
+ 	new_char = new_bkgd;
+ 	RemAttr(new_char, ~A_CHARTEXT);
+@@ -163,15 +170,20 @@
+ 	if (!Charable(new_bkgd)) {
+ 	    new_char = old_char;
+ 	}
++	if (!(new_attr & A_COLOR)) {
++	    new_pair = 0;
++	}
++	T(("... new background char %s, attr %s, pair %d",
++	   _tracechar(CharOf(new_char)), _traceattr(new_attr), new_pair));
+ 
+ 	(void) wbkgrndset(win, CHREF(new_bkgd));
+ 
+ 	/* SVr4 updates color pair if old/new match, otherwise just attrs */
+ 	if ((new_pair != 0) && (new_pair == old_pair)) {
+-	    SetAttr(win->_nc_bkgd, new_attr);
+-	    SetPair(win->_nc_bkgd, new_pair);
++	    WINDOW_ATTRS(win) = new_attr;
++	    SET_WINDOW_PAIR(win, new_pair);
+ 	} else {
+-	    SetAttr(win->_nc_bkgd, new_attr);
++	    WINDOW_ATTRS(win) = new_attr;
+ 	}
+ 
+ 	for (y = 0; y <= win->_maxy; y++) {
+@@ -195,7 +207,7 @@
+ 				| (new_attr & ALL_BUT_COLOR));
+ 		    }
+ 		} else {
+-		    SetAttr(*cp, new_attr);
++		    SetAttr(*cp, (tmp_attr & ~old_attr) | new_attr);
+ 		    SetPair(*cp, new_pair);
+ 		}
+ 	    }
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190810+/package/debian-mingw/changelog	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/package/debian-mingw/changelog	2019-08-17 13:26:39.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190810) unstable; urgency=low
++ncurses6 (6.1+20190817) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 10 Aug 2019 08:52:53 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 17 Aug 2019 09:26:39 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190810+/package/debian-mingw64/changelog	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/package/debian-mingw64/changelog	2019-08-17 13:26:39.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190810) unstable; urgency=low
++ncurses6 (6.1+20190817) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 10 Aug 2019 08:52:53 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 17 Aug 2019 09:26:39 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190810+/package/debian/changelog	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/package/debian/changelog	2019-08-17 13:26:39.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190810) unstable; urgency=low
++ncurses6 (6.1+20190817) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 10 Aug 2019 08:52:53 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 17 Aug 2019 09:26:39 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.346 
+--- ncurses-6.1-20190810+/package/mingw-ncurses.nsi	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/package/mingw-ncurses.nsi	2019-08-17 13:26:39.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.346 2019/08/10 12:52:53 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.347 2019/08/17 13:26:39 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0810"
++!define VERSION_MMDD  "0817"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190810+/package/mingw-ncurses.spec	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/package/mingw-ncurses.spec	2019-08-17 13:26:39.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190810
++Release: 20190817
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190810+/package/ncurses.spec	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/package/ncurses.spec	2019-08-17 13:26:39.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190810
++Release: 20190817
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190810+/package/ncursest.spec	2019-08-10 12:52:53.000000000 +0000
++++ ncurses-6.1-20190817/package/ncursest.spec	2019-08-17 13:26:39.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190810
++Release: 20190817
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: test/blue.c
+Prereq:  1.51 
+--- ncurses-6.1-20190810+/test/blue.c	2017-09-30 17:43:18.000000000 +0000
++++ ncurses-6.1-20190817/test/blue.c	2019-08-17 21:49:19.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2016,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -36,7 +36,7 @@
+  *****************************************************************************/
+ 
+ /*
+- * $Id: blue.c,v 1.51 2017/09/30 17:43:18 tom Exp $
++ * $Id: blue.c,v 1.52 2019/08/17 21:49:19 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -153,14 +153,14 @@
+ static void
+ shuffle(int size)
+ {
+-    int i, j, numswaps, swapnum, temp;
++    int numswaps, swapnum;
+ 
+     numswaps = size * 10;	/* an arbitrary figure */
+ 
+     for (swapnum = 0; swapnum < numswaps; swapnum++) {
+-	i = rand() % size;
+-	j = rand() % size;
+-	temp = deck[i];
++	int i = rand() % size;
++	int j = rand() % size;
++	int temp = deck[i];
+ 	deck[i] = deck[j];
+ 	deck[j] = temp;
+     }
+@@ -169,11 +169,11 @@
+ static void
+ deal_cards(void)
+ {
+-    int ptr, card = 0, value, csuit, crank, suit, aces[4];
++    int card = 0, value, csuit, crank, suit, aces[4];
+ 
+     memset(aces, 0, sizeof(aces));
+     for (suit = HEARTS; suit <= CLUBS; suit++) {
+-	ptr = freeptr[suit];
++	int ptr = freeptr[suit];
+ 	grid[ptr++] = NOCARD;	/* 1st card space is blank */
+ 	while ((ptr % GRID_WIDTH) != 0) {
+ 	    value = deck[card++];
+@@ -388,10 +388,10 @@
+ static int
+ collect_discards(void)
+ {
+-    int row, col, cardno = 0, finish, gridno;
++    int row, col, cardno = 0, gridno;
+ 
+     for (row = HEARTS; row <= CLUBS; row++) {
+-	finish = 0;
++	int finish = 0;
+ 	for (col = 1; col < GRID_WIDTH; col++) {
+ 	    gridno = row * GRID_WIDTH + col;
+ 
+Index: test/bs.c
+Prereq:  1.73 
+--- ncurses-6.1-20190810+/test/bs.c	2018-05-12 15:07:51.000000000 +0000
++++ ncurses-6.1-20190817/test/bs.c	2019-08-17 21:49:19.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -34,7 +34,7 @@
+  * v2.0 featuring strict ANSI/POSIX conformance, November 1993.
+  * v2.1 with ncurses mouse support, September 1995
+  *
+- * $Id: bs.c,v 1.73 2018/05/12 15:07:51 tom Exp $
++ * $Id: bs.c,v 1.74 2019/08/17 21:49:19 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -548,14 +548,15 @@
+ static int
+ getcoord(int atcpu)
+ {
+-    int ny, nx, c;
+-
+     if (atcpu)
+ 	cgoto(cury, curx);
+     else
+ 	pgoto(cury, curx);
+     (void) refresh();
++
+     for (;;) {
++	int ny, nx, c;
++
+ 	if (atcpu) {
+ 	    MvPrintw(CYBASE + BDEPTH + 1, CXBASE + 11, "(%d, %c)",
+ 		     curx, 'A' + cury);
+@@ -731,10 +732,9 @@
+ awinna(void)
+ {
+     int i, j;
+-    ship_t *ss;
+ 
+     for (i = 0; i < 2; ++i) {
+-	ss = (i) ? cpuship : plyship;
++	ship_t *ss = (i) ? cpuship : plyship;
+ 	for (j = 0; j < SHIPTYPES; ++j, ++ss)
+ 	    if (ss->length > ss->hits)
+ 		break;
+@@ -761,9 +761,11 @@
+ 	    if (++ss->hits < ss->length)	/* still afloat? */
+ 		return ((ship_t *) NULL);
+ 	    else {		/* sunk! */
+-		int i, j;
++		int i;
++
++		if (!closepack) {
++		    int j;
+ 
+-		if (!closepack)
+ 		    for (j = -1; j <= 1; j++) {
+ 			int bx = ss->x + j * xincr[(ss->dir + 2) % dir_MAX];
+ 			int by = ss->y + j * yincr[(ss->dir + 2) % dir_MAX];
+@@ -792,6 +794,7 @@
+ 			    }
+ 			}
+ 		    }
++		}
+ 
+ 		for (i = 0; i < ss->length; ++i) {
+ 		    int x1 = ss->x + i * xincr[ss->dir];
+@@ -884,12 +887,12 @@
+ static int
+ sgetc(const char *s)
+ {
+-    const char *s1;
+-    int ch;
+-
+     (void) refresh();
++
+     for (;;) {
+-	ch = getch();
++	int ch = getch();
++	const char *s1;
++
+ 	if (islower(ch))
+ 	    ch = toupper(ch);
+ 	if (is_QUIT(ch))
+@@ -1161,9 +1164,9 @@
+ static void
+ do_options(int c, char *op[])
+ {
+-    register int i;
+-
+     if (c > 1) {
++	int i;
++
+ 	for (i = 1; i < c; i++) {
+ 	    switch (op[i][0]) {
+ 	    default:
+Index: test/cardfile.c
+Prereq:  1.45 
+--- ncurses-6.1-20190810+/test/cardfile.c	2017-10-19 21:14:25.000000000 +0000
++++ ncurses-6.1-20190817/test/cardfile.c	2019-08-17 21:49:40.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1999-2016,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1999-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey
+  *
+- * $Id: cardfile.c,v 1.45 2017/10/19 21:14:25 tom Exp $
++ * $Id: cardfile.c,v 1.46 2019/08/17 21:49:40 tom Exp $
+  *
+  * File format: text beginning in column 1 is a title; other text is content.
+  */
+@@ -125,10 +125,12 @@
+ static void
+ add_content(CARD * card, const char *content)
+ {
+-    size_t total, offset;
++    size_t total;
+ 
+     content = skip(content);
+     if ((total = strlen(content)) != 0) {
++	size_t offset;
++
+ 	if (card->content != 0 && (offset = strlen(card->content)) != 0) {
+ 	    total += 1 + offset;
+ 	    card->content = typeRealloc(char, total + 1, card->content);
+@@ -173,10 +175,11 @@
+ read_data(char *fname)
+ {
+     FILE *fp;
+-    CARD *card = 0;
+-    char buffer[BUFSIZ];
+ 
+     if ((fp = fopen(fname, "r")) != 0) {
++	CARD *card = 0;
++	char buffer[BUFSIZ];
++
+ 	while (fgets(buffer, sizeof(buffer), fp)) {
+ 	    trim(buffer);
+ 	    if (isspace(UChar(*buffer))) {
+@@ -197,15 +200,17 @@
+ write_data(const char *fname)
+ {
+     FILE *fp;
+-    CARD *p = 0;
+-    int n;
+ 
+     if (!strcmp(fname, default_name))
+ 	fname = "cardfile.out";
+ 
+     if ((fp = fopen(fname, "w")) != 0) {
++	CARD *p = 0;
++
+ 	for (p = all_cards; p != 0; p = p->link) {
+ 	    FIELD **f = form_fields(p->form);
++	    int n;
++
+ 	    for (n = 0; f[n] != 0; n++) {
+ 		char *s = field_buffer(f[n], 0);
+ 		if (s != 0
+@@ -365,7 +370,7 @@
+ 
+ #if (defined(KEY_RESIZE) && HAVE_WRESIZE) || NO_LEAKS
+ static void
+-free_form_fields(FIELD ** f)
++free_form_fields(FIELD **f)
+ {
+     int n;
+ 
+@@ -391,7 +396,6 @@
+     int form_high;
+     int y;
+     int x;
+-    int ch = ERR;
+     int finished = FALSE;
+ 
+     show_legend();
+@@ -432,6 +436,8 @@
+     order_cards(top_card, visible_cards);
+ 
+     while (!finished) {
++	int ch = ERR;
++
+ 	update_panels();
+ 	doupdate();
+ 
+@@ -522,13 +528,11 @@
+     }
+ #if NO_LEAKS
+     while (all_cards != 0) {
+-	FIELD **f;
+-
+ 	p = all_cards;
+ 	all_cards = all_cards->link;
+ 
+ 	if (isVisible(p)) {
+-	    f = form_fields(p->form);
++	    FIELD **f = form_fields(p->form);
+ 
+ 	    unpost_form(p->form);	/* ...so we can free it */
+ 	    free_form(p->form);	/* this also disconnects the fields */
+Index: test/chgat.c
+Prereq:  1.17 
+--- ncurses-6.1-20190810+/test/chgat.c	2017-09-28 23:04:14.000000000 +0000
++++ ncurses-6.1-20190817/test/chgat.c	2019-08-17 21:49:19.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2006-2012,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 2006-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: chgat.c,v 1.17 2017/09/28 23:04:14 tom Exp $
++ * $Id: chgat.c,v 1.18 2019/08/17 21:49:19 tom Exp $
+  *
+  * test-driver for chgat/wchgat/mvchgat/mvwchgat
+  */
+@@ -75,10 +75,11 @@
+     };
+     /* *INDENT-ON* */
+ 
+-    static bool first = TRUE;
+     const char *result = 0;
+ 
+     if (has_colors()) {
++	static bool first = TRUE;
++
+ 	if (first) {
+ 	    size_t n;
+ 
+Index: test/clip_printw.c
+Prereq:  1.15 
+--- ncurses-6.1-20190810+/test/clip_printw.c	2017-09-28 23:07:23.000000000 +0000
++++ ncurses-6.1-20190817/test/clip_printw.c	2019-08-17 21:49:40.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2008-2016,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 2008-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: clip_printw.c,v 1.15 2017/09/28 23:07:23 tom Exp $
++ * $Id: clip_printw.c,v 1.16 2019/08/17 21:49:40 tom Exp $
+  *
+  * demonstrate how to use printw without wrapping.
+  */
+@@ -56,7 +56,7 @@
+ } STATUS;
+ 
+ static int
+-clip_wprintw(WINDOW *win, NCURSES_CONST char *fmt,...)
++clip_wprintw(WINDOW *win, NCURSES_CONST char *fmt, ...)
+ {
+     int y0, x0, y1, x1, width;
+     WINDOW *sub;
+@@ -103,10 +103,11 @@
+     };
+     /* *INDENT-ON* */
+ 
+-    static bool first = TRUE;
+     const char *result = 0;
+ 
+     if (has_colors()) {
++	static bool first = TRUE;
++
+ 	if (first) {
+ 	    unsigned n;
+ 
+Index: test/color_content.c
+Prereq:  1.10 
+--- ncurses-6.1-20190810+/test/color_content.c	2019-01-21 01:05:44.000000000 +0000
++++ ncurses-6.1-20190817/test/color_content.c	2019-08-17 21:29:13.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: color_content.c,v 1.10 2019/01/21 01:05:44 tom Exp $
++ * $Id: color_content.c,v 1.11 2019/08/17 21:29:13 tom Exp $
+  */
+ 
+ #define NEED_TIME_H
+@@ -251,7 +251,6 @@
+ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
+ {
+     int i;
+-    int repeat;
+ 
+     while ((i = getopt(argc, argv, "f:il:npr:sx")) != -1) {
+ 	switch (i) {
+@@ -305,6 +304,7 @@
+ 	    }
+ 	}
+     } else {
++	int repeat;
+ 
+ 	for (repeat = 0; repeat < r_opt; ++repeat) {
+ 	    run_test();
+Index: test/color_set.c
+Prereq:  1.8 
+--- ncurses-6.1-20190810+/test/color_set.c	2014-02-01 22:10:42.000000000 +0000
++++ ncurses-6.1-20190817/test/color_set.c	2019-08-17 21:49:19.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2003-2012,2014 Free Software Foundation, Inc.              *
++ * Copyright (c) 2003-2014,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: color_set.c,v 1.8 2014/02/01 22:10:42 tom Exp $
++ * $Id: color_set.c,v 1.9 2019/08/17 21:49:19 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -39,13 +39,14 @@
+ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
+ {
+     NCURSES_COLOR_T f, b;
+-    int i;
+ 
+     initscr();
+     cbreak();
+     noecho();
+ 
+     if (has_colors()) {
++	int i;
++
+ 	start_color();
+ 
+ 	(void) pair_content(0, &f, &b);
+Index: test/demo_altkeys.c
+Prereq:  1.12 
+--- ncurses-6.1-20190810+/test/demo_altkeys.c	2018-12-29 17:52:53.000000000 +0000
++++ ncurses-6.1-20190817/test/demo_altkeys.c	2019-08-17 21:49:40.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2005-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 2005-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_altkeys.c,v 1.12 2018/12/29 17:52:53 tom Exp $
++ * $Id: demo_altkeys.c,v 1.13 2019/08/17 21:49:40 tom Exp $
+  *
+  * Demonstrate the define_key() function.
+  * Thomas Dickey - 2005/10/22
+@@ -47,11 +47,12 @@
+ log_last_line(WINDOW *win)
+ {
+     FILE *fp;
+-    int y, x, n;
+-    char temp[256];
+ 
+     if ((fp = fopen(MY_LOGFILE, "a")) != 0) {
++	char temp[256];
++	int y, x, n;
+ 	int need = sizeof(temp) - 1;
++
+ 	if (need > COLS)
+ 	    need = COLS;
+ 	getyx(win, y, x);
+@@ -75,8 +76,7 @@
+     int n;
+     int ch;
+ #if HAVE_GETTIMEOFDAY
+-    int secs, msecs;
+-    struct timeval current, previous;
++    struct timeval previous;
+ #endif
+ 
+     unlink(MY_LOGFILE);
+@@ -119,8 +119,10 @@
+     while ((ch = getch()) != ERR) {
+ 	bool escaped = (ch >= MY_KEYS);
+ 	const char *name = keyname(escaped ? (ch - MY_KEYS) : ch);
+-
+ #if HAVE_GETTIMEOFDAY
++	int secs, msecs;
++	struct timeval current;
++
+ 	gettimeofday(&current, 0);
+ 	secs = (int) (current.tv_sec - previous.tv_sec);
+ 	msecs = (int) ((current.tv_usec - previous.tv_usec) / 1000);
+Index: test/demo_defkey.c
+Prereq:  1.28 
+--- ncurses-6.1-20190810+/test/demo_defkey.c	2018-02-12 09:57:31.000000000 +0000
++++ ncurses-6.1-20190817/test/demo_defkey.c	2019-08-17 21:49:19.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2002-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 2002-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_defkey.c,v 1.28 2018/02/12 09:57:31 tom Exp $
++ * $Id: demo_defkey.c,v 1.29 2019/08/17 21:49:19 tom Exp $
+  *
+  * Demonstrate the define_key() function.
+  * Thomas Dickey - 2002/11/23
+@@ -45,10 +45,10 @@
+ log_last_line(WINDOW *win)
+ {
+     FILE *fp;
+-    int y, x, n;
+-    char temp[256];
+ 
+     if ((fp = fopen(MY_LOGFILE, "a")) != 0) {
++	char temp[256];
++	int y, x, n;
+ 	int need = sizeof(temp) - 1;
+ 	if (need > COLS)
+ 	    need = COLS;
+@@ -98,11 +98,12 @@
+ visible(const char *string)
+ {
+     char *result = 0;
+-    size_t need = 1;
+-    int pass;
+-    int n;
+ 
+     if (string != 0 && *string != '\0') {
++	int pass;
++	int n;
++	size_t need = 1;
++
+ 	for (pass = 0; pass < 2; ++pass) {
+ 	    for (n = 0; string[n] != '\0'; ++n) {
+ 		char temp[80];
+@@ -185,7 +186,6 @@
+ 
+     if (value != 0) {
+ 	const char *prefix = 0;
+-	char temp[BUFSIZ];
+ 
+ 	if (!(strncmp) (value, "\033[", (size_t) 2)) {
+ 	    prefix = "\033O";
+@@ -193,6 +193,7 @@
+ 	    prefix = "\033[";
+ 	}
+ 	if (prefix != 0) {
++	    char temp[BUFSIZ];
+ 	    _nc_SPRINTF(temp, _nc_SLIMIT(sizeof(temp))
+ 			"%s%s", prefix, value + 2);
+ 	    really_define_key(win, temp, code);
+Index: test/demo_forms.c
+Prereq:  1.55 
+--- ncurses-6.1-20190810+/test/demo_forms.c	2018-07-14 23:26:02.000000000 +0000
++++ ncurses-6.1-20190817/test/demo_forms.c	2019-08-17 21:49:19.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2003-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 2003-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_forms.c,v 1.55 2018/07/14 23:26:02 tom Exp $
++ * $Id: demo_forms.c,v 1.56 2019/08/17 21:49:19 tom Exp $
+  *
+  * Demonstrate a variety of functions from the form library.
+  * Thomas Dickey - 2003/4/26
+@@ -338,9 +338,6 @@
+ show_current_field(WINDOW *win, FORM *form)
+ {
+     FIELD *field;
+-    FIELDTYPE *type;
+-    char *buffer;
+-    int nbuf;
+     int field_rows, field_cols, field_max;
+     int currow, curcol;
+ 
+@@ -355,7 +352,11 @@
+     if (data_behind(form))
+ 	waddstr(win, " behind");
+     waddch(win, '\n');
++
+     if ((field = current_field(form)) != 0) {
++	FIELDTYPE *type;
++	int nbuf;
++
+ 	wprintw(win, "Page %d%s, Field %d/%d%s:",
+ 		form_page(form),
+ 		new_page(field) ? "*" : "",
+@@ -411,6 +412,7 @@
+ 
+ 	waddstr(win, "\n");
+ 	for (nbuf = 0; nbuf <= 2; ++nbuf) {
++	    char *buffer;
+ 	    if ((buffer = field_buffer(field, nbuf)) != 0) {
+ 		wprintw(win, "buffer %d:", nbuf);
+ 		(void) wattrset(win, A_REVERSE);
+@@ -430,13 +432,11 @@
+ static void
+ demo_forms(void)
+ {
+-    WINDOW *w;
+     FORM *form;
+     FIELD *f[100];		/* will memset to zero */
+-    int finished = 0, c;
++    int c;
+     unsigned n = 0;
+     int pg;
+-    WINDOW *also;
+     const char *fname;
+     static const char *my_enum[] =
+     {"first", "second", "third", 0};
+@@ -544,6 +544,9 @@
+     f[n] = (FIELD *) 0;
+ 
+     if ((form = new_form(f)) != 0) {
++	WINDOW *w;
++	WINDOW *also;
++	int finished = 0;
+ 
+ 	display_form(form);
+ 
+Index: test/demo_menus.c
+Prereq:  1.67 
+--- ncurses-6.1-20190810+/test/demo_menus.c	2019-08-10 19:25:27.000000000 +0000
++++ ncurses-6.1-20190817/test/demo_menus.c	2019-08-17 21:45:32.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_menus.c,v 1.67 2019/08/10 19:25:27 tom Exp $
++ * $Id: demo_menus.c,v 1.68 2019/08/17 21:45:32 tom Exp $
+  *
+  * Demonstrate a variety of functions from the menu library.
+  * Thomas Dickey - 2005/4/9
+@@ -309,12 +309,11 @@
+ static void
+ menu_destroy(MENU * m)
+ {
+-    int count;
+-
+     Trace(("menu_destroy %p", (void *) m));
+     if (m != 0) {
+ 	ITEM **items = menu_items(m);
+ 	const char *blob = 0;
++	int count;
+ 
+ 	count = item_count(m);
+ 	Trace(("menu_destroy %p count %d", (void *) m, count));
+@@ -429,7 +428,6 @@
+ 	    && (sb.st_mode & S_IFMT) == S_IFREG
+ 	    && sb.st_size != 0) {
+ 	    size_t size = (size_t) sb.st_size;
+-	    unsigned j, k;
+ 	    char *blob = typeMalloc(char, size + 1);
+ 	    MENU_DATA *list = typeCalloc(MENU_DATA, size + 1);
+ 
+@@ -442,6 +440,7 @@
+ 		if (fp != 0) {
+ 		    if (fread(blob, sizeof(char), size, fp) == size) {
+ 			bool mark = TRUE;
++			unsigned j, k;
+ 			for (j = k = 0; j < size; ++j) {
+ 			    if (mark) {
+ 				list[k++].name = blob + j;
+@@ -609,7 +608,6 @@
+ /* interactively set the trace level */
+ {
+     ITEM **ip;
+-    unsigned newtrace;
+     int result;
+ 
+     for (ip = menu_items(mpTrace); *ip; ip++) {
+@@ -625,7 +623,7 @@
+ 
+     if (result == E_OK) {
+ 	if (update_trace_menu(mpTrace) || cmd == REQ_TOGGLE_ITEM) {
+-	    newtrace = 0;
++	    unsigned newtrace = 0;
+ 	    for (ip = menu_items(mpTrace); *ip; ip++) {
+ 		if (item_value(*ip)) {
+ 		    MENU_DATA *td = (MENU_DATA *) item_userptr(*ip);
+Index: test/test_sgr.c
+Prereq:  1.13 
+--- ncurses-6.1-20190810+/test/test_sgr.c	2019-07-28 18:13:39.000000000 +0000
++++ ncurses-6.1-20190817/test/test_sgr.c	2019-08-17 21:36:44.000000000 +0000
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey
+  *
+- * $Id: test_sgr.c,v 1.13 2019/07/28 18:13:39 tom Exp $
++ * $Id: test_sgr.c,v 1.14 2019/08/17 21:36:44 tom Exp $
+  *
+  * A simple demo of the sgr/sgr0 terminal capabilities.
+  */
+@@ -147,7 +147,7 @@
+     static char params[] = "SURBDBIPA";
+     unsigned n;
+ 
+-    printf("%4d ", bits);
++    printf("%4u ", bits);
+     bits &= ~ignore;
+     for (n = 0; n < MAXPAR; ++n) {
+ 	putchar((int) ((bits & (unsigned) (1 << n)) ? params[n] : '-'));

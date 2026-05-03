@@ -1,0 +1,2 @@
+REVIEWBOARD_URL = "http://reviewboard.vixs.ad/"
+REPOSITORY = "u-boot"

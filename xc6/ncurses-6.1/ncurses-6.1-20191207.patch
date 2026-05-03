@@ -1,0 +1,1686 @@
+# ncurses 6.1 - patch 20191207 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191207.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Dec  8 02:13:02 UTC 2019
+# ------------------------------------------------------------------------------
+# Ada95/package/debian/compat           |    2 
+# Ada95/package/debian/control          |    2 
+# NEWS                                  |    6 +
+# VERSION                               |    2 
+# dist.mk                               |    4 
+# doc/html/man/adacurses6-config.1.html |    2 
+# doc/html/man/captoinfo.1m.html        |    2 
+# doc/html/man/clear.1.html             |    2 
+# doc/html/man/curs_trace.3x.html       |  141 +++++++++++++++++++++-----------
+# doc/html/man/form.3x.html             |    2 
+# doc/html/man/infocmp.1m.html          |    2 
+# doc/html/man/infotocap.1m.html        |    2 
+# doc/html/man/menu.3x.html             |    2 
+# doc/html/man/ncurses.3x.html          |    2 
+# doc/html/man/ncurses6-config.1.html   |    2 
+# doc/html/man/panel.3x.html            |    2 
+# doc/html/man/tabs.1.html              |    2 
+# doc/html/man/terminfo.5.html          |    2 
+# doc/html/man/tic.1m.html              |    2 
+# doc/html/man/toe.1m.html              |    2 
+# doc/html/man/tput.1.html              |    2 
+# doc/html/man/tset.1.html              |    2 
+# include/curses.tail                   |    5 -
+# include/term_entry.h                  |    6 -
+# include/tic.h                         |    4 
+# man/curs_trace.3x                     |  113 +++++++++++++++++++------
+# ncurses/base/lib_freeall.c            |    6 -
+# ncurses/curses.priv.h                 |    4 
+# ncurses/tinfo/entries.c               |    4 
+# ncurses/trace/lib_trace.c             |   22 ++++
+# package/debian-mingw/changelog        |    4 
+# package/debian-mingw/compat           |    2 
+# package/debian-mingw64/changelog      |    4 
+# package/debian-mingw64/compat         |    2 
+# package/debian/changelog              |    4 
+# package/debian/compat                 |    2 
+# package/mingw-ncurses.nsi             |    4 
+# package/mingw-ncurses.spec            |    2 
+# package/ncurses.map                   |    3 
+# package/ncurses.spec                  |    2 
+# package/ncurses.sym                   |    3 
+# package/ncursest.map                  |    3 
+# package/ncursest.spec                 |    2 
+# package/ncursest.sym                  |    3 
+# package/ncursestw.map                 |    3 
+# package/ncursestw.sym                 |    3 
+# package/ncursesw.map                  |    3 
+# package/ncursesw.sym                  |    3 
+# test/demo_menus.c                     |    8 -
+# test/hashtest.c                       |    6 -
+# test/lrtest.c                         |    8 -
+# test/ncurses.c                        |   15 +--
+# test/package/debian-mingw/compat      |    2 
+# test/package/debian-mingw/control     |    2 
+# test/package/debian-mingw64/compat    |    2 
+# test/package/debian-mingw64/control   |    2 
+# test/package/debian/compat            |    2 
+# test/package/debian/control           |    4 
+# test/padview.c                        |    6 -
+# test/test.priv.h                      |    8 -
+# test/testcurs.c                       |    4 
+# test/testscanw.c                      |    6 -
+# test/view.c                           |   17 ++-
+# test/worm.c                           |    8 -
+# 64 files changed, 319 insertions(+), 186 deletions(-)
+# ------------------------------------------------------------------------------
+Index: Ada95/package/debian/compat
+--- ncurses-6.1-20191130+/Ada95/package/debian/compat	2018-01-13 20:21:09.000000000 +0000
++++ ncurses-6.1-20191207/Ada95/package/debian/compat	2019-12-07 23:33:48.000000000 +0000
+@@ -1 +1 @@
+-7
++9
+Index: Ada95/package/debian/control
+--- ncurses-6.1-20191130+/Ada95/package/debian/control	2018-01-01 13:11:48.000000000 +0000
++++ ncurses-6.1-20191207/Ada95/package/debian/control	2019-12-07 23:34:17.000000000 +0000
+@@ -9,7 +9,7 @@
+ Package: adacurses
+ Architecture: any
+ Depends: ${shlibs:Depends}, ${misc:Depends}
+-Description: AdaCurses - Ada95 binding for ncurses
++Description: Ada95 binding for ncurses
+  This package installs as "adacurses" to avoid conflict with other packages.
+  This is the Ada95 binding from the ncurses distribution.
+  .
+Index: NEWS
+Prereq:  1.3412 
+--- ncurses-6.1-20191130+/NEWS	2019-11-30 22:27:28.000000000 +0000
++++ ncurses-6.1-20191207/NEWS	2019-12-07 23:36:25.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3412 2019/11/30 22:27:28 tom Exp $
++-- $Id: NEWS,v 1.3415 2019/12/07 23:36:25 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,10 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191207
++	+ fix a few warnings for test-package builds
++	+ add curses_trace(), to replace trace().
++
+ 20191130
+ 	+ add portability section to curs_getcchar manpage (prompted by
+ 	  discussion with Nick Black).
+Index: VERSION
+--- ncurses-6.1-20191130+/VERSION	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/VERSION	2019-12-07 10:19:49.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20191130
++5:0:10	6.1	20191207
+Index: dist.mk
+Prereq:  1.1317 
+--- ncurses-6.1-20191130+/dist.mk	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/dist.mk	2019-12-07 10:19:49.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1317 2019/11/30 14:52:31 tom Exp $
++# $Id: dist.mk,v 1.1318 2019/12/07 10:19:49 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20191130
++NCURSES_PATCH = 20191207
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: doc/html/man/adacurses6-config.1.html
+--- ncurses-6.1-20191130+/doc/html/man/adacurses6-config.1.html	2019-11-30 22:44:57.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/adacurses6-config.1.html	2019-12-07 20:48:39.000000000 +0000
+@@ -125,7 +125,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: doc/html/man/captoinfo.1m.html
+--- ncurses-6.1-20191130+/doc/html/man/captoinfo.1m.html	2019-11-30 22:44:57.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/captoinfo.1m.html	2019-12-07 20:48:39.000000000 +0000
+@@ -198,7 +198,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/clear.1.html
+--- ncurses-6.1-20191130+/doc/html/man/clear.1.html	2019-11-30 22:44:57.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/clear.1.html	2019-12-07 20:48:39.000000000 +0000
+@@ -148,7 +148,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tput.1.html">tput(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: doc/html/man/curs_trace.3x.html
+--- ncurses-6.1-20191130+/doc/html/man/curs_trace.3x.html	2019-03-16 19:34:45.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/curs_trace.3x.html	2019-12-07 20:48:42.000000000 +0000
+@@ -1,6 +1,6 @@
+ <!-- 
+   ****************************************************************************
+-  * Copyright (c) 2000-2016,2017 Free Software Foundation, Inc.              *
++  * Copyright (c) 2000-2017,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: curs_trace.3x,v 1.19 2017/11/18 23:47:37 tom Exp @
++  * @Id: curs_trace.3x,v 1.20 2019/12/07 18:55:02 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -46,15 +46,15 @@
+ 
+ 
+ </PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+-       <STRONG>trace</STRONG>, <STRONG>_tracef</STRONG>, <STRONG>_traceattr</STRONG>, <STRONG>_traceattr2</STRONG>, <STRONG>_tracecchar_t</STRONG>, <STRONG>_tracecchar_t2</STRONG>,
+-       <STRONG>_tracechar</STRONG>, <STRONG>_tracechtype</STRONG>, <STRONG>_tracechtype2</STRONG>, <STRONG>_nc_tracebits</STRONG>, <STRONG>_tracedump</STRONG>,
+-       <STRONG>_tracemouse</STRONG> - <STRONG>curses</STRONG> debugging routines
++       <STRONG>curses_trace</STRONG>, <STRONG>trace</STRONG>, <STRONG>_tracef</STRONG>, <STRONG>_traceattr</STRONG>, <STRONG>_traceattr2</STRONG>, <STRONG>_tracecchar_t</STRONG>,
++       <STRONG>_tracecchar_t2</STRONG>, <STRONG>_tracechar</STRONG>, <STRONG>_tracechtype</STRONG>, <STRONG>_tracechtype2</STRONG>, <STRONG>_nc_tracebits</STRONG>,
++       <STRONG>_tracedump</STRONG>, <STRONG>_tracemouse</STRONG> - <STRONG>curses</STRONG> debugging routines
+ 
+ 
+ </PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+        <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+ 
+-       <STRONG>void</STRONG> <STRONG>trace(const</STRONG> <STRONG>unsigned</STRONG> <STRONG>int</STRONG> <EM>param</EM><STRONG>);</STRONG>
++       <STRONG>unsigned</STRONG> <STRONG>curses_trace(const</STRONG> <STRONG>unsigned</STRONG> <EM>param</EM><STRONG>);</STRONG>
+ 
+        <STRONG>void</STRONG> <STRONG>_tracef(const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>format</EM><STRONG>,</STRONG> <STRONG>...);</STRONG>
+ 
+@@ -70,46 +70,64 @@
+        <STRONG>char</STRONG> <STRONG>*_nc_tracebits(void);</STRONG>
+        <STRONG>char</STRONG> <STRONG>*_tracemouse(const</STRONG> <STRONG>MEVENT</STRONG> <STRONG>*</STRONG><EM>event</EM><STRONG>);</STRONG>
+ 
++       /* deprecated */
++       <STRONG>void</STRONG> <STRONG>trace(const</STRONG> <STRONG>unsigned</STRONG> <STRONG>int</STRONG> <EM>param</EM><STRONG>);</STRONG>
++
+ 
+ </PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+-       The  <STRONG>trace</STRONG>  routines  are  used for debugging the ncurses libraries, as
+-       well as applications which use the ncurses libraries.  These  functions
+-       are  normally available only with the debugging library e.g., <EM>libncurs-</EM>
+-       <EM>es</EM><STRONG>_</STRONG><EM>g.a</EM>, but may be compiled into any model (shared, static, profile) by
+-       defining  the  symbol  <STRONG>TRACE</STRONG>.   Additionally,  some  functions are only
+-       available with the wide-character configuration of the libraries.
++       The <EM>curses</EM> <EM>trace</EM> routines are used for debugging the ncurses libraries,
++       as well as applications which use the ncurses libraries.  Some  limita-
++       tions apply:
++
++       <STRONG>o</STRONG>   Aside from <STRONG>curses_trace</STRONG>, the other functions are normally available
++           only with the debugging library e.g., <EM>libncurses</EM><STRONG>_</STRONG><EM>g.a</EM>.
++
++           All of the trace functions may be compiled into any model  (shared,
++           static, profile) by defining the symbol <STRONG>TRACE</STRONG>.
++
++       <STRONG>o</STRONG>   Additionally,  the  functions  which use <STRONG>cchar_t</STRONG> are only available
++           with the wide-character configuration of the libraries.
+ 
+ 
+ </PRE><H3><a name="h3-Functions">Functions</a></H3><PRE>
+        The principal parts of this interface are
+ 
+-       <STRONG>o</STRONG>   <STRONG>trace</STRONG>, which selectively enables different tracing features, and
++       <STRONG>o</STRONG>   <STRONG>curses_trace</STRONG>, which selectively enables different tracing features,
++           and
+ 
+        <STRONG>o</STRONG>   <STRONG>_tracef</STRONG>, which writes formatted data to the <EM>trace</EM> file.
+ 
+-       Calling <STRONG>trace</STRONG> with a nonzero parameter creates the file  <STRONG>trace</STRONG>  in  the
+-       current  directory  for output.  If the file already exists, no tracing
+-       is done.
+-
+-       The other functions either return a pointer to a string-area (allocated
+-       by the corresponding function), or return no value (such as <STRONG>_tracedump</STRONG>,
+-       which implements the screen dump for <STRONG>TRACE_UPDATE</STRONG>).  The caller  should
+-       not  free  these  strings, since the allocation is reused on successive
+-       calls.  To work around the problem of a single  string-area  per  func-
+-       tion,  some use a buffer-number parameter, telling the library to allo-
+-       cate additional string-areas.
++           The other functions either return a pointer to a string-area (allo-
++           cated by the corresponding function), or return no value  (such  as
++           <STRONG>_tracedump</STRONG>,  which  implements  the  screen dump for <STRONG>TRACE_UPDATE</STRONG>).
++           The caller should not free these strings, since the  allocation  is
++           reused on successive calls.  To work around the problem of a single
++           string-area per  function,  some  use  a  buffer-number  parameter,
++           telling the library to allocate additional string-areas.
++
++       The <STRONG>curses_trace</STRONG> function is always available, whether or not the other
++       trace functions are available:
++
++       <STRONG>o</STRONG>   If tracing is available, calling <STRONG>curses_trace</STRONG> with a nonzero param-
++           eter updates the trace mask, and returns the previous trace mask.
++
++           When the trace mask is nonzero, ncurses creates the file "trace" in
++           the current directory for output.  If the file already  exists,  no
++           tracing is done.
++
++       <STRONG>o</STRONG>   If tracing is not available, <STRONG>curses_trace</STRONG> returns zero (0).
+ 
+ 
+ </PRE><H3><a name="h3-Trace-Parameter">Trace Parameter</a></H3><PRE>
+-       The trace parameter is  formed  by  OR'ing  values  from  the  list  of
++       The  trace  parameter  is  formed  by  OR'ing  values  from the list of
+        <STRONG>TRACE_</STRONG><EM>xxx</EM> definitions in <STRONG>&lt;curses.h&gt;</STRONG>.  These include:
+ 
+        <STRONG>TRACE_DISABLE</STRONG>
+             turn off tracing by passing a zero parameter.
+ 
+-            The  library flushes the output file, but retains an open file-de-
+-            scriptor to the trace file so that it can resume tracing later  if
+-            a nonzero parameter is passed to the <STRONG>trace</STRONG> function.
++            The library flushes the output file, but retains an open  file-de-
++            scriptor  to the trace file so that it can resume tracing later if
++            a nonzero parameter is passed to the <STRONG>curses_trace</STRONG> function.
+ 
+        <STRONG>TRACE_TIMES</STRONG>
+             trace user and system times of updates.
+@@ -127,11 +145,11 @@
+             trace all character outputs.
+ 
+        <STRONG>TRACE_ORDINARY</STRONG>
+-            trace  all  update  actions.   The old and new screen contents are
++            trace all update actions.  The old and  new  screen  contents  are
+             written to the trace file for each refresh.
+ 
+        <STRONG>TRACE_CALLS</STRONG>
+-            trace all curses calls.  The parameters for each call are  traced,
++            trace  all curses calls.  The parameters for each call are traced,
+             as well as return values.
+ 
+        <STRONG>TRACE_VIRTPUT</STRONG>
+@@ -158,14 +176,14 @@
+        <STRONG>TRACE_MAXIMUM</STRONG>
+             maximum trace level, enables all of the separate trace features.
+ 
+-       Some  tracing  features  are  enabled  whenever  the <STRONG>trace</STRONG> parameter is
+-       nonzero.  Some features overlap.  The specific  names  are  used  as  a
++       Some tracing features are enabled whenever the  <STRONG>curses_trace</STRONG>  parameter
++       is  nonzero.   Some features overlap.  The specific names are used as a
+        guideline.
+ 
+ 
+ </PRE><H3><a name="h3-Initialization">Initialization</a></H3><PRE>
+-       These  functions  check  the <STRONG>NCURSES_TRACE</STRONG> environment variable, to set
+-       the tracing feature as if <STRONG>trace</STRONG> was called:
++       These functions check the <STRONG>NCURSES_TRACE</STRONG> environment  variable,  to  set
++       the tracing feature as if <STRONG>curses_trace</STRONG> was called:
+ 
+            filter, initscr, new_prescr, newterm, nofilter, restartterm,
+            ripoffline, setupterm, slk_init, tgetent, use_env,
+@@ -173,38 +191,65 @@
+ 
+ 
+ </PRE><H3><a name="h3-Command-line-Utilities">Command-line Utilities</a></H3><PRE>
+-       The command-line utilities such as  <STRONG><A HREF="tic.1m.html">tic(1)</A></STRONG>  provide  a  verbose  option
+-       which  extends  the  set  of messages written using the <STRONG>trace</STRONG> function.
+-       Both of these (<STRONG>-v</STRONG> and <STRONG>trace</STRONG>) use the same variable (<STRONG>_nc_tracing</STRONG>), which
+-       determines the messages which are written.
+-
+-       Because  the  command-line  utilities may call initialization functions
+-       such as <STRONG>setupterm</STRONG>, <STRONG>tgetent</STRONG> or <STRONG>use_extended_names</STRONG>, some of their  debug-
+-       ging  output may be directed to the <EM>trace</EM> file if the <STRONG>NCURSES_TRACE</STRONG> en-
++       The  command-line  utilities  such  as  <STRONG><A HREF="tic.1m.html">tic(1)</A></STRONG> provide a verbose option
++       which extends the set of messages written using the <STRONG>curses_trace</STRONG>  func-
++       tion.   Both  of  these  (<STRONG>-v</STRONG>  and  <STRONG>curses_trace</STRONG>)  use the same variable
++       (<STRONG>_nc_tracing</STRONG>), which determines the messages which are written.
++
++       Because the command-line utilities may  call  initialization  functions
++       such  as <STRONG>setupterm</STRONG>, <STRONG>tgetent</STRONG> or <STRONG>use_extended_names</STRONG>, some of their debug-
++       ging output may be directed to the <EM>trace</EM> file if the <STRONG>NCURSES_TRACE</STRONG>  en-
+        vironment variable is set:
+ 
+        <STRONG>o</STRONG>   messages produced in the utility are written to the standard error.
+ 
+        <STRONG>o</STRONG>   messages produced by the underlying library are written to <EM>trace</EM>.
+ 
+-       If ncurses is built without tracing, none of the latter  are  produced,
++       If  ncurses  is built without tracing, none of the latter are produced,
+        and fewer diagnostics are provided by the command-line utilities.
+ 
+ 
+ </PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+-       Routines  which return a value are designed to be used as parameters to
++       Routines which return a value are designed to be used as parameters  to
+        the <STRONG>_tracef</STRONG> routine.
+ 
+ 
+ </PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+-       These functions are not part of the XSI interface.  Some  other  curses
+-       implementations  are  known to have similar, undocumented features, but
+-       they are not compatible with ncurses.
++       These  functions  are not part of the XSI interface.  Some other curses
++       implementations are known to have similar features, but  they  are  not
++       compatible with ncurses:
++
++       <STRONG>o</STRONG>   SVr4  provided  <STRONG>traceon</STRONG>  and <STRONG>traceoff</STRONG>, to control whether debugging
++           information was written to the "trace" file.  While  the  functions
++           were  always  available, this feature was only enabled if <STRONG>DEBUG</STRONG> was
++           defined when building the library.
++
++           The SVr4 tracing feature is undocumented.
++
++       <STRONG>o</STRONG>   PDCurses provides <STRONG>traceon</STRONG> and <STRONG>traceoff</STRONG>, which (like SVr4)  are  al-
++           ways  available, and enable tracing to the "trace" file only when a
++           debug-library is built.
++
++           PDCurses has a short description of these functions,  with  a  note
++           that  they are not present in X/Open Curses, ncurses or NetBSD.  It
++           does not mention SVr4, but the functions'  inclusion  in  a  header
++           file section labeled "Quasi-standard" hints at the origin.
++
++       <STRONG>o</STRONG>   NetBSD  does  not  provide functions for enabling/disabling traces.
++           It  uses  environment   variables   <STRONG>CURSES_TRACE_MASK</STRONG>   and   <STRONG>CURS-</STRONG>
++           <STRONG>ES_TRACE_FILE</STRONG>  to  determine  what is traced, and where the results
++           are written.  This is available only when a debug-library is built.
+ 
+-       A few functions are not provided when symbol versioning is used:
++           The NetBSD tracing feature is undocumented.
++
++       A few ncurses functions are not  provided  when  symbol  versioning  is
++       used:
+ 
+            _nc_tracebits, _tracedump, _tracemouse
+ 
++       The  original  <STRONG>trace</STRONG> routine was deprecated because it often conflicted
++       with application names.
++
+ 
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>.
+Index: doc/html/man/form.3x.html
+--- ncurses-6.1-20191130+/doc/html/man/form.3x.html	2019-11-30 22:44:59.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/form.3x.html	2019-12-07 20:48:42.000000000 +0000
+@@ -246,7 +246,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "form_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: doc/html/man/infocmp.1m.html
+--- ncurses-6.1-20191130+/doc/html/man/infocmp.1m.html	2019-11-30 22:45:00.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/infocmp.1m.html	2019-12-07 20:48:43.000000000 +0000
+@@ -512,7 +512,7 @@
+ 
+        https://invisible-island.net/ncurses/tctest.html
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/infotocap.1m.html
+--- ncurses-6.1-20191130+/doc/html/man/infotocap.1m.html	2019-11-30 22:45:00.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/infotocap.1m.html	2019-12-07 20:48:43.000000000 +0000
+@@ -90,7 +90,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/menu.3x.html
+--- ncurses-6.1-20191130+/doc/html/man/menu.3x.html	2019-11-30 22:45:00.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/menu.3x.html	2019-12-07 20:48:44.000000000 +0000
+@@ -221,7 +221,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "menu_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: doc/html/man/ncurses.3x.html
+--- ncurses-6.1-20191130+/doc/html/man/ncurses.3x.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/ncurses.3x.html	2019-12-07 20:48:45.000000000 +0000
+@@ -59,7 +59,7 @@
+        method of updating  character  screens  with  reasonable  optimization.
+        This  implementation  is  "new  curses"  (ncurses)  and is the approved
+        replacement for 4.4BSD classic curses,  which  has  been  discontinued.
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+        The  <STRONG>ncurses</STRONG>  library emulates the curses library of System V Release 4
+        UNIX, and XPG4 (X/Open Portability Guide) curses  (also  known  as  XSI
+Index: doc/html/man/ncurses6-config.1.html
+--- ncurses-6.1-20191130+/doc/html/man/ncurses6-config.1.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/ncurses6-config.1.html	2019-12-07 20:48:45.000000000 +0000
+@@ -112,7 +112,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: doc/html/man/panel.3x.html
+--- ncurses-6.1-20191130+/doc/html/man/panel.3x.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/panel.3x.html	2019-12-07 20:48:45.000000000 +0000
+@@ -204,7 +204,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>,
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/tabs.1.html
+--- ncurses-6.1-20191130+/doc/html/man/tabs.1.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/tabs.1.html	2019-12-07 20:48:45.000000000 +0000
+@@ -205,7 +205,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: doc/html/man/terminfo.5.html
+--- ncurses-6.1-20191130+/doc/html/man/terminfo.5.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/terminfo.5.html	2019-12-07 20:48:45.000000000 +0000
+@@ -103,7 +103,7 @@
+        have, by specifying how to perform screen operations, and by specifying
+        padding requirements and initialization sequences.
+ 
+-       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ </PRE><H3><a name="h3-Terminfo-Entry-Syntax">Terminfo Entry Syntax</a></H3><PRE>
+Index: doc/html/man/tic.1m.html
+--- ncurses-6.1-20191130+/doc/html/man/tic.1m.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/tic.1m.html	2019-12-07 20:48:45.000000000 +0000
+@@ -460,7 +460,7 @@
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,   <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,   <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>,   <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,
+        <STRONG><A HREF="term.5.html">term(5)</A></STRONG>.  <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.  <STRONG><A HREF="user_caps.5.html">user_caps(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/toe.1m.html
+--- ncurses-6.1-20191130+/doc/html/man/toe.1m.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/toe.1m.html	2019-12-07 20:48:46.000000000 +0000
+@@ -170,7 +170,7 @@
+        <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,  <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,  <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,  <STRONG>ter-</STRONG>
+        <STRONG><A HREF="terminfo.5.html">minfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: doc/html/man/tput.1.html
+--- ncurses-6.1-20191130+/doc/html/man/tput.1.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/tput.1.html	2019-12-07 20:48:46.000000000 +0000
+@@ -522,7 +522,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="clear.1.html">clear(1)</A></STRONG>, <STRONG>stty(1)</STRONG>, <STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>, <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>, <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: doc/html/man/tset.1.html
+--- ncurses-6.1-20191130+/doc/html/man/tset.1.html	2019-11-30 22:45:01.000000000 +0000
++++ ncurses-6.1-20191207/doc/html/man/tset.1.html	2019-12-07 20:48:46.000000000 +0000
+@@ -389,7 +389,7 @@
+        <STRONG>csh(1)</STRONG>,  <STRONG>sh(1)</STRONG>,  <STRONG>stty(1)</STRONG>,   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>,   <STRONG>tty(4)</STRONG>,   <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>,
+        <STRONG>ttys(5)</STRONG>, <STRONG>environ(7)</STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191130).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
+ 
+ 
+ 
+Index: include/curses.tail
+Prereq:  1.23 
+--- ncurses-6.1-20191130+/include/curses.tail	2016-02-13 16:37:45.000000000 +0000
++++ ncurses-6.1-20191207/include/curses.tail	2019-12-07 16:10:32.000000000 +0000
+@@ -1,4 +1,4 @@
+-/* $Id: curses.tail,v 1.23 2016/02/13 16:37:45 tom Exp $ */
++/* $Id: curses.tail,v 1.24 2019/12/07 16:10:32 tom Exp $ */
+ /*
+  * vile:cmode:
+  * This file is part of ncurses, designed to be appended after curses.h.in
+@@ -142,7 +142,8 @@
+ #define _tracech_t		_tracechtype
+ #define _tracech_t2		_tracechtype2
+ #endif
+-extern NCURSES_EXPORT(void) trace (const unsigned int);
++extern NCURSES_EXPORT(void) trace (const unsigned) GCC_DEPRECATED("use curses_trace");
++extern NCURSES_EXPORT(unsigned) curses_trace (const unsigned);
+ 
+ /* trace masks */
+ #define TRACE_DISABLE	0x0000	/* turn off tracing */
+Index: include/term_entry.h
+Prereq:  1.57 
+--- ncurses-6.1-20191130+/include/term_entry.h	2018-05-26 13:50:53.000000000 +0000
++++ ncurses-6.1-20191207/include/term_entry.h	2019-12-07 16:11:15.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -32,7 +32,7 @@
+  *     and: Thomas E. Dickey                        1998-on                 *
+  ****************************************************************************/
+ 
+-/* $Id: term_entry.h,v 1.57 2018/05/26 13:50:53 tom Exp $ */
++/* $Id: term_entry.h,v 1.58 2019/12/07 16:11:15 tom Exp $ */
+ 
+ /*
+  *	term_entry.h -- interface to entry-manipulation code
+@@ -208,7 +208,7 @@
+ #endif /* NCURSES_INTERNALS */
+ 
+ /*
+- * These entrypoints are used by tack.
++ * These entrypoints were used by tack before 1.08.
+  */
+ 
+ #undef  NCURSES_TACK_1_08
+Index: include/tic.h
+Prereq:  1.79 
+--- ncurses-6.1-20191130+/include/tic.h	2019-07-20 20:19:54.000000000 +0000
++++ ncurses-6.1-20191207/include/tic.h	2019-12-07 16:05:22.000000000 +0000
+@@ -33,7 +33,7 @@
+  ****************************************************************************/
+ 
+ /*
+- * $Id: tic.h,v 1.79 2019/07/20 20:19:54 tom Exp $
++ * $Id: tic.h,v 1.80 2019/12/07 16:05:22 tom Exp $
+  *	tic.h - Global variables and structures for the terminfo compiler.
+  */
+ 
+@@ -361,7 +361,7 @@
+ #endif /* NCURSES_INTERNALS */
+ 
+ /*
+- * These entrypoints are used by tack.
++ * These entrypoints were used by tack before 1.08.
+  */
+ 
+ #undef  NCURSES_TACK_1_08
+Index: man/curs_trace.3x
+Prereq:  1.19 
+--- ncurses-6.1-20191130+/man/curs_trace.3x	2017-11-18 23:47:37.000000000 +0000
++++ ncurses-6.1-20191207/man/curs_trace.3x	2019-12-07 18:55:02.000000000 +0000
+@@ -1,5 +1,5 @@
+ .\"***************************************************************************
+-.\" Copyright (c) 2000-2016,2017 Free Software Foundation, Inc.              *
++.\" Copyright (c) 2000-2017,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -26,7 +26,11 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: curs_trace.3x,v 1.19 2017/11/18 23:47:37 tom Exp $
++.\" $Id: curs_trace.3x,v 1.20 2019/12/07 18:55:02 tom Exp $
++.ie \n(.g .ds `` \(lq
++.el       .ds `` ``
++.ie \n(.g .ds '' \(rq
++.el       .ds '' ''
+ .de bP
+ .ie n  .IP \(bu 4
+ .el    .IP \(bu 2
+@@ -35,6 +39,7 @@
+ .na
+ .hy 0
+ .SH NAME
++\fBcurses_trace\fR,
+ \fBtrace\fR,
+ \fB_tracef\fR,
+ \fB_traceattr\fR,
+@@ -52,7 +57,7 @@
+ .SH SYNOPSIS
+ \fB#include <curses.h>\fR
+ .sp
+-\fBvoid trace(const unsigned int \fP\fIparam\fP\fB);\fR
++\fBunsigned curses_trace(const unsigned \fP\fIparam\fP\fB);\fR
+ .sp
+ \fBvoid _tracef(const char *\fP\fIformat\fP\fB, ...);\fR
+ .sp
+@@ -75,34 +80,54 @@
+ \fBchar *_nc_tracebits(void);\fR
+ .br
+ \fBchar *_tracemouse(const MEVENT *\fP\fIevent\fP\fB);\fR
++.sp
++/* deprecated */
++.br
++\fBvoid trace(const unsigned int \fP\fIparam\fP\fB);\fR
+ .SH DESCRIPTION
+-The \fBtrace\fR routines are used for debugging the ncurses libraries,
++The \fIcurses trace\fR routines are used for debugging the ncurses libraries,
+ as well as applications which use the ncurses libraries.
+-These functions are normally available only with the debugging library
+-e.g., \fIlibncurses_g.a\fR, but may be compiled into any model (shared, static,
++Some limitations apply:
++.bP
++Aside from \fBcurses_trace\fP,
++the other functions are normally available only with the debugging library
++e.g., \fIlibncurses_g.a\fR.
++.IP
++All of the trace functions may be compiled into any model (shared, static,
+ profile) by defining the symbol \fBTRACE\fR.
+-Additionally, some functions are only available with the wide-character
+-configuration of the libraries.
++.bP
++Additionally, the functions which use \fBcchar_t\fP
++are only available with the wide-character configuration of the libraries.
+ .SS Functions
+ The principal parts of this interface are
+ .bP
+-\fBtrace\fR, which selectively enables different tracing features, and
++\fBcurses_trace\fR, which selectively enables different tracing features, and
+ .bP
+ \fB_tracef\fR, which writes formatted data to the \fItrace\fR file.
+-.PP
+-Calling \fBtrace\fR with a nonzero parameter creates the file \fBtrace\fR
+-in the current directory for output.
+-If the file already exists, no tracing is done.
+-.PP
++.IP
+ The other functions either return a pointer to a string-area
+-(allocated by the corresponding function),
+-or return no value (such as \fB_tracedump\fP, which implements the
+-screen dump for \fBTRACE_UPDATE\fP).
+-The caller should not free these
+-strings, since the allocation is reused on successive calls.
++(allocated by the corresponding function), or return no value
++(such as \fB_tracedump\fP,
++which implements the screen dump for \fBTRACE_UPDATE\fP).
++The caller should not free these strings,
++since the allocation is reused on successive calls.
+ To work around the problem of a single string-area per function,
+ some use a buffer-number parameter, telling the library to allocate
+ additional string-areas.
++.PP
++The \fBcurses_trace\fR function is always available,
++whether or not the other trace functions are available:
++.bP
++If tracing is available,
++calling \fBcurses_trace\fR with a nonzero parameter
++updates the trace mask,
++and returns the previous trace mask.
++.IP
++When the trace mask is nonzero,
++ncurses creates the file \*(``trace\*('' in the current directory for output.
++If the file already exists, no tracing is done.
++.bP
++If tracing is not available, \fBcurses_trace\fP returns zero (0).
+ .SS Trace Parameter
+ The trace parameter is formed by OR'ing
+ values from the list of \fBTRACE_\fP\fIxxx\fR definitions in \fB<curses.h>\fR.
+@@ -114,7 +139,7 @@
+ The library flushes the output file,
+ but retains an open file-descriptor to the trace file
+ so that it can resume tracing later if a nonzero parameter is passed
+-to the \fBtrace\fP function.
++to the \fBcurses_trace\fP function.
+ .TP 5
+ .B TRACE_TIMES
+ trace user and system times of updates.
+@@ -164,13 +189,13 @@
+ .B TRACE_MAXIMUM
+ maximum trace level, enables all of the separate trace features.
+ .PP
+-Some tracing features are enabled whenever the \fBtrace\fR parameter
++Some tracing features are enabled whenever the \fBcurses_trace\fR parameter
+ is nonzero.
+ Some features overlap.
+ The specific names are used as a guideline.
+ .SS Initialization
+ These functions check the \fBNCURSES_TRACE\fP environment variable,
+-to set the tracing feature as if \fBtrace\fP was called:
++to set the tracing feature as if \fBcurses_trace\fP was called:
+ .RS 4
+ .PP
+ .na
+@@ -194,8 +219,8 @@
+ .SS Command-line Utilities
+ .PP
+ The command-line utilities such as \fBtic\fP(1) provide a verbose option
+-which extends the set of messages written using the \fBtrace\fP function.
+-Both of these (\fB\-v\fP and \fBtrace\fP)
++which extends the set of messages written using the \fBcurses_trace\fP function.
++Both of these (\fB\-v\fP and \fBcurses_trace\fP)
+ use the same variable (\fB_nc_tracing\fP),
+ which determines the messages which are written.
+ .PP
+@@ -216,15 +241,49 @@
+ .SH PORTABILITY
+ These functions are not part of the XSI interface.
+ Some other curses implementations are known to
+-have similar, undocumented features,
+-but they are not compatible with ncurses.
++have similar features,
++but they are not compatible with ncurses:
++.bP
++SVr4 provided \fBtraceon\fP and \fBtraceoff\fP,
++to control whether debugging information was written
++to the \*(``trace\*('' file.
++While the functions were always available,
++this feature was only enabled
++if \fBDEBUG\fP was defined when building the library.
++.IP
++The SVr4 tracing feature is undocumented.
++.bP
++PDCurses provides \fBtraceon\fP and \fBtraceoff\fP,
++which (like SVr4) are always available,
++and enable tracing
++to the \*(``trace\*('' file
++only when a debug-library is built.
++.IP
++PDCurses has a short description of these functions,
++with a note that they are not present in X/Open Curses,
++ncurses or NetBSD.
++It does not mention SVr4,
++but the functions' inclusion in a header file section
++labeled \*(``Quasi-standard\*('' hints at the origin.
++.bP
++NetBSD does not provide functions for enabling/disabling traces.
++It uses environment variables
++\fBCURSES_TRACE_MASK\fP and
++\fBCURSES_TRACE_FILE\fP to determine what is traced,
++and where the results are written.
++This is available only when a debug-library is built.
++.IP
++The NetBSD tracing feature is undocumented.
+ .PP
+-A few functions are not provided when symbol versioning is used:
++A few ncurses functions are not provided when symbol versioning is used:
+ .RS 4
+ .PP
+ _nc_tracebits,
+ _tracedump,
+ _tracemouse
+ .RE
++.PP
++The original \fBtrace\fP routine was deprecated because
++it often conflicted with application names.
+ .SH SEE ALSO
+ \fBcurses\fR(3X).
+Index: ncurses/base/lib_freeall.c
+Prereq:  1.69 
+--- ncurses-6.1-20191130+/ncurses/base/lib_freeall.c	2018-03-01 15:02:12.000000000 +0000
++++ ncurses-6.1-20191207/ncurses/base/lib_freeall.c	2019-12-07 20:28:03.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -39,7 +39,7 @@
+ extern int malloc_errfd;	/* FIXME */
+ #endif
+ 
+-MODULE_ID("$Id: lib_freeall.c,v 1.69 2018/03/01 15:02:12 tom Exp $")
++MODULE_ID("$Id: lib_freeall.c,v 1.70 2019/12/07 20:28:03 tom Exp $")
+ 
+ /*
+  * Free all ncurses data.  This is used for testing only (there's no practical
+@@ -150,7 +150,7 @@
+     NCURSES_SP_NAME(_nc_flush) (NCURSES_SP_ARG);
+     NCURSES_SP_NAME(_nc_freeall) (NCURSES_SP_ARG);
+ #ifdef TRACE
+-    trace(0);			/* close trace file, freeing its setbuf */
++    curses_trace(0);		/* close trace file, freeing its setbuf */
+     {
+ 	static va_list fake;
+ 	free(_nc_varargs("?", fake));
+Index: ncurses/curses.priv.h
+Prereq:  1.625 
+--- ncurses-6.1-20191130+/ncurses/curses.priv.h	2019-07-28 18:32:05.000000000 +0000
++++ ncurses-6.1-20191207/ncurses/curses.priv.h	2019-12-07 20:08:06.000000000 +0000
+@@ -34,7 +34,7 @@
+  ****************************************************************************/
+ 
+ /*
+- * $Id: curses.priv.h,v 1.625 2019/07/28 18:32:05 tom Exp $
++ * $Id: curses.priv.h,v 1.626 2019/12/07 20:08:06 tom Exp $
+  *
+  *	curses.priv.h
+  *
+@@ -1771,7 +1771,7 @@
+ 	if ((_nc_tracing & TRACE_MAXIMUM) == 0) { \
+ 	    int t = _nc_getenv_num("NCURSES_TRACE"); \
+ 	    if (t >= 0) \
+-		trace((unsigned) t); \
++		curses_trace((unsigned) t); \
+ 	}
+ #else
+ #define START_TRACE() /* nothing */
+Index: ncurses/tinfo/entries.c
+Prereq:  1.27 
+--- ncurses-6.1-20191130+/ncurses/tinfo/entries.c	2019-03-09 23:41:08.000000000 +0000
++++ ncurses-6.1-20191207/ncurses/tinfo/entries.c	2019-12-07 20:28:55.000000000 +0000
+@@ -37,7 +37,7 @@
+ 
+ #include <tic.h>
+ 
+-MODULE_ID("$Id: entries.c,v 1.27 2019/03/09 23:41:08 tom Exp $")
++MODULE_ID("$Id: entries.c,v 1.28 2019/12/07 20:28:55 tom Exp $")
+ 
+ /****************************************************************************
+  *
+@@ -148,7 +148,7 @@
+ 
+ #ifdef TRACE
+     T((T_RETURN("")));
+-    trace(0);
++    curses_trace(0);
+     _nc_trace_buf(-1, (size_t) 0);
+ #endif
+ 
+Index: ncurses/trace/lib_trace.c
+Prereq:  1.92 
+--- ncurses-6.1-20191130+/ncurses/trace/lib_trace.c	2019-03-23 23:47:16.000000000 +0000
++++ ncurses-6.1-20191207/ncurses/trace/lib_trace.c	2019-12-07 22:32:36.000000000 +0000
+@@ -47,7 +47,7 @@
+ 
+ #include <ctype.h>
+ 
+-MODULE_ID("$Id: lib_trace.c,v 1.92 2019/03/23 23:47:16 tom Exp $")
++MODULE_ID("$Id: lib_trace.c,v 1.94 2019/12/07 22:32:36 tom Exp $")
+ 
+ NCURSES_EXPORT_VAR(unsigned) _nc_tracing = 0; /* always define this */
+ 
+@@ -91,10 +91,14 @@
+ #define MyPath		_nc_globals.trace_fname
+ #define MyLevel		_nc_globals.trace_level
+ #define MyNested	_nc_globals.nested_tracef
++#endif /* TRACE */
+ 
+-NCURSES_EXPORT(void)
+-trace(const unsigned int tracelevel)
++NCURSES_EXPORT(unsigned)
++curses_trace(unsigned tracelevel)
+ {
++    unsigned result;
++#if defined(TRACE)
++    result = _nc_tracing;
+     if ((MyFP == 0) && tracelevel) {
+ 	MyInit = TRUE;
+ 	if (MyFD >= 0) {
+@@ -146,6 +150,18 @@
+ 	_nc_tracing = tracelevel;
+ 	_tracef("tracelevel=%#x", tracelevel);
+     }
++#else
++    (void) tracelevel;
++    result = 0;
++#endif
++    return result;
++}
++
++#if defined(TRACE)
++NCURSES_EXPORT(void)
++trace(const unsigned int tracelevel)
++{
++    curses_trace(tracelevel);
+ }
+ 
+ static void
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20191130+/package/debian-mingw/changelog	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/package/debian-mingw/changelog	2019-12-07 10:19:49.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191130) unstable; urgency=low
++ncurses6 (6.1+20191207) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 30 Nov 2019 09:52:31 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Dec 2019 05:19:49 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw/compat
+--- ncurses-6.1-20191130+/package/debian-mingw/compat	2018-01-13 20:21:09.000000000 +0000
++++ ncurses-6.1-20191207/package/debian-mingw/compat	2019-12-07 23:33:23.000000000 +0000
+@@ -1 +1 @@
+-7
++9
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20191130+/package/debian-mingw64/changelog	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/package/debian-mingw64/changelog	2019-12-07 10:19:49.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191130) unstable; urgency=low
++ncurses6 (6.1+20191207) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 30 Nov 2019 09:52:31 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Dec 2019 05:19:49 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/compat
+--- ncurses-6.1-20191130+/package/debian-mingw64/compat	2018-01-13 20:21:09.000000000 +0000
++++ ncurses-6.1-20191207/package/debian-mingw64/compat	2019-12-07 23:33:23.000000000 +0000
+@@ -1 +1 @@
+-7
++9
+Index: package/debian/changelog
+--- ncurses-6.1-20191130+/package/debian/changelog	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/package/debian/changelog	2019-12-07 10:19:49.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191130) unstable; urgency=low
++ncurses6 (6.1+20191207) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 30 Nov 2019 09:52:31 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Dec 2019 05:19:49 -0500
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/debian/compat
+--- ncurses-6.1-20191130+/package/debian/compat	2018-01-13 20:21:09.000000000 +0000
++++ ncurses-6.1-20191207/package/debian/compat	2019-12-07 23:33:23.000000000 +0000
+@@ -1 +1 @@
+-7
++9
+Index: package/mingw-ncurses.nsi
+Prereq:  1.363 
+--- ncurses-6.1-20191130+/package/mingw-ncurses.nsi	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/package/mingw-ncurses.nsi	2019-12-07 10:19:49.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.363 2019/11/30 14:52:31 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.364 2019/12/07 10:19:49 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "1130"
++!define VERSION_MMDD  "1207"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20191130+/package/mingw-ncurses.spec	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/package/mingw-ncurses.spec	2019-12-07 10:19:49.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20191130
++Release: 20191207
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.map
+Prereq:  1.47 
+--- ncurses-6.1-20191130+/package/ncurses.map	2019-05-04 22:35:46.000000000 +0000
++++ ncurses-6.1-20191207/package/ncurses.map	2019-12-07 18:03:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncurses.map,v 1.47 2019/05/04 22:35:46 tom Exp $
++# $Id: ncurses.map,v 1.48 2019/12/07 18:03:20 tom Exp $
+ # script for shared library symbol-versioning using ld
+ #
+ # This file was generated by ncu-mapsyms
+@@ -1198,6 +1198,7 @@
+ 		_nc_find_user_entry;
+ 		_nc_fmt_funcptr;
+ 		_nc_wacs_width;
++		curses_trace;
+ 	local:
+ 		_*;
+ } NCURSES_TINFO_6.1.20171230;
+Index: package/ncurses.spec
+--- ncurses-6.1-20191130+/package/ncurses.spec	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/package/ncurses.spec	2019-12-07 10:19:49.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20191130
++Release: 20191207
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.sym
+Prereq:  1.33 
+--- ncurses-6.1-20191130+/package/ncurses.sym	2019-05-04 21:54:44.000000000 +0000
++++ ncurses-6.1-20191207/package/ncurses.sym	2019-12-07 18:03:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncurses.sym,v 1.33 2019/05/04 21:54:44 tom Exp $
++# $Id: ncurses.sym,v 1.34 2019/12/07 18:03:20 tom Exp $
+ # script for shared library symbol-visibility using libtool
+ #
+ # This file was generated by ncu-mapsyms
+@@ -295,6 +295,7 @@
+ curs_set
+ curs_set_sp
+ curscr
++curses_trace
+ curses_version
+ data_ahead
+ data_behind
+Index: package/ncursest.map
+Prereq:  1.45 
+--- ncurses-6.1-20191130+/package/ncursest.map	2019-05-04 22:36:26.000000000 +0000
++++ ncurses-6.1-20191207/package/ncursest.map	2019-12-07 18:03:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursest.map,v 1.45 2019/05/04 22:36:26 tom Exp $
++# $Id: ncursest.map,v 1.46 2019/12/07 18:03:20 tom Exp $
+ # script for shared library symbol-versioning using ld
+ #
+ # This file was generated by ncu-mapsyms
+@@ -483,6 +483,7 @@
+ 		_nc_find_user_entry;
+ 		_nc_fmt_funcptr;
+ 		_nc_wacs_width;
++		curses_trace;
+ 	local:
+ 		_*;
+ } NCURSES_TINFO_6.1.20171230;
+Index: package/ncursest.spec
+--- ncurses-6.1-20191130+/package/ncursest.spec	2019-11-30 14:52:31.000000000 +0000
++++ ncurses-6.1-20191207/package/ncursest.spec	2019-12-07 10:19:49.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20191130
++Release: 20191207
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.sym
+Prereq:  1.37 
+--- ncurses-6.1-20191130+/package/ncursest.sym	2019-05-04 22:29:26.000000000 +0000
++++ ncurses-6.1-20191207/package/ncursest.sym	2019-12-07 18:03:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursest.sym,v 1.37 2019/05/04 22:29:26 tom Exp $
++# $Id: ncursest.sym,v 1.38 2019/12/07 18:03:20 tom Exp $
+ # script for shared library symbol-visibility using libtool
+ #
+ # This file was generated by ncu-mapsyms
+@@ -304,6 +304,7 @@
+ current_item
+ curs_set
+ curs_set_sp
++curses_trace
+ curses_version
+ data_ahead
+ data_behind
+Index: package/ncursestw.map
+Prereq:  1.47 
+--- ncurses-6.1-20191130+/package/ncursestw.map	2019-05-04 22:36:56.000000000 +0000
++++ ncurses-6.1-20191207/package/ncursestw.map	2019-12-07 18:03:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursestw.map,v 1.47 2019/05/04 22:36:56 tom Exp $
++# $Id: ncursestw.map,v 1.48 2019/12/07 18:03:20 tom Exp $
+ # script for shared library symbol-versioning using ld
+ #
+ # This file was generated by ncu-mapsyms
+@@ -489,6 +489,7 @@
+ 		_nc_find_user_entry;
+ 		_nc_fmt_funcptr;
+ 		_nc_wacs_width;
++		curses_trace;
+ 	local:
+ 		_*;
+ } NCURSES_TINFO_6.1.20171230;
+Index: package/ncursestw.sym
+Prereq:  1.36 
+--- ncurses-6.1-20191130+/package/ncursestw.sym	2019-05-04 22:29:12.000000000 +0000
++++ ncurses-6.1-20191207/package/ncursestw.sym	2019-12-07 18:03:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursestw.sym,v 1.36 2019/05/04 22:29:12 tom Exp $
++# $Id: ncursestw.sym,v 1.37 2019/12/07 18:03:20 tom Exp $
+ # script for shared library symbol-visibility using libtool
+ #
+ # This file was generated by ncu-mapsyms
+@@ -320,6 +320,7 @@
+ current_item
+ curs_set
+ curs_set_sp
++curses_trace
+ curses_version
+ data_ahead
+ data_behind
+Index: package/ncursesw.map
+Prereq:  1.50 
+--- ncurses-6.1-20191130+/package/ncursesw.map	2019-05-04 22:37:14.000000000 +0000
++++ ncurses-6.1-20191207/package/ncursesw.map	2019-12-07 18:03:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursesw.map,v 1.50 2019/05/04 22:37:14 tom Exp $
++# $Id: ncursesw.map,v 1.51 2019/12/07 18:03:20 tom Exp $
+ # script for shared library symbol-versioning using ld
+ #
+ # This file was generated by ncu-mapsyms
+@@ -483,6 +483,7 @@
+ 		_nc_find_user_entry;
+ 		_nc_fmt_funcptr;
+ 		_nc_wacs_width;
++		curses_trace;
+ 	local:
+ 		_*;
+ } NCURSES_TINFO_6.1.20171230;
+Index: package/ncursesw.sym
+Prereq:  1.35 
+--- ncurses-6.1-20191130+/package/ncursesw.sym	2019-05-04 21:54:38.000000000 +0000
++++ ncurses-6.1-20191207/package/ncursesw.sym	2019-12-07 18:03:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursesw.sym,v 1.35 2019/05/04 21:54:38 tom Exp $
++# $Id: ncursesw.sym,v 1.36 2019/12/07 18:03:20 tom Exp $
+ # script for shared library symbol-visibility using libtool
+ #
+ # This file was generated by ncu-mapsyms
+@@ -308,6 +308,7 @@
+ curs_set
+ curs_set_sp
+ curscr
++curses_trace
+ curses_version
+ data_ahead
+ data_behind
+Index: test/demo_menus.c
+Prereq:  1.69 
+--- ncurses-6.1-20191130+/test/demo_menus.c	2019-08-24 21:41:50.000000000 +0000
++++ ncurses-6.1-20191207/test/demo_menus.c	2019-12-07 18:06:12.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_menus.c,v 1.69 2019/08/24 21:41:50 tom Exp $
++ * $Id: demo_menus.c,v 1.70 2019/12/07 18:06:12 tom Exp $
+  *
+  * Demonstrate a variety of functions from the menu library.
+  * Thomas Dickey - 2005/4/9
+@@ -139,7 +139,7 @@
+ 	} else {
+ 	    _nc_tracing = save_trace;
+ 	}
+-	trace(_nc_tracing);
++	curses_trace(_nc_tracing);
+ 	if (_nc_tracing)
+ 	    Trace(("TOGGLE-TRACING ON"));
+     }
+@@ -631,7 +631,7 @@
+ 		    newtrace |= td->mask;
+ 		}
+ 	    }
+-	    trace(newtrace);
++	    curses_trace(newtrace);
+ 	    Trace(("trace level interactively set to %s", tracetrace(_nc_tracing)));
+ 
+ 	    MvWPrintw(status, 1, 0,
+@@ -1016,7 +1016,7 @@
+ #endif /* HAVE_RIPOFFLINE */
+ #ifdef TRACE
+ 	case 't':
+-	    trace((unsigned) strtoul(optarg, 0, 0));
++	    curses_trace((unsigned) strtoul(optarg, 0, 0));
+ 	    break;
+ #endif
+ 	default:
+Index: test/hashtest.c
+Prereq:  1.34 
+--- ncurses-6.1-20191130+/test/hashtest.c	2017-09-30 15:42:53.000000000 +0000
++++ ncurses-6.1-20191207/test/hashtest.c	2019-12-07 18:07:04.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2013,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -30,7 +30,7 @@
+  *
+  * Generate timing statistics for vertical-motion optimization.
+  *
+- * $Id: hashtest.c,v 1.34 2017/09/30 15:42:53 tom Exp $
++ * $Id: hashtest.c,v 1.35 2019/12/07 18:07:04 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -222,7 +222,7 @@
+ 	test_optimize = TRUE;
+     }
+ #if USE_TRACE
+-    trace(TRACE_TIMES);
++    curses_trace(TRACE_TIMES);
+ #endif
+ 
+     InitAndCatch(initscr(), finish);
+Index: test/lrtest.c
+Prereq:  1.24 
+--- ncurses-6.1-20191130+/test/lrtest.c	2017-09-04 11:28:19.000000000 +0000
++++ ncurses-6.1-20191207/test/lrtest.c	2019-12-07 18:07:04.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2010,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -34,7 +34,7 @@
+  * This can't be part of the ncurses test-program, because ncurses rips off the
+  * bottom line to do labels.
+  *
+- * $Id: lrtest.c,v 1.24 2017/09/04 11:28:19 tom Exp $
++ * $Id: lrtest.c,v 1.25 2019/12/07 18:07:04 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -148,9 +148,9 @@
+ 		nodelay(stdscr, TRUE);
+ #ifdef TRACE
+ 	    else if (ch == 'T')
+-		trace(0);
++		curses_trace(0);
+ 	    else if (ch == 't')
+-		trace(TRACE_CALLS | TRACE_ICALLS | TRACE_UPDATE);
++		curses_trace(TRACE_CALLS | TRACE_ICALLS | TRACE_UPDATE);
+ #endif
+ #ifdef KEY_RESIZE
+ 	    else if (ch == KEY_RESIZE) {
+Index: test/ncurses.c
+Prereq:  1.519 
+--- ncurses-6.1-20191130+/test/ncurses.c	2019-09-22 19:12:40.000000000 +0000
++++ ncurses-6.1-20191207/test/ncurses.c	2019-12-07 19:04:52.000000000 +0000
+@@ -40,7 +40,7 @@
+    Author: Eric S. Raymond <esr@snark.thyrsus.com> 1993
+            Thomas E. Dickey (beginning revision 1.27 in 1996).
+ 
+-$Id: ncurses.c,v 1.519 2019/09/22 19:12:40 tom Exp $
++$Id: ncurses.c,v 1.520 2019/12/07 19:04:52 tom Exp $
+ 
+ ***************************************************************************/
+ 
+@@ -210,7 +210,7 @@
+ 	} else {
+ 	    _nc_tracing = save_trace;
+ 	}
+-	trace(_nc_tracing);
++	curses_trace(_nc_tracing);
+ 	if (_nc_tracing)
+ 	    Trace(("TOGGLE-TRACING ON"));
+     }
+@@ -344,7 +344,7 @@
+ 	} else {
+ 	    _nc_tracing = save_trace;
+ 	}
+-	trace(_nc_tracing);
++	curses_trace(_nc_tracing);
+ 	if (_nc_tracing)
+ 	    Trace(("TOGGLE-TRACING ON"));
+     }
+@@ -3734,7 +3734,6 @@
+     MvAddCh(LINES / 2, 0,        colored_chtype(ACS_LTEE,  attr, pair));
+     MvAddCh(LINES / 2, COLS - 1, colored_chtype(ACS_RTEE,  attr, pair));
+     /* *INDENT-ON* */
+-
+ }
+ 
+ static int
+@@ -4282,7 +4281,6 @@
+     (void) mvadd_wch(LINES / 2,   0,        MERGE_ATTR(0, WACS_LTEE));
+     (void) mvadd_wch(LINES / 2,   COLS - 1, MERGE_ATTR(0, WACS_RTEE));
+     /* *INDENT-ON* */
+-
+ }
+ 
+ #undef MERGE_ATTR
+@@ -4355,7 +4353,6 @@
+     n = SHOW_UTF8(n, "WACS_S7",		"\342\216\274");
+     (void) SHOW_UTF8(n, "WACS_S9",	"\342\216\275");
+     /* *INDENT-ON* */
+-
+ }
+ 
+ /* display the wide-ACS character set */
+@@ -6345,7 +6342,7 @@
+     for (ip = menu_items(m); *ip; ip++)
+ 	if (item_value(*ip))
+ 	    newtrace |= t_tbl[item_index(*ip)].mask;
+-    trace(newtrace);
++    curses_trace(newtrace);
+     Trace(("trace level interactively set to %s", tracetrace(_nc_tracing)));
+ 
+     MvPrintw(LINES - 2, 0,
+@@ -7992,10 +7989,10 @@
+ #ifdef TRACE
+     /* enable debugging */
+ #if !USE_LIBMENU
+-    trace(save_trace);
++    curses_trace(save_trace);
+ #else
+     if (!isatty(fileno(stdin)))
+-	trace(save_trace);
++	curses_trace(save_trace);
+ #endif /* USE_LIBMENU */
+ #endif /* TRACE */
+ 
+Index: test/package/debian-mingw/compat
+--- ncurses-6.1-20191130+/test/package/debian-mingw/compat	2018-01-13 20:21:09.000000000 +0000
++++ ncurses-6.1-20191207/test/package/debian-mingw/compat	2019-12-07 23:32:53.000000000 +0000
+@@ -1 +1 @@
+-7
++9
+Index: test/package/debian-mingw/control
+--- ncurses-6.1-20191130+/test/package/debian-mingw/control	2018-01-01 11:55:21.000000000 +0000
++++ ncurses-6.1-20191207/test/package/debian-mingw/control	2019-12-07 23:35:21.000000000 +0000
+@@ -9,7 +9,7 @@
+ Package: mingw32-ncurses-examples
+ Architecture: any
+ Depends: ${shlibs:Depends}, ${misc:Depends}
+-Description: ncurses-examples - example/test programs from ncurses
++Description: example/test programs from ncurses
+  These are the example/test programs from the ncurses distribution.
+  .
+  This package is used for testing ABI 6 with the MinGW 32-bit port.
+Index: test/package/debian-mingw64/compat
+--- ncurses-6.1-20191130+/test/package/debian-mingw64/compat	2018-01-13 20:21:09.000000000 +0000
++++ ncurses-6.1-20191207/test/package/debian-mingw64/compat	2019-12-07 23:32:53.000000000 +0000
+@@ -1 +1 @@
+-7
++9
+Index: test/package/debian-mingw64/control
+--- ncurses-6.1-20191130+/test/package/debian-mingw64/control	2018-01-01 11:55:10.000000000 +0000
++++ ncurses-6.1-20191207/test/package/debian-mingw64/control	2019-12-07 23:35:21.000000000 +0000
+@@ -9,7 +9,7 @@
+ Package: mingw64-ncurses-examples
+ Architecture: any
+ Depends: ${shlibs:Depends}, ${misc:Depends}
+-Description: ncurses-examples - example/test programs from ncurses
++Description: example/test programs from ncurses
+  These are the example/test programs from the ncurses distribution.
+  .
+  This package is used for testing ABI 6 with the MinGW 64-bit port.
+Index: test/package/debian/compat
+--- ncurses-6.1-20191130+/test/package/debian/compat	2018-01-13 20:21:09.000000000 +0000
++++ ncurses-6.1-20191207/test/package/debian/compat	2019-12-07 23:32:53.000000000 +0000
+@@ -1 +1 @@
+-7
++9
+Index: test/package/debian/control
+--- ncurses-6.1-20191130+/test/package/debian/control	2018-01-01 11:53:23.000000000 +0000
++++ ncurses-6.1-20191207/test/package/debian/control	2019-12-07 23:35:34.000000000 +0000
+@@ -9,7 +9,7 @@
+ Package: ncurses-examples
+ Architecture: any
+ Depends: ${shlibs:Depends}, ${misc:Depends}
+-Description: ncurses-examples - example/test programs from ncurses
++Description: example/test programs from ncurses
+  These are the example/test programs from the ncurses distribution.
+  .
+  This package installs in "bin/ncurses-examples" to avoid conflict with other
+@@ -18,7 +18,7 @@
+ Package: ncursest-examples
+ Architecture: any
+ Depends: ${shlibs:Depends}, ${misc:Depends}
+-Description: ncurses-examples - example/test programs from ncurses
++Description: example/test programs from ncurses
+  These are the example/test programs from the ncurses distribution, using
+  the thread configuration.
+  .
+Index: test/padview.c
+Prereq:  1.14 
+--- ncurses-6.1-20191130+/test/padview.c	2019-07-13 20:41:47.000000000 +0000
++++ ncurses-6.1-20191207/test/padview.c	2019-12-07 18:06:12.000000000 +0000
+@@ -28,7 +28,7 @@
+ /*
+  * clone of view.c, using pads
+  *
+- * $Id: padview.c,v 1.14 2019/07/13 20:41:47 tom Exp $
++ * $Id: padview.c,v 1.15 2019/12/07 18:06:12 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -324,11 +324,11 @@
+ 		int tvalue = (int) strtol(optarg, &next, 0);
+ 		if (tvalue < 0 || (next != 0 && *next != 0))
+ 		    usage();
+-		trace((unsigned) tvalue);
++		curses_trace((unsigned) tvalue);
+ 	    }
+ 	    break;
+ 	case 't':
+-	    trace(TRACE_CALLS);
++	    curses_trace(TRACE_CALLS);
+ 	    break;
+ #endif
+ 	default:
+Index: test/test.priv.h
+Prereq:  1.182 
+--- ncurses-6.1-20191130+/test/test.priv.h	2019-04-20 20:15:39.000000000 +0000
++++ ncurses-6.1-20191207/test/test.priv.h	2019-12-07 19:03:20.000000000 +0000
+@@ -29,7 +29,7 @@
+ /****************************************************************************
+  *  Author: Thomas E. Dickey                    1996-on                     *
+  ****************************************************************************/
+-/* $Id: test.priv.h,v 1.182 2019/04/20 20:15:39 tom Exp $ */
++/* $Id: test.priv.h,v 1.183 2019/12/07 19:03:20 tom Exp $ */
+ 
+ #ifndef __TEST_PRIV_H
+ #define __TEST_PRIV_H 1
+@@ -976,9 +976,9 @@
+ #endif
+ 
+ #if !HAVE_STRSTR
+-extern char * _nc_strstr (const char *, const char *);
++extern char *_nc_strstr(const char *, const char *);
+ #define strstr(a,b) _nc_strstr((a),(b))
+-#endif	/* !HAVE_STRSTR */
++#endif /* !HAVE_STRSTR */
+ 
+ /* Use this to quiet gcc's -Wwrite-strings warnings, but accommodate SVr4
+  * curses which doesn't have const parameters declared (so far) in the places
+@@ -1129,7 +1129,7 @@
+ 	if ((_nc_tracing & TRACE_MAXIMUM) == 0) { \
+ 	    int t = _nc_getenv_num("NCURSES_TRACE"); \
+ 	    if (t >= 0) \
+-		trace((unsigned) t); \
++		curses_trace((unsigned) t); \
+ 	}
+ extern unsigned _nc_tracing;
+ extern int _nc_getenv_num(const char *);
+Index: test/testcurs.c
+Prereq:  1.53 
+--- ncurses-6.1-20191130+/test/testcurs.c	2017-12-23 21:38:26.000000000 +0000
++++ ncurses-6.1-20191207/test/testcurs.c	2019-12-07 18:06:12.000000000 +0000
+@@ -6,7 +6,7 @@
+  *  wrs(5/28/93) -- modified to be consistent (perform identically) with either
+  *                  PDCurses or under Unix System V, R4
+  *
+- * $Id: testcurs.c,v 1.53 2017/12/23 21:38:26 tom Exp $
++ * $Id: testcurs.c,v 1.54 2019/12/07 18:06:12 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -59,7 +59,7 @@
+     PDC_debug("initTest called\n");
+ #endif
+ #ifdef TRACE
+-    trace(TRACE_MAXIMUM);
++    curses_trace(TRACE_MAXIMUM);
+ #endif
+     initscr();
+ #ifdef PDCDEBUG
+Index: test/testscanw.c
+Prereq:  1.11 
+--- ncurses-6.1-20191130+/test/testscanw.c	2006-04-01 19:08:03.000000000 +0000
++++ ncurses-6.1-20191207/test/testscanw.c	2019-12-07 18:07:04.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2002,2006 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2006,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -29,7 +29,7 @@
+  * Date:  1997/03/17
+  * From:  bayern@morpheus.cis.yale.edu
+  *
+- * $Id: testscanw.c,v 1.11 2006/04/01 19:08:03 tom Exp $
++ * $Id: testscanw.c,v 1.12 2019/12/07 18:07:04 tom Exp $
+  */
+ #include <test.priv.h>
+ 
+@@ -47,7 +47,7 @@
+     echo();
+ 
+ #if 0
+-    trace(TRACE_UPDATE | TRACE_CALLS);
++    curses_trace(TRACE_UPDATE | TRACE_CALLS);
+ #endif
+     while (argc > 1) {
+ 	if (isdigit(UChar(*argv[1])))
+Index: test/view.c
+Prereq:  1.136 
+--- ncurses-6.1-20191130+/test/view.c	2019-01-27 00:52:06.000000000 +0000
++++ ncurses-6.1-20191207/test/view.c	2019-12-07 19:03:07.000000000 +0000
+@@ -51,7 +51,7 @@
+  * scroll operation worked, and the refresh() code only had to do a
+  * partial repaint.
+  *
+- * $Id: view.c,v 1.136 2019/01/27 00:52:06 tom Exp $
++ * $Id: view.c,v 1.137 2019/12/07 19:03:07 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -88,7 +88,7 @@
+ }
+ 
+ static int
+-ch_len(NCURSES_CH_T * src)
++ch_len(NCURSES_CH_T *src)
+ {
+     int result = 0;
+ #if USE_WIDEC_SUPPORT
+@@ -299,11 +299,13 @@
+     }
+     width = (width + 1) * 5;
+     my_win = newwin(2, width, 0, 0);
+-    if (my_win == 0)
++    if (my_win == 0) {
+ 	failed("cannot allocate temporary window");
++    }
+ 
+-    if ((vec_lines = typeCalloc(NCURSES_CH_T *, (size_t) num_lines + 2)) == 0)
++    if ((vec_lines = typeCalloc(NCURSES_CH_T *, (size_t) num_lines + 2)) == 0) {
+ 	failed("cannot allocate line-vector #2");
++    }
+ 
+     /*
+      * Use the curses library for rendering, including tab-conversion.  This
+@@ -348,8 +350,9 @@
+ 	    x = width - 1;
+ 	wmove(my_win, 0, 0);
+ 	/* "x + 1" works with standard curses; some implementations are buggy */
+-	if ((vec_lines[k] = typeCalloc(NCURSES_CH_T, x + width + 1)) == 0)
++	if ((vec_lines[k] = typeCalloc(NCURSES_CH_T, x + width + 1)) == 0) {
+ 	    failed("cannot allocate line-vector #3");
++	}
+ #if USE_WIDEC_SUPPORT
+ 	win_wchnstr(my_win, vec_lines[k], x);
+ #else
+@@ -450,11 +453,11 @@
+ 		int tvalue = (int) strtol(optarg, &next, 0);
+ 		if (tvalue < 0 || (next != 0 && *next != 0))
+ 		    usage();
+-		trace((unsigned) tvalue);
++		curses_trace((unsigned) tvalue);
+ 	    }
+ 	    break;
+ 	case 't':
+-	    trace(TRACE_CALLS);
++	    curses_trace(TRACE_CALLS);
+ 	    break;
+ #endif
+ 	default:
+Index: test/worm.c
+Prereq:  1.79 
+--- ncurses-6.1-20191130+/test/worm.c	2018-07-21 21:40:00.000000000 +0000
++++ ncurses-6.1-20191207/test/worm.c	2019-12-07 19:04:09.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -52,7 +52,7 @@
+   traces will be dumped.  The program stops and waits for one character of
+   input at the beginning and end of the interval.
+ 
+-  $Id: worm.c,v 1.79 2018/07/21 21:40:00 tom Exp $
++  $Id: worm.c,v 1.80 2019/12/07 19:04:09 tom Exp $
+ */
+ 
+ #include <test.priv.h>
+@@ -608,10 +608,10 @@
+ #ifdef TRACE
+ 	    if (trace_start || trace_end) {
+ 		if (generation == trace_start) {
+-		    trace(TRACE_CALLS);
++		    curses_trace(TRACE_CALLS);
+ 		    get_input();
+ 		} else if (generation == trace_end) {
+-		    trace(0);
++		    curses_trace(0);
+ 		    get_input();
+ 		}
+ 

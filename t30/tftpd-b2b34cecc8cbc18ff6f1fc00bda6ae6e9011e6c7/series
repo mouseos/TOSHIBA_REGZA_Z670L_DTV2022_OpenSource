@@ -1,0 +1,2 @@
+0001-Use-extern-qualifier-to-fix-gcc-10.x-build.patch
+tftpd_prohibit_unsecure_syscalls.patch

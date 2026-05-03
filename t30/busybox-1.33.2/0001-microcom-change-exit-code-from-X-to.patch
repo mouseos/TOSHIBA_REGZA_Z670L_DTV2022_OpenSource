@@ -1,0 +1,27 @@
+From 7569d4432aba450289f4859140567e7f0ff97f1c Mon Sep 17 00:00:00 2001
+From: "katsuki.uwatoko" <katsuki.uwatoko@regza.com>
+Date: Thu, 12 Aug 2021 13:23:05 +0900
+Subject: [PATCH 1/2] microcom: change exit code from ^X to ^]
+
+---
+ miscutils/microcom.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/miscutils/microcom.c b/miscutils/microcom.c
+index 399d4cf..3b1271c 100644
+--- a/miscutils/microcom.c
++++ b/miscutils/microcom.c
+@@ -153,8 +153,8 @@ int microcom_main(int argc UNUSED_PARAM, char **argv)
+ 					tcsendbreak(sfd, 0);
+ 					goto skip_write;
+ 				}
+-				// ^X exits
+-				if (24 == c)
++				// ^] exits
++				if (29 == c)
+ 					break;
+ 			}
+ 			write(sfd, &c, 1);
+-- 
+2.23.0
+

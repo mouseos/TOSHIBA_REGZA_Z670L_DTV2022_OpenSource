@@ -1,0 +1,71 @@
+if ARCH_XCODE6
+menu "Xcode6 Specific Features"
+
+config ARCH_XCODE_TYPICAL
+	bool "Typical XCODE configuration"
+	default y
+	select AEABI
+	select VFP
+	select NEON if ARCH_XCODE6
+	select SERIAL_XCODE
+	select SERIAL_XCODE_CONSOLE
+	select CPU_V7
+	select ARM_GIC
+	select LOCAL_TIMERS if SMP
+#	select PL310_ERRATA_588369
+#	select PL310_ERRATA_727915
+	select ARM_ERRATA_720789
+	select ARCH_HAS_OPP
+#	select USB_ARCH_HAS_EHCI
+	select ARCH_REQUIRE_GPIOLIB
+	help
+	  Compile a kernel suitable for booting most boards
+
+config MACH_XCODE6_SDK
+	bool "Stingray SDK board"
+	default y
+	depends on ARCH_XCODE6
+
+config FPGA_BUILD
+	bool "Build for FPGA board"
+	default n
+
+config	FPGA_APPCLK_SPEED
+	int "Application clock speed (HUECLK)"
+	default 30000000
+	depends on FPGA_BUILD
+config FPGA_APPCLK_DIVIDER
+	int "Application clock divider"
+	default 1
+	depends on FPGA_BUILD
+config FPGA_ARM_CLK
+	int "ARM (PROC5) clock speed, affect ARM timer."
+	default 2500000
+	depends on FPGA_BUILD
+
+config PHYS_OFFSET
+	hex "Physical memory offset for kernel"
+	default 0x16000000
+	
+#config WORKAROUND_EXCLUSIVE_ACCESS
+#	bool "Pretend to be armv5 to avoid exclussive memory access instruction"
+#	default n
+
+config WORKAROUND_SPURIOUS_FIQ
+	bool "Spurious FIQ generated"
+	default n
+	depends on FPGA_BUILD
+
+config INCLUDE_JUMP_VECTOR_AT_START
+	bool "Include jump vector instruction at start of kernel image"
+	default y 
+	depends on ARCH_XCODE6
+	help 
+		When ARM core power up, the first instruction to execute is pointed by register VINIT.
+		But the address is 16-bit aligned. ARM Linux used to start at text offset 0x8000.
+		So a jump instruction is needed to be placed in address pointed by VINIT.
+		It will be more user friendly if the jump instruction can combined within the kernel image.
+	
+endmenu
+
+endif

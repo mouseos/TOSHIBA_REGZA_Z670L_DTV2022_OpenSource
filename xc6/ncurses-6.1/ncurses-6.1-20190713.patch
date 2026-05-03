@@ -1,0 +1,904 @@
+# ncurses 6.1 - patch 20190713 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190713.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Jul 14 00:50:41 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                                                     |    8 ++
+# VERSION                                                  |    2 
+# dist.mk                                                  |    4 -
+# doc/html/ada/funcs/T.htm                                 |    2 
+# doc/html/ada/terminal_interface-curses-terminfo__adb.htm |    2 
+# doc/html/man/adacurses6-config.1.html                    |    2 
+# doc/html/man/captoinfo.1m.html                           |    2 
+# doc/html/man/clear.1.html                                |    2 
+# doc/html/man/curs_bkgd.3x.html                           |   10 ++-
+# doc/html/man/curs_mouse.3x.html                          |   13 ++--
+# doc/html/man/form.3x.html                                |    2 
+# doc/html/man/infocmp.1m.html                             |    2 
+# doc/html/man/infotocap.1m.html                           |    2 
+# doc/html/man/menu.3x.html                                |    2 
+# doc/html/man/ncurses.3x.html                             |    2 
+# doc/html/man/ncurses6-config.1.html                      |    2 
+# doc/html/man/panel.3x.html                               |    2 
+# doc/html/man/tabs.1.html                                 |    2 
+# doc/html/man/term.7.html                                 |    6 +-
+# doc/html/man/terminfo.5.html                             |   39 +++++++------
+# doc/html/man/tic.1m.html                                 |    2 
+# doc/html/man/toe.1m.html                                 |    2 
+# doc/html/man/tput.1.html                                 |    2 
+# doc/html/man/tset.1.html                                 |    2 
+# man/curs_bkgd.3x                                         |   10 ++-
+# man/curs_mouse.3x                                        |   18 +++---
+# man/term.7                                               |    6 +-
+# man/terminfo.head                                        |    6 +-
+# man/terminfo.tail                                        |   30 +++++-----
+# package/debian-mingw/changelog                           |    4 -
+# package/debian-mingw64/changelog                         |    4 -
+# package/debian/changelog                                 |    4 -
+# package/mingw-ncurses.nsi                                |    4 -
+# package/mingw-ncurses.spec                               |    2 
+# package/ncurses.spec                                     |    2 
+# package/ncursest.spec                                    |    2 
+# progs/reset_cmd.c                                        |    9 +--
+# test/padview.c                                           |   14 +++-
+# 38 files changed, 132 insertions(+), 99 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3344 
+--- ncurses-6.1-20190706+/NEWS	2019-07-06 20:51:46.000000000 +0000
++++ ncurses-6.1-20190713/NEWS	2019-07-13 23:10:57.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3344 2019/07/06 20:51:46 tom Exp $
++-- $Id: NEWS,v 1.3347 2019/07/13 23:10:57 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,12 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190713
++	+ change reset's behavior for margins to simply clear soft-margins if
++	  possible, rather than clearing and then setting them according to the
++	  terminal's width (suggested by Thomas Wolff).
++	+ correct order of one wbkgd versus start_color call in test/padview.c
++
+ 20190706
+ 	+ add domterm -TD
+ 	+ improve comments for recent changes, add alias xterm.js -TD
+Index: VERSION
+--- ncurses-6.1-20190706+/VERSION	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/VERSION	2019-07-13 20:42:44.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190706
++5:0:10	6.1	20190713
+Index: dist.mk
+Prereq:  1.1293 
+--- ncurses-6.1-20190706+/dist.mk	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/dist.mk	2019-07-13 20:42:44.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1293 2019/07/06 09:10:26 tom Exp $
++# $Id: dist.mk,v 1.1294 2019/07/13 20:42:44 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190706
++NCURSES_PATCH = 20190713
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: doc/html/ada/funcs/T.htm
+--- ncurses-6.1-20190706+/doc/html/ada/funcs/T.htm	2019-06-15 23:31:13.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/ada/funcs/T.htm	2019-07-13 23:50:38.000000000 +0000
+@@ -20,8 +20,8 @@
+ <LI><A HREF="../terminal_interface-curses-termcap__adb.htm#ref_89_16" TARGET="main">tgetnum</A>
+ <LI><A HREF="../terminal_interface-curses-termcap__adb.htm#ref_108_16" TARGET="main">tgetstr -  terminal_interface-curses-termcap.adb:108</A>
+ <LI><A HREF="../terminal_interface-curses-termcap__adb.htm#ref_129_16" TARGET="main">tgetstr -  terminal_interface-curses-termcap.adb:129</A>
+-<LI><A HREF="../terminal_interface-curses-termcap__ads.htm#ref_53_13" TARGET="main">TGoto</A>
+ <LI><A HREF="../terminal_interface-curses-termcap__adb.htm#ref_151_16" TARGET="main">tgoto</A>
++<LI><A HREF="../terminal_interface-curses-termcap__ads.htm#ref_53_13" TARGET="main">TGoto</A>
+ <LI><A HREF="../terminal_interface-curses-terminfo__adb.htm#ref_69_16" TARGET="main">tigetflag</A>
+ <LI><A HREF="../terminal_interface-curses-terminfo__adb.htm#ref_87_16" TARGET="main">tigetstr -  terminal_interface-curses-terminfo.adb:87</A>
+ <LI><A HREF="../terminal_interface-curses-terminfo__adb.htm#ref_108_16" TARGET="main">tigetstr -  terminal_interface-curses-terminfo.adb:108</A>
+Index: doc/html/ada/terminal_interface-curses-terminfo__adb.htm
+--- ncurses-6.1-20190706+/doc/html/ada/terminal_interface-curses-terminfo__adb.htm	2019-03-16 19:34:48.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/ada/terminal_interface-curses-terminfo__adb.htm	2019-07-13 23:50:39.000000000 +0000
+@@ -151,7 +151,7 @@
+    <b>end</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#ref_68_13">Get_Number</A>;
+ 
+ <span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+-   <b>procedure</b> <span class="symbol"><A NAME="ref_137_14" HREF="terminal_interface-curses-terminfo__ads.htm#ref_76_14">Put_String</A></span> (<span class="symbol"><A NAME="ref_137_26" HREF="terminal_interface-curses-terminfo__ads.htm#ref_76_26">Str</A></span>    : Terminfo_String;
++   <b>procedure</b> <span class="symbol"><A NAME="ref_137_14" HREF="terminal_interface-curses-terminfo__ads.htm#ref_76_14">Put_String</A></span> (<span class="symbol"><A NAME="ref_137_26" HREF="terminal_interface-curses-terminfo__ads.htm#ref_76_26">Str</A></span>    : <A HREF="terminal_interface-curses-terminfo__ads.htm#ref_44_35">Terminfo_String</A>;
+                          <span class="symbol"><A NAME="ref_138_26" HREF="terminal_interface-curses-terminfo__ads.htm#ref_77_26">affcnt</A></span> : Natural := 1;
+                          <span class="symbol"><A NAME="ref_139_26" HREF="terminal_interface-curses-terminfo__ads.htm#ref_78_26">putc</A></span>   : <A HREF="terminal_interface-curses-terminfo__ads.htm#ref_71_9">putctype</A> := <b>null</b>) <b>is</b>
+       <b>function</b> <span class="symbol"><A NAME="ref_140_16">tputs</A></span> (<span class="symbol"><A NAME="ref_140_23" HREF="terminal_interface-curses-terminfo__adb.htm#ref_140_16">str</A></span>    : char_array;
+Index: doc/html/man/adacurses6-config.1.html
+--- ncurses-6.1-20190706+/doc/html/man/adacurses6-config.1.html	2019-06-23 21:16:02.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/adacurses6-config.1.html	2019-07-13 23:50:33.000000000 +0000
+@@ -125,7 +125,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: doc/html/man/captoinfo.1m.html
+--- ncurses-6.1-20190706+/doc/html/man/captoinfo.1m.html	2019-06-23 21:16:02.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/captoinfo.1m.html	2019-07-13 23:50:33.000000000 +0000
+@@ -190,7 +190,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/clear.1.html
+--- ncurses-6.1-20190706+/doc/html/man/clear.1.html	2019-06-23 21:16:02.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/clear.1.html	2019-07-13 23:50:33.000000000 +0000
+@@ -148,7 +148,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tput.1.html">tput(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: doc/html/man/curs_bkgd.3x.html
+--- ncurses-6.1-20190706+/doc/html/man/curs_bkgd.3x.html	2019-03-16 19:34:43.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/curs_bkgd.3x.html	2019-07-13 23:50:33.000000000 +0000
+@@ -1,6 +1,6 @@
+ <!-- 
+   ****************************************************************************
+-  * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++  * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: curs_bkgd.3x,v 1.28 2018/12/09 00:45:05 tom Exp @
++  * @Id: curs_bkgd.3x,v 1.29 2019/07/13 21:01:06 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -121,6 +121,12 @@
+            rent  background,  and  then  adding  attributes from the new back-
+            ground.
+ 
++       If the background's character value is zero, a space is assumed.
++
++       If the terminal does not support  color,  or  if  color  has  not  been
++       started   with   <STRONG>start_color</STRONG>,  the  new  background  character's  color
++       attribute will be ignored.
++
+ 
+ </PRE><H3><a name="h3-getbkgd">getbkgd</a></H3><PRE>
+        The <STRONG>getbkgd</STRONG> function returns  the  given  window's  current  background
+Index: doc/html/man/curs_mouse.3x.html
+--- ncurses-6.1-20190706+/doc/html/man/curs_mouse.3x.html	2019-03-16 19:34:44.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/curs_mouse.3x.html	2019-07-13 23:50:34.000000000 +0000
+@@ -1,7 +1,7 @@
+ <!-- 
+   * t
+   ****************************************************************************
+-  * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++  * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -27,7 +27,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: curs_mouse.3x,v 1.50 2018/12/29 23:40:47 tom Exp @
++  * @Id: curs_mouse.3x,v 1.51 2019/07/13 23:45:12 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -347,10 +347,11 @@
+ 
+        Because  there  are  no standard terminal responses that would serve to
+        identify terminals which support the xterm mouse protocol, <STRONG>ncurses</STRONG>  as-
+-       sumes  that  if  your  $TERM  environment variable contains "xterm", or
+-       <STRONG>kmous</STRONG> is defined in the terminal description,  then  the  terminal  may
+-       send mouse events.  The <STRONG>kmous</STRONG> capability is checked first, allowing the
+-       use of newer xterm mouse protocols.
++       sumes  that  if <STRONG>kmous</STRONG> is defined in the terminal description, or if the
++       terminal description's primary  name  or  aliases  contain  the  string
++       "xterm", then the terminal may send mouse events.  The <STRONG>kmous</STRONG> capability
++       is checked first, allowing the use of newer xterm mouse protocols  such
++       as xterm's private mode 1006.
+ 
+ 
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+Index: doc/html/man/form.3x.html
+--- ncurses-6.1-20190706+/doc/html/man/form.3x.html	2019-06-23 21:16:04.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/form.3x.html	2019-07-13 23:50:35.000000000 +0000
+@@ -246,7 +246,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "form_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: doc/html/man/infocmp.1m.html
+--- ncurses-6.1-20190706+/doc/html/man/infocmp.1m.html	2019-06-23 21:16:04.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/infocmp.1m.html	2019-07-13 23:50:36.000000000 +0000
+@@ -481,7 +481,7 @@
+ 
+        https://invisible-island.net/ncurses/tctest.html
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/infotocap.1m.html
+--- ncurses-6.1-20190706+/doc/html/man/infotocap.1m.html	2019-06-23 21:16:04.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/infotocap.1m.html	2019-07-13 23:50:36.000000000 +0000
+@@ -85,7 +85,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/menu.3x.html
+--- ncurses-6.1-20190706+/doc/html/man/menu.3x.html	2019-06-23 21:16:05.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/menu.3x.html	2019-07-13 23:50:36.000000000 +0000
+@@ -221,7 +221,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "menu_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: doc/html/man/ncurses.3x.html
+--- ncurses-6.1-20190706+/doc/html/man/ncurses.3x.html	2019-06-23 21:16:05.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/ncurses.3x.html	2019-07-13 23:50:37.000000000 +0000
+@@ -59,7 +59,7 @@
+        method of updating  character  screens  with  reasonable  optimization.
+        This  implementation  is  "new  curses"  (ncurses)  and is the approved
+        replacement for 4.4BSD classic curses,  which  has  been  discontinued.
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+        The  <STRONG>ncurses</STRONG>  library emulates the curses library of System V Release 4
+        UNIX, and XPG4 (X/Open Portability Guide) curses  (also  known  as  XSI
+Index: doc/html/man/ncurses6-config.1.html
+--- ncurses-6.1-20190706+/doc/html/man/ncurses6-config.1.html	2019-06-23 21:16:05.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/ncurses6-config.1.html	2019-07-13 23:50:37.000000000 +0000
+@@ -112,7 +112,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: doc/html/man/panel.3x.html
+--- ncurses-6.1-20190706+/doc/html/man/panel.3x.html	2019-06-23 21:16:05.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/panel.3x.html	2019-07-13 23:50:37.000000000 +0000
+@@ -204,7 +204,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>,
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/tabs.1.html
+--- ncurses-6.1-20190706+/doc/html/man/tabs.1.html	2019-06-23 21:16:06.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/tabs.1.html	2019-07-13 23:50:37.000000000 +0000
+@@ -205,7 +205,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: doc/html/man/term.7.html
+--- ncurses-6.1-20190706+/doc/html/man/term.7.html	2019-03-16 19:34:46.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/term.7.html	2019-07-13 23:50:37.000000000 +0000
+@@ -1,6 +1,6 @@
+ <!-- 
+   ****************************************************************************
+-  * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++  * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: term.7,v 1.26 2018/07/28 22:19:56 tom Exp @
++  * @Id: term.7,v 1.27 2019/07/13 23:17:23 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -177,7 +177,7 @@
+ 
+        -vb  Use visible bell (flash) rather than beep.
+ 
+-       -w   Wide; terminal is in 132 column mode.
++       -w   Wide; terminal is in 132-column mode.
+ 
+        Conventionally, if your terminal type is a variant intended to  specify
+        a  line  height,  that  suffix should go first.  So, for a hypothetical
+Index: doc/html/man/terminfo.5.html
+--- ncurses-6.1-20190706+/doc/html/man/terminfo.5.html	2019-06-23 21:16:06.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/terminfo.5.html	2019-07-13 23:50:37.000000000 +0000
+@@ -5,7 +5,7 @@
+   * Note: this must be run through tbl before nroff.
+   * The magic cookie on the first line triggers this under some man programs.
+   ****************************************************************************
+-  * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++  * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -31,9 +31,9 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: terminfo.head,v 1.35 2018/07/28 22:29:09 tom Exp @
++  * @Id: terminfo.head,v 1.36 2019/07/13 23:17:33 tom Exp @
+   * Head of terminfo man page ends here
+-  * @Id: terminfo.tail,v 1.93 2019/06/01 22:32:15 tom Exp @
++  * @Id: terminfo.tail,v 1.95 2019/07/13 23:29:04 tom Exp @
+   * Beginning of terminfo.tail file
+   * This file is part of ncurses.
+   * See "terminfo.head" for copyright.
+@@ -74,7 +74,7 @@
+        <EM>Terminfo</EM> describes terminals by giving a set of capabilities which they
+        have, by specifying how to perform screen operations, and by specifying
+        padding  requirements  and  initialization  sequences.   This describes
+-       <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ </PRE><H3><a name="h3-Terminfo-Entry-Syntax">Terminfo Entry Syntax</a></H3><PRE>
+@@ -124,7 +124,7 @@
+        ing  up the terminal should have a root name, thus "hp2621".  This name
+        should not contain hyphens.  Modes that the hardware can be in, or user
+        preferences,  should be indicated by appending a hyphen and a mode suf-
+-       fix.  Thus, a vt100 in 132 column mode would be vt100-w.  The following
++       fix.  Thus, a vt100 in 132-column mode would be vt100-w.  The following
+        suffixes should be used where possible:
+ 
+             <STRONG>Suffix</STRONG>                  <STRONG>Meaning</STRONG>                   <STRONG>Example</STRONG>
+@@ -1902,10 +1902,14 @@
+               run the program
+                      <STRONG>iprog</STRONG>
+ 
+-              output <STRONG>is1</STRONG> <STRONG>is2</STRONG>
++              output
++                     <STRONG>is1</STRONG> and
++                     <STRONG>is2</STRONG>
+ 
+               set the margins using
+-                     <STRONG>mgc</STRONG>, <STRONG>smgl</STRONG> and <STRONG>smgr</STRONG>
++                     <STRONG>mgc</STRONG> or
++                     <STRONG>smglp</STRONG> and <STRONG>smgrp</STRONG> or
++                     <STRONG>smgl</STRONG> and <STRONG>smgr</STRONG>
+ 
+               set tabs using
+                      <STRONG>tbc</STRONG> and <STRONG>hts</STRONG>
+@@ -1913,8 +1917,8 @@
+               print the file
+                      <STRONG>if</STRONG>
+ 
+-              and finally
+-                     output <STRONG>is3</STRONG>.
++              and finally output
++                     <STRONG>is3</STRONG>.
+ 
+        Most initialization is done with <STRONG>is2</STRONG>.  Special terminal  modes  can  be
+        set  up  without duplicating strings by putting the common sequences in
+@@ -1922,14 +1926,14 @@
+ 
+        A set of sequences that does a harder  reset  from  a  totally  unknown
+        state can be given as <STRONG>rs1</STRONG>, <STRONG>rs2</STRONG>, <STRONG>rf</STRONG> and <STRONG>rs3</STRONG>, analogous to <STRONG>is1</STRONG> <STRONG>,</STRONG> <STRONG>is2</STRONG> <STRONG>,</STRONG> <STRONG>if</STRONG>
+-       and <STRONG>is3</STRONG> respectively.  These strings are output by  the  <STRONG>reset</STRONG>  program
+-       (an  alias of <STRONG>tset</STRONG>), which is used when the terminal gets into a wedged
+-       state.  Commands are normally placed in <STRONG>rs1</STRONG>, <STRONG>rs2</STRONG> <STRONG>rs3</STRONG>  and  <STRONG>rf</STRONG>  only  if
+-       they  produce annoying effects on the screen and are not necessary when
+-       logging in.  For example, the command to set the vt100  into  80-column
+-       mode would normally be part of <STRONG>is2</STRONG>, but it causes an annoying glitch of
+-       the screen and is not normally needed since  the  terminal  is  usually
+-       already in 80 column mode.
++       and <STRONG>is3</STRONG> respectively.  These strings are  output  by  <EM>reset</EM>  option  of
++       <STRONG>tput</STRONG>,  or  by  the <STRONG>reset</STRONG> program (an alias of <STRONG>tset</STRONG>), which is used when
++       the terminal gets into a wedged state.  Commands are normally placed in
++       <STRONG>rs1</STRONG>, <STRONG>rs2</STRONG> <STRONG>rs3</STRONG> and <STRONG>rf</STRONG> only if they produce annoying effects on the screen
++       and are not necessary when logging in.  For example, the command to set
++       the  vt100  into  80-column  mode would normally be part of <STRONG>is2</STRONG>, but it
++       causes an annoying glitch of the screen  and  is  not  normally  needed
++       since the terminal is usually already in 80-column mode.
+ 
+        The  <STRONG>reset</STRONG>  program  writes  strings including <STRONG>iprog</STRONG>, etc., in the same
+        order as the <EM>init</EM> program, using <STRONG>rs1</STRONG>, etc., instead of  <STRONG>is1</STRONG>,  etc.   If
+@@ -2146,7 +2150,6 @@
+                     green     <STRONG>COLOR_GREEN</STRONG>       2     0,max,0
+                     yellow    <STRONG>COLOR_YELLOW</STRONG>      3     max,max,0
+                     blue      <STRONG>COLOR_BLUE</STRONG>        4     0,0,max
+-
+                     magenta   <STRONG>COLOR_MAGENTA</STRONG>     5     max,0,max
+                     cyan      <STRONG>COLOR_CYAN</STRONG>        6     0,max,max
+                     white     <STRONG>COLOR_WHITE</STRONG>       7     max,max,max
+Index: doc/html/man/tic.1m.html
+--- ncurses-6.1-20190706+/doc/html/man/tic.1m.html	2019-06-23 21:16:06.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/tic.1m.html	2019-07-13 23:50:37.000000000 +0000
+@@ -365,7 +365,7 @@
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,   <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,   <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>,   <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,
+        <STRONG><A HREF="term.5.html">term(5)</A></STRONG>.  <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.  <STRONG><A HREF="user_caps.5.html">user_caps(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/toe.1m.html
+--- ncurses-6.1-20190706+/doc/html/man/toe.1m.html	2019-06-23 21:16:06.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/toe.1m.html	2019-07-13 23:50:37.000000000 +0000
+@@ -113,7 +113,7 @@
+        <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,  <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,  <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,  <STRONG>ter-</STRONG>
+        <STRONG><A HREF="terminfo.5.html">minfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: doc/html/man/tput.1.html
+--- ncurses-6.1-20190706+/doc/html/man/tput.1.html	2019-06-23 21:16:06.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/tput.1.html	2019-07-13 23:50:37.000000000 +0000
+@@ -522,7 +522,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="clear.1.html">clear(1)</A></STRONG>, <STRONG>stty(1)</STRONG>, <STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>, <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>, <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: doc/html/man/tset.1.html
+--- ncurses-6.1-20190706+/doc/html/man/tset.1.html	2019-06-23 21:16:06.000000000 +0000
++++ ncurses-6.1-20190713/doc/html/man/tset.1.html	2019-07-13 23:50:37.000000000 +0000
+@@ -389,7 +389,7 @@
+        <STRONG>csh(1)</STRONG>,  <STRONG>sh(1)</STRONG>,  <STRONG>stty(1)</STRONG>,   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>,   <STRONG>tty(4)</STRONG>,   <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>,
+        <STRONG>ttys(5)</STRONG>, <STRONG>environ(7)</STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190623).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190713).
+ 
+ 
+ 
+Index: man/curs_bkgd.3x
+Prereq:  1.28 
+--- ncurses-6.1-20190706+/man/curs_bkgd.3x	2018-12-09 00:45:05.000000000 +0000
++++ ncurses-6.1-20190713/man/curs_bkgd.3x	2019-07-13 21:01:06.000000000 +0000
+@@ -1,5 +1,5 @@
+ .\"***************************************************************************
+-.\" Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++.\" Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: curs_bkgd.3x,v 1.28 2018/12/09 00:45:05 tom Exp $
++.\" $Id: curs_bkgd.3x,v 1.29 2019/07/13 21:01:06 tom Exp $
+ .de bP
+ .ie n  .IP \(bu 4
+ .el    .IP \(bu 2
+@@ -112,6 +112,12 @@
+ the library updates only the non-color attributes,
+ first removing those which may have come from the current background,
+ and then adding attributes from the new background.
++.PP
++If the background's character value is zero, a space is assumed.
++.PP
++If the terminal does not support color,
++or if color has not been started with \fBstart_color\fP,
++the new background character's color attribute will be ignored.
+ .SS getbkgd
+ .PP
+ The \fBgetbkgd\fR function returns the given window's current background
+Index: man/curs_mouse.3x
+Prereq:  1.50 
+--- ncurses-6.1-20190706+/man/curs_mouse.3x	2018-12-29 23:40:47.000000000 +0000
++++ ncurses-6.1-20190713/man/curs_mouse.3x	2019-07-13 23:45:12.000000000 +0000
+@@ -1,6 +1,6 @@
+ '\" t
+ .\"***************************************************************************
+-.\" Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++.\" Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -27,7 +27,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: curs_mouse.3x,v 1.50 2018/12/29 23:40:47 tom Exp $
++.\" $Id: curs_mouse.3x,v 1.51 2019/07/13 23:45:12 tom Exp $
+ .ie \n(.g .ds `` \(lq
+ .el       .ds `` ``
+ .ie \n(.g .ds '' \(rq
+@@ -394,7 +394,7 @@
+ .PP
+ Mouse events under xterm will not be detected correctly in a window with
+ its keypad bit off, since they are interpreted as a variety of function key.
+-Your terminfo description should have \fBkmous\fR set to "\\E[M"
++Your terminfo description should have \fBkmous\fR set to \*(``\\E[M\*(''
+ (the beginning of the response from xterm for mouse clicks).
+ Other values for \fBkmous\fR are permitted,
+ but under the same assumption,
+@@ -402,11 +402,13 @@
+ .PP
+ Because there are no standard terminal responses that would serve to identify
+ terminals which support the xterm mouse protocol, \fBncurses\fR assumes that
+-if your $TERM environment variable contains \*(``xterm\*('',
+-or \fBkmous\fR is defined in
+-the terminal description, then the terminal may send mouse events.
+-The \fBkmous\fP capability is checked first, allowing the
+-use of newer xterm mouse protocols.
++if \fBkmous\fR is defined in the terminal description,
++or if the terminal description's primary name or aliases
++contain the string \*(``xterm\*('',
++then the terminal may send mouse events.
++The \fBkmous\fP capability is checked first,
++allowing the use of newer xterm mouse protocols
++such as xterm's private mode 1006.
+ .SH SEE ALSO
+ \fBcurses\fR(3X),
+ \fBcurs_kernel\fR(3X),
+Index: man/term.7
+Prereq:  1.26 
+--- ncurses-6.1-20190706+/man/term.7	2018-07-28 22:19:56.000000000 +0000
++++ ncurses-6.1-20190713/man/term.7	2019-07-13 23:17:23.000000000 +0000
+@@ -1,5 +1,5 @@
+ .\"***************************************************************************
+-.\" Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++.\" Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: term.7,v 1.26 2018/07/28 22:19:56 tom Exp $
++.\" $Id: term.7,v 1.27 2019/07/13 23:17:23 tom Exp $
+ .TH term 7
+ .ie \n(.g .ds `` \(lq
+ .el       .ds `` ``
+@@ -190,7 +190,7 @@
+ Use visible bell (flash) rather than beep.
+ .TP 5
+ \-w
+-Wide; terminal is in 132 column mode.
++Wide; terminal is in 132-column mode.
+ .PP
+ Conventionally, if your terminal type is a variant intended to specify a
+ line height, that suffix should go first.
+Index: man/terminfo.head
+Prereq:  1.35 
+--- ncurses-6.1-20190706+/man/terminfo.head	2018-07-28 22:29:09.000000000 +0000
++++ ncurses-6.1-20190713/man/terminfo.head	2019-07-13 23:17:33.000000000 +0000
+@@ -1,5 +1,5 @@
+ .\"***************************************************************************
+-.\" Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++.\" Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: terminfo.head,v 1.35 2018/07/28 22:29:09 tom Exp $
++.\" $Id: terminfo.head,v 1.36 2019/07/13 23:17:33 tom Exp $
+ .TH terminfo 5 "" "" "File Formats"
+ .ds n 5
+ .ds d @TERMINFO@
+@@ -124,7 +124,7 @@
+ This name should not contain hyphens.
+ Modes that the hardware can be in, or user preferences, should
+ be indicated by appending a hyphen and a mode suffix.
+-Thus, a vt100 in 132 column mode would be vt100\-w.
++Thus, a vt100 in 132-column mode would be vt100\-w.
+ The following suffixes should be used where possible:
+ .PP
+ .TS
+Index: man/terminfo.tail
+Prereq:  1.93 
+--- ncurses-6.1-20190706+/man/terminfo.tail	2019-06-01 22:32:15.000000000 +0000
++++ ncurses-6.1-20190713/man/terminfo.tail	2019-07-13 23:29:04.000000000 +0000
+@@ -1,4 +1,4 @@
+-.\" $Id: terminfo.tail,v 1.93 2019/06/01 22:32:15 tom Exp $
++.\" $Id: terminfo.tail,v 1.95 2019/07/13 23:29:04 tom Exp $
+ .\" Beginning of terminfo.tail file
+ .\" This file is part of ncurses.
+ .\" See "terminfo.head" for copyright.
+@@ -1141,14 +1141,17 @@
+ .B iprog
+ .TP
+ output
+-.B is1
+-.B is2
++.br
++\fBis1\fP and
++.br
++\fBis2\fP
+ .TP
+ set the margins using
+-.BR mgc ,
+-.B smgl
+-and
+-.B smgr
++\fBmgc\fP or
++.br
++\fBsmglp\fP and \fBsmgrp\fP or
++.br
++\fBsmgl\fP and \fBsmgr\fP
+ .TP
+ set tabs using
+ .B tbc
+@@ -1156,11 +1159,10 @@
+ .B hts
+ .TP
+ print the file
+-.B if
++\fBif\fP
+ .TP
+-and finally
+-output
+-.BR is3 .
++and finally output
++\fBis3\fP.
+ .RE
+ .PP
+ Most initialization is done with
+@@ -1187,7 +1189,9 @@
+ and
+ .B is3
+ respectively.
+-These strings are output by the \fB@RESET@\fP program
++These strings are output
++by \fIreset\fP option of \fB@TPUT@\fP,
++or by the \fB@RESET@\fP program
+ (an alias of \fB@TSET@\fP),
+ which is used when the terminal gets into a wedged state.
+ Commands are normally placed in
+@@ -1202,7 +1206,7 @@
+ normally be part of
+ .BR is2 ,
+ but it causes an annoying glitch of the screen and is not normally
+-needed since the terminal is usually already in 80 column mode.
++needed since the terminal is usually already in 80-column mode.
+ .PP
+ The \fB@RESET@\fP program writes strings including
+ .BR iprog ,
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190706+/package/debian-mingw/changelog	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/package/debian-mingw/changelog	2019-07-13 20:42:44.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190706) unstable; urgency=low
++ncurses6 (6.1+20190713) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 06 Jul 2019 05:10:26 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 13 Jul 2019 16:42:44 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190706+/package/debian-mingw64/changelog	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/package/debian-mingw64/changelog	2019-07-13 20:42:44.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190706) unstable; urgency=low
++ncurses6 (6.1+20190713) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 06 Jul 2019 05:10:26 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 13 Jul 2019 16:42:44 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190706+/package/debian/changelog	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/package/debian/changelog	2019-07-13 20:42:44.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190706) unstable; urgency=low
++ncurses6 (6.1+20190713) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 06 Jul 2019 05:10:26 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 13 Jul 2019 16:42:44 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.339 
+--- ncurses-6.1-20190706+/package/mingw-ncurses.nsi	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/package/mingw-ncurses.nsi	2019-07-13 20:42:44.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.339 2019/07/06 09:10:26 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.340 2019/07/13 20:42:44 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0706"
++!define VERSION_MMDD  "0713"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190706+/package/mingw-ncurses.spec	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/package/mingw-ncurses.spec	2019-07-13 20:42:44.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190706
++Release: 20190713
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190706+/package/ncurses.spec	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/package/ncurses.spec	2019-07-13 20:42:44.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190706
++Release: 20190713
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190706+/package/ncursest.spec	2019-07-06 09:10:26.000000000 +0000
++++ ncurses-6.1-20190713/package/ncursest.spec	2019-07-13 20:42:44.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190706
++Release: 20190713
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: progs/reset_cmd.c
+Prereq:  1.17 
+--- ncurses-6.1-20190706+/progs/reset_cmd.c	2019-05-25 22:36:53.000000000 +0000
++++ ncurses-6.1-20190713/progs/reset_cmd.c	2019-07-13 21:35:13.000000000 +0000
+@@ -52,7 +52,7 @@
+ #include <sys/ptem.h>
+ #endif
+ 
+-MODULE_ID("$Id: reset_cmd.c,v 1.17 2019/05/25 22:36:53 tom Exp $")
++MODULE_ID("$Id: reset_cmd.c,v 1.18 2019/07/13 21:35:13 tom Exp $")
+ 
+ /*
+  * SCO defines TIOCGSIZE and the corresponding struct.  Other systems (SunOS,
+@@ -495,6 +495,9 @@
+ 				  ? reset_2string
+ 				  : init_2string);
+ 
++	if (VALID_STRING(clear_margins)) {
++	    need_flush |= sent_string(clear_margins);
++	} else
+ #if defined(set_lr_margin)
+ 	if (VALID_STRING(set_lr_margin)) {
+ 	    need_flush |= sent_string(TPARM_2(set_lr_margin, 0,
+@@ -509,10 +512,8 @@
+ 					      columns - 1));
+ 	} else
+ #endif
+-	    if (VALID_STRING(clear_margins)
+-		&& VALID_STRING(set_left_margin)
++	    if (VALID_STRING(set_left_margin)
+ 		&& VALID_STRING(set_right_margin)) {
+-	    need_flush |= sent_string(clear_margins);
+ 	    need_flush |= to_left_margin();
+ 	    need_flush |= sent_string(set_left_margin);
+ 	    if (VALID_STRING(parm_right_cursor)) {
+Index: test/padview.c
+Prereq:  1.13 
+--- ncurses-6.1-20190706+/test/padview.c	2019-01-21 19:47:07.000000000 +0000
++++ ncurses-6.1-20190713/test/padview.c	2019-07-13 20:41:47.000000000 +0000
+@@ -28,7 +28,7 @@
+ /*
+  * clone of view.c, using pads
+  *
+- * $Id: padview.c,v 1.13 2019/01/21 19:47:07 tom Exp $
++ * $Id: padview.c,v 1.14 2019/07/13 20:41:47 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -191,7 +191,7 @@
+ 	failed("cannot allocate pad workspace");
+     if (try_color) {
+ 	wattrset(my_pad, COLOR_PAIR(my_pair));
+-	wbkgd(my_pad, (chtype) COLOR_PAIR(my_pair));
++	wbkgd(my_pad, (chtype) (' ' | COLOR_PAIR(my_pair)));
+     }
+ 
+     /*
+@@ -347,18 +347,22 @@
+ 	nodelay(stdscr, TRUE);
+     idlok(stdscr, TRUE);	/* allow use of insert/delete line */
+ 
+-    my_pad = read_file(fname = argv[optind]);
+-
+     if (try_color) {
+ 	if (has_colors()) {
+ 	    start_color();
+ 	    init_pair(my_pair, COLOR_WHITE, COLOR_BLUE);
+-	    bkgd((chtype) COLOR_PAIR(my_pair));
++	    bkgd((chtype) (' ' | COLOR_PAIR(my_pair)));
+ 	} else {
+ 	    try_color = FALSE;
+ 	}
+     }
+ 
++    /*
++     * Do this after starting color, otherwise the pad's background will be
++     * uncolored after the ncurses 6.1.20181208 fixes.
++     */
++    my_pad = read_file(fname = argv[optind]);
++
+     my_row = 0;
+     while (!done) {
+ 	int n, c;

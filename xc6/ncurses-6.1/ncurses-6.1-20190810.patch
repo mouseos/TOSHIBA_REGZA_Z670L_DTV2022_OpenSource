@@ -1,0 +1,413 @@
+# ncurses 6.1 - patch 20190810 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190810.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sat Aug 10 23:58:30 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |    5 +++-
+# VERSION                          |    2 -
+# dist.mk                          |    4 +--
+# ncurses/base/lib_mouse.c         |    4 +--
+# ncurses/tinfo/lib_setup.c        |   33 +++++++++++++++++---------------
+# ncurses/tinfo/tinfo_driver.c     |   38 ++++++++++++++++++++++---------------
+# package/debian-mingw/changelog   |    4 +--
+# package/debian-mingw64/changelog |    4 +--
+# package/debian/changelog         |    4 +--
+# package/mingw-ncurses.nsi        |    4 +--
+# package/mingw-ncurses.spec       |    2 -
+# package/ncurses.spec             |    2 -
+# package/ncursest.spec            |    2 -
+# test/demo_menus.c                |    5 +++-
+# test/ncurses.c                   |   12 +++++++++--
+# 15 files changed, 75 insertions(+), 50 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3359 
+--- ncurses-6.1-20190803+/NEWS	2019-08-03 22:31:47.000000000 +0000
++++ ncurses-6.1-20190810/NEWS	2019-08-10 19:05:52.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3359 2019/08/03 22:31:47 tom Exp $
++-- $Id: NEWS,v 1.3361 2019/08/10 19:05:52 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,9 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190810
++	+ fix a few more coverity warnings.
++
+ 20190803
+ 	+ improve loop limits in _nc_scroll_window() to handle a case where
+ 	  the scrolled data is a pad which is taller than the window (patch
+Index: VERSION
+--- ncurses-6.1-20190803+/VERSION	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/VERSION	2019-08-10 12:52:53.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190803
++5:0:10	6.1	20190810
+Index: dist.mk
+Prereq:  1.1299 
+--- ncurses-6.1-20190803+/dist.mk	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/dist.mk	2019-08-10 12:52:53.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1299 2019/08/03 13:57:42 tom Exp $
++# $Id: dist.mk,v 1.1300 2019/08/10 12:52:53 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190803
++NCURSES_PATCH = 20190810
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: ncurses/base/lib_mouse.c
+Prereq:  1.182 
+--- ncurses-6.1-20190803+/ncurses/base/lib_mouse.c	2019-07-20 20:42:43.000000000 +0000
++++ ncurses-6.1-20190810/ncurses/base/lib_mouse.c	2019-08-10 17:11:50.000000000 +0000
+@@ -84,7 +84,7 @@
+ #define CUR SP_TERMTYPE
+ #endif
+ 
+-MODULE_ID("$Id: lib_mouse.c,v 1.182 2019/07/20 20:42:43 tom Exp $")
++MODULE_ID("$Id: lib_mouse.c,v 1.183 2019/08/10 17:11:50 tom Exp $")
+ 
+ #include <tic.h>
+ 
+@@ -438,7 +438,7 @@
+ 
+ #if USE_WEAK_SYMBOLS
+     /* Danger Robinson: do not use dlopen for libgpm if already loaded */
+-    if ((Gpm_Wgetch)) {
++    if ((Gpm_Wgetch) != 0) {
+ 	if (!sp->_mouse_gpm_loaded) {
+ 	    T(("GPM library was already dlopen'd, not by us"));
+ 	}
+Index: ncurses/tinfo/lib_setup.c
+Prereq:  1.202 
+--- ncurses-6.1-20190803+/ncurses/tinfo/lib_setup.c	2019-07-28 19:33:40.000000000 +0000
++++ ncurses-6.1-20190810/ncurses/tinfo/lib_setup.c	2019-08-10 17:08:00.000000000 +0000
+@@ -48,7 +48,7 @@
+ #include <locale.h>
+ #endif
+ 
+-MODULE_ID("$Id: lib_setup.c,v 1.202 2019/07/28 19:33:40 tom Exp $")
++MODULE_ID("$Id: lib_setup.c,v 1.204 2019/08/10 17:08:00 tom Exp $")
+ 
+ /****************************************************************************
+  *
+@@ -446,23 +446,24 @@
+     int old_cols = columns;
+ #endif
+ 
+-    TINFO_GET_SIZE(sp, sp->_term, &new_lines, &new_cols);
+-
+-    /*
+-     * See is_term_resized() and resizeterm().
+-     * We're doing it this way because those functions belong to the upper
+-     * ncurses library, while this resides in the lower terminfo library.
+-     */
+-    if (sp != 0 && sp->_resize != 0) {
+-	if ((new_lines != old_lines) || (new_cols != old_cols)) {
+-	    sp->_resize(NCURSES_SP_ARGx new_lines, new_cols);
+-	} else if (sp->_sig_winch && (sp->_ungetch != 0)) {
+-	    sp->_ungetch(SP_PARM, KEY_RESIZE);	/* so application can know this */
++    if (sp != 0) {
++	TINFO_GET_SIZE(sp, sp->_term, &new_lines, &new_cols);
++	/*
++	 * See is_term_resized() and resizeterm().
++	 * We're doing it this way because those functions belong to the upper
++	 * ncurses library, while this resides in the lower terminfo library.
++	 */
++	if (sp->_resize != 0) {
++	    if ((new_lines != old_lines) || (new_cols != old_cols)) {
++		sp->_resize(NCURSES_SP_ARGx new_lines, new_cols);
++	    } else if (sp->_sig_winch && (sp->_ungetch != 0)) {
++		sp->_ungetch(SP_PARM, KEY_RESIZE);	/* so application can know this */
++	    }
++	    sp->_sig_winch = FALSE;
+ 	}
+-	sp->_sig_winch = FALSE;
+     }
+ }
+-#endif
++#endif /* USE_SIZECHANGE */
+ 
+ /****************************************************************************
+  *
+@@ -776,6 +777,8 @@
+ 	    } else if (status == TGETENT_NO) {
+ 		ret_error1(status, "unknown terminal type.\n",
+ 			   myname, free(myname));
++	    } else {
++		ret_error0(status, "unexpected return-code\n");
+ 	    }
+ 	}
+ #if NCURSES_EXT_NUMBERS
+Index: ncurses/tinfo/tinfo_driver.c
+Prereq:  1.64 
+--- ncurses-6.1-20190803+/ncurses/tinfo/tinfo_driver.c	2019-07-28 18:43:09.000000000 +0000
++++ ncurses-6.1-20190810/ncurses/tinfo/tinfo_driver.c	2019-08-10 18:36:08.000000000 +0000
+@@ -51,7 +51,7 @@
+ # endif
+ #endif
+ 
+-MODULE_ID("$Id: tinfo_driver.c,v 1.64 2019/07/28 18:43:09 tom Exp $")
++MODULE_ID("$Id: tinfo_driver.c,v 1.66 2019/08/10 18:36:08 tom Exp $")
+ 
+ /*
+  * SCO defines TIOCGSIZE and the corresponding struct.  Other systems (SunOS,
+@@ -188,6 +188,8 @@
+ 	} else if (status == TGETENT_NO) {
+ 	    ret_error1(status, "unknown terminal type.\n",
+ 		       tname, NO_COPY);
++	} else {
++	    ret_error0(status, "unexpected return-code\n");
+ 	}
+     }
+     result = TRUE;
+@@ -1340,23 +1342,29 @@
+ 	unsigned ch = (unsigned) c;
+ 	if (flag) {
+ 	    while ((s = _nc_expand_try(sp->_key_ok,
+-				       ch, &count, (size_t) 0)) != 0
+-		   && _nc_remove_key(&(sp->_key_ok), ch)) {
+-		code = _nc_add_to_try(&(sp->_keytry), s, ch);
+-		free(s);
+-		count = 0;
+-		if (code != OK)
+-		    break;
++				       ch, &count, (size_t) 0)) != 0) {
++		if (_nc_remove_key(&(sp->_key_ok), ch)) {
++		    code = _nc_add_to_try(&(sp->_keytry), s, ch);
++		    free(s);
++		    count = 0;
++		    if (code != OK)
++			break;
++		} else {
++		    free(s);
++		}
+ 	    }
+ 	} else {
+ 	    while ((s = _nc_expand_try(sp->_keytry,
+-				       ch, &count, (size_t) 0)) != 0
+-		   && _nc_remove_key(&(sp->_keytry), ch)) {
+-		code = _nc_add_to_try(&(sp->_key_ok), s, ch);
+-		free(s);
+-		count = 0;
+-		if (code != OK)
+-		    break;
++				       ch, &count, (size_t) 0)) != 0) {
++		if (_nc_remove_key(&(sp->_keytry), ch)) {
++		    code = _nc_add_to_try(&(sp->_key_ok), s, ch);
++		    free(s);
++		    count = 0;
++		    if (code != OK)
++			break;
++		} else {
++		    free(s);
++		}
+ 	    }
+ 	}
+     }
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190803+/package/debian-mingw/changelog	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/package/debian-mingw/changelog	2019-08-10 12:52:53.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190803) unstable; urgency=low
++ncurses6 (6.1+20190810) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 03 Aug 2019 09:57:42 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 10 Aug 2019 08:52:53 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190803+/package/debian-mingw64/changelog	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/package/debian-mingw64/changelog	2019-08-10 12:52:53.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190803) unstable; urgency=low
++ncurses6 (6.1+20190810) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 03 Aug 2019 09:57:42 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 10 Aug 2019 08:52:53 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190803+/package/debian/changelog	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/package/debian/changelog	2019-08-10 12:52:53.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190803) unstable; urgency=low
++ncurses6 (6.1+20190810) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 03 Aug 2019 09:57:42 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 10 Aug 2019 08:52:53 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.345 
+--- ncurses-6.1-20190803+/package/mingw-ncurses.nsi	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/package/mingw-ncurses.nsi	2019-08-10 12:52:53.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.345 2019/08/03 13:57:42 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.346 2019/08/10 12:52:53 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0803"
++!define VERSION_MMDD  "0810"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190803+/package/mingw-ncurses.spec	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/package/mingw-ncurses.spec	2019-08-10 12:52:53.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190803
++Release: 20190810
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190803+/package/ncurses.spec	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/package/ncurses.spec	2019-08-10 12:52:53.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190803
++Release: 20190810
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190803+/package/ncursest.spec	2019-08-03 13:57:42.000000000 +0000
++++ ncurses-6.1-20190810/package/ncursest.spec	2019-08-10 12:52:53.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190803
++Release: 20190810
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: test/demo_menus.c
+Prereq:  1.66 
+--- ncurses-6.1-20190803+/test/demo_menus.c	2019-04-06 20:42:48.000000000 +0000
++++ ncurses-6.1-20190810/test/demo_menus.c	2019-08-10 19:25:27.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_menus.c,v 1.66 2019/04/06 20:42:48 tom Exp $
++ * $Id: demo_menus.c,v 1.67 2019/08/10 19:25:27 tom Exp $
+  *
+  * Demonstrate a variety of functions from the menu library.
+  * Thomas Dickey - 2005/4/9
+@@ -110,6 +110,8 @@
+ static bool loaded_file = FALSE;
+ 
+ static char empty[1];
++
++#ifdef TRACE
+ static void failed(const char *s) GCC_NORETURN;
+ 
+ static void
+@@ -119,6 +121,7 @@
+     endwin();
+     ExitProgram(EXIT_FAILURE);
+ }
++#endif
+ 
+ /* Common function to allow ^T to toggle trace-mode in the middle of a test
+  * so that trace-files can be made smaller.
+Index: test/ncurses.c
+Prereq:  1.515 
+--- ncurses-6.1-20190803+/test/ncurses.c	2019-04-20 20:34:11.000000000 +0000
++++ ncurses-6.1-20190810/test/ncurses.c	2019-08-10 19:38:41.000000000 +0000
+@@ -40,7 +40,7 @@
+    Author: Eric S. Raymond <esr@snark.thyrsus.com> 1993
+            Thomas E. Dickey (beginning revision 1.27 in 1996).
+ 
+-$Id: ncurses.c,v 1.515 2019/04/20 20:34:11 tom Exp $
++$Id: ncurses.c,v 1.516 2019/08/10 19:38:41 tom Exp $
+ 
+ ***************************************************************************/
+ 
+@@ -7876,11 +7876,15 @@
+ {
+     int c;
+     int my_e_param = 1;
++#ifdef NCURSES_VERSION_PATCH
+ #if HAVE_USE_DEFAULT_COLORS
+     int default_fg = COLOR_WHITE;
+     int default_bg = COLOR_BLACK;
+-    bool assumed_colors = FALSE;
+     bool default_colors = FALSE;
++#if HAVE_ASSUME_DEFAULT_COLORS
++    bool assumed_colors = FALSE;
++#endif
++#endif
+ #endif
+     bool monochrome = FALSE;
+ #if HAVE_COLOR_CONTENT
+@@ -7892,7 +7896,9 @@
+ 
+     while ((c = getopt(argc, argv, "a:dEe:fhmp:s:Tt:x")) != -1) {
+ 	switch (c) {
++#ifdef NCURSES_VERSION_PATCH
+ #if HAVE_USE_DEFAULT_COLORS
++#if HAVE_ASSUME_DEFAULT_COLORS
+ 	case 'a':
+ 	    assumed_colors = TRUE;
+ 	    switch (sscanf(optarg, "%d,%d", &default_fg, &default_bg)) {
+@@ -7904,10 +7910,12 @@
+ 		break;
+ 	    }
+ 	    break;
++#endif
+ 	case 'd':
+ 	    default_colors = TRUE;
+ 	    break;
+ #endif
++#endif
+ #if HAVE_USE_ENV
+ 	case 'E':
+ 	    use_env(FALSE);

@@ -1,0 +1,5 @@
+0001-networking-libiproute-use-linux-if_packet.h-instead-.patch
+0002-Makefile.flags-strip-non-l-arguments-returned-by-pkg.patch
+0001-add-memlog.patch
+0001-microcom-change-exit-code-from-X-to.patch
+0002-tail-change-the-default-sleep-period-of-follow-from-.patch

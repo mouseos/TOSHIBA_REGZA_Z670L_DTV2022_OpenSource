@@ -1,0 +1,3 @@
+0001-mdrestore-do-not-do-dynamic-linking-of-libtool-libra.patch
+0002-libxfs-do-not-try-to-run-the-crc32selftest.patch
+0001-add-typedef-of-__kernel_long_t.patch

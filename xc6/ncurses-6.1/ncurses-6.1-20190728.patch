@@ -1,0 +1,1319 @@
+# ncurses 6.1 - patch 20190728 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190728.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Mon Jul 29 00:58:02 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |    6 ++
+# VERSION                          |    2 
+# c++/cursesapp.cc                 |    6 +-
+# c++/cursesapp.h                  |    6 +-
+# c++/cursesf.cc                   |    8 +--
+# c++/cursesf.h                    |   12 ++---
+# c++/cursesm.cc                   |   10 ++--
+# c++/cursesm.h                    |   14 +++---
+# c++/cursesp.cc                   |    6 +-
+# c++/cursesp.h                    |    8 +--
+# c++/cursesw.cc                   |    6 +-
+# c++/cursesw.h                    |   10 ++--
+# c++/cursslk.cc                   |    6 +-
+# c++/cursslk.h                    |    6 +-
+# c++/demo.cc                      |   10 ++--
+# dist.mk                          |    4 -
+# doc/hackguide.doc                |   45 ++++++++++-----------
+# doc/html/hackguide.html          |   78 ++++++++++++++++++++-----------------
+# doc/html/ncurses-intro.html      |   32 ++++++++-------
+# doc/ncurses-intro.doc            |   17 ++++----
+# ncurses/curses.priv.h            |   16 ++++---
+# ncurses/tinfo/MKuserdefs.sh      |    8 ++-
+# ncurses/tinfo/lib_setup.c        |   28 ++++++++-----
+# ncurses/tinfo/tinfo_driver.c     |   18 +++++---
+# package/debian-mingw/changelog   |    4 -
+# package/debian-mingw64/changelog |    4 -
+# package/debian/changelog         |    4 -
+# package/mingw-ncurses.nsi        |    4 -
+# package/mingw-ncurses.spec       |    2 
+# package/ncurses.spec             |    2 
+# package/ncursest.spec            |    2 
+# progs/tput.c                     |    6 +-
+# test/test_sgr.c                  |    3 -
+# 33 files changed, 214 insertions(+), 179 deletions(-)
+# ------------------------------------------------------------------------------
+# Please remove the following file before applying this patch.
+# (You can feed this patch to 'sh' to do so.)
+
+rm -f progs/ktrace.out
+exit
+
+Index: NEWS
+Prereq:  1.3354 
+--- ncurses-6.1-20190727+/NEWS	2019-07-27 22:45:29.000000000 +0000
++++ ncurses-6.1-20190728/NEWS	2019-07-28 18:49:10.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3354 2019/07/27 22:45:29 tom Exp $
++-- $Id: NEWS,v 1.3356 2019/07/28 18:49:10 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,10 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190728
++	+ fix a few more coverity warnings.
++	+ more documentation updates based on tctest.
++
+ 20190727
+ 	+ fix a few coverity warnings.
+ 	+ documentation updates based on tctest.
+Index: VERSION
+--- ncurses-6.1-20190727+/VERSION	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/VERSION	2019-07-28 10:39:10.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190727
++5:0:10	6.1	20190728
+Index: c++/cursesapp.cc
+Prereq:  1.15 
+--- ncurses-6.1-20190727+/c++/cursesapp.cc	2008-08-16 17:15:35.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesapp.cc	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2008,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -35,7 +35,7 @@
+ #include "internal.h"
+ #include "cursesapp.h"
+ 
+-MODULE_ID("$Id: cursesapp.cc,v 1.15 2008/08/16 17:15:35 tom Exp $")
++MODULE_ID("$Id: cursesapp.cc,v 1.16 2019/07/28 19:55:27 tom Exp $")
+ 
+ void
+ NCursesApplication::init(bool bColors)
+@@ -68,7 +68,7 @@
+ NCursesWindow* NCursesApplication::titleWindow = 0;
+ NCursesApplication::SLK_Link* NCursesApplication::slk_stack = 0;
+ 
+-NCursesApplication::~NCursesApplication()
++NCursesApplication::~NCursesApplication() THROWS(NCursesException)
+ {
+   Soft_Label_Key_Set* S;
+ 
+Index: c++/cursesapp.h
+Prereq:  1.12 
+--- ncurses-6.1-20190727+/c++/cursesapp.h	2011-09-17 22:12:10.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesapp.h	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2005,2011 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2011,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -31,7 +31,7 @@
+  *   Author: Juergen Pfeifer, 1997                                          *
+  ****************************************************************************/
+ 
+-// $Id: cursesapp.h,v 1.12 2011/09/17 22:12:10 tom Exp $
++// $Id: cursesapp.h,v 1.13 2019/07/28 19:55:27 tom Exp $
+ 
+ #ifndef NCURSES_CURSESAPP_H_incl
+ #define NCURSES_CURSESAPP_H_incl
+@@ -106,7 +106,7 @@
+   }
+ 
+ public:
+-  virtual ~NCursesApplication();
++  virtual ~NCursesApplication() THROWS(NCursesException);
+ 
+   // Get a pointer to the current application object
+   static NCursesApplication* getApplication() {
+Index: c++/cursesf.cc
+Prereq:  1.22 
+--- ncurses-6.1-20190727+/c++/cursesf.cc	2011-09-17 22:12:10.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesf.cc	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2005,2011 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2011,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -35,9 +35,9 @@
+ #include "cursesf.h"
+ #include "cursesapp.h"
+ 
+-MODULE_ID("$Id: cursesf.cc,v 1.22 2011/09/17 22:12:10 tom Exp $")
++MODULE_ID("$Id: cursesf.cc,v 1.23 2019/07/28 19:55:27 tom Exp $")
+ 
+-NCursesFormField::~NCursesFormField ()
++NCursesFormField::~NCursesFormField () THROWS(NCursesException)
+ {
+   if (field)
+     OnError(::free_field (field));
+@@ -149,7 +149,7 @@
+   setDefaultAttributes();
+ }
+ 
+-NCursesForm::~NCursesForm()
++NCursesForm::~NCursesForm() THROWS(NCursesException)
+ {
+   UserHook* hook = reinterpret_cast<UserHook*>(::form_userptr(form));
+   delete hook;
+Index: c++/cursesf.h
+Prereq:  1.32 
+--- ncurses-6.1-20190727+/c++/cursesf.h	2014-08-09 22:06:11.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesf.h	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2012,2014 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2014,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -31,7 +31,7 @@
+  *   Author: Juergen Pfeifer, 1997                                          *
+  ****************************************************************************/
+ 
+-// $Id: cursesf.h,v 1.32 2014/08/09 22:06:11 Adam.Jiang Exp $
++// $Id: cursesf.h,v 1.33 2019/07/28 19:55:27 tom Exp $
+ 
+ #ifndef NCURSES_CURSESF_H_incl
+ #define NCURSES_CURSESF_H_incl 1
+@@ -151,7 +151,7 @@
+   {
+   }
+ 
+-  virtual ~NCursesFormField ();
++  virtual ~NCursesFormField () THROWS(NCursesException);
+ 
+   // Duplicate the field at a new position
+   inline NCursesFormField* dup(int first_row, int first_col)
+@@ -470,7 +470,7 @@
+   {
+   }
+ 
+-  virtual ~NCursesForm();
++  virtual ~NCursesForm() THROWS(NCursesException);
+ 
+   // Set the default attributes for the form
+   virtual void setDefaultAttributes();
+@@ -645,7 +645,7 @@
+ 	OnError(::set_field_userptr(field, STATIC_CAST(void *)(p_UserData)));
+   }
+ 
+-  virtual ~NCursesUserField() {};
++  virtual ~NCursesUserField() THROWS(NCursesException) {};
+ 
+   inline const T* UserData (void) const {
+     return reinterpret_cast<const T*>(::field_userptr (field));
+@@ -702,7 +702,7 @@
+ 				     (p_UserData)));
+   };
+ 
+-  virtual ~NCursesUserForm() {
++  virtual ~NCursesUserForm() THROWS(NCursesException) {
+   };
+ 
+   inline T* UserData (void) {
+Index: c++/cursesm.cc
+Prereq:  1.24 
+--- ncurses-6.1-20190727+/c++/cursesm.cc	2017-06-26 08:32:53.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesm.cc	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2011,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -35,9 +35,9 @@
+ #include "cursesm.h"
+ #include "cursesapp.h"
+ 
+-MODULE_ID("$Id: cursesm.cc,v 1.24 2017/06/26 08:32:53 tom Exp $")
++MODULE_ID("$Id: cursesm.cc,v 1.25 2019/07/28 19:55:27 tom Exp $")
+ 
+-NCursesMenuItem::~NCursesMenuItem()
++NCursesMenuItem::~NCursesMenuItem() THROWS(NCursesException)
+ {
+   if (item)
+     OnError(::free_item(item));
+@@ -49,7 +49,7 @@
+   return FALSE;
+ }
+ 
+-NCursesMenuCallbackItem::~NCursesMenuCallbackItem()
++NCursesMenuCallbackItem::~NCursesMenuCallbackItem() THROWS(NCursesException)
+ {
+ }
+ 
+@@ -175,7 +175,7 @@
+   }
+ }
+ 
+-NCursesMenu::~NCursesMenu()
++NCursesMenu::~NCursesMenu() THROWS(NCursesException)
+ {
+   UserHook* hook = reinterpret_cast<UserHook*>(::menu_userptr(menu));
+   delete hook;
+Index: c++/cursesm.h
+Prereq:  1.30 
+--- ncurses-6.1-20190727+/c++/cursesm.h	2014-08-09 22:06:18.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesm.h	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2012,2014 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2014,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -31,7 +31,7 @@
+  *   Author: Juergen Pfeifer, 1997                                          *
+  ****************************************************************************/
+ 
+-// $Id: cursesm.h,v 1.30 2014/08/09 22:06:18 Adam.Jiang Exp $
++// $Id: cursesm.h,v 1.31 2019/07/28 19:55:27 tom Exp $
+ 
+ #ifndef NCURSES_CURSESM_H_incl
+ #define NCURSES_CURSESM_H_incl 1
+@@ -85,7 +85,7 @@
+     (void) rhs;
+   }
+ 
+-  virtual ~NCursesMenuItem ();
++  virtual ~NCursesMenuItem () THROWS(NCursesException);
+   // Release the items memory
+ 
+   inline const char* name () const {
+@@ -179,7 +179,7 @@
+   {
+   }
+ 
+-  virtual ~NCursesMenuCallbackItem();
++  virtual ~NCursesMenuCallbackItem() THROWS(NCursesException);
+ 
+   bool action();
+ };
+@@ -332,7 +332,7 @@
+   {
+   }
+ 
+-  virtual ~NCursesMenu ();
++  virtual ~NCursesMenu () THROWS(NCursesException);
+ 
+   // Retrieve the menus subwindow
+   inline NCursesWindow& subWindow() const {
+@@ -606,7 +606,7 @@
+ 	OnError (::set_item_userptr (item, const_cast<void *>(reinterpret_cast<const void*>(p_UserData))));
+   }
+ 
+-  virtual ~NCursesUserItem() {}
++  virtual ~NCursesUserItem() THROWS(NCursesException) {}
+ 
+   inline const T* UserData (void) const {
+     return reinterpret_cast<const T*>(::item_userptr (item));
+@@ -657,7 +657,7 @@
+ 	set_user (const_cast<void *>(reinterpret_cast<const void*>(p_UserData)));
+   };
+ 
+-  virtual ~NCursesUserMenu() {
++  virtual ~NCursesUserMenu() THROWS(NCursesException) {
+   };
+ 
+   inline T* UserData (void) {
+Index: c++/cursesp.cc
+Prereq:  1.25 
+--- ncurses-6.1-20190727+/c++/cursesp.cc	2005-08-06 22:12:36.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesp.cc	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2003,2005 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2005,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -34,7 +34,7 @@
+ #include "internal.h"
+ #include "cursesp.h"
+ 
+-MODULE_ID("$Id: cursesp.cc,v 1.25 2005/08/06 22:12:36 tom Exp $")
++MODULE_ID("$Id: cursesp.cc,v 1.26 2019/07/28 19:55:27 tom Exp $")
+ 
+ NCursesPanel* NCursesPanel::dummy = static_cast<NCursesPanel*>(0);
+ 
+@@ -51,7 +51,7 @@
+   ::set_panel_userptr(p, reinterpret_cast<void *>(hook));
+ }
+ 
+-NCursesPanel::~NCursesPanel()
++NCursesPanel::~NCursesPanel() THROWS(NCursesException)
+ {
+   UserHook* hook = UserPointer();
+   assert(hook != 0 && hook->m_back==this && hook->m_owner==p);
+Index: c++/cursesp.h
+Prereq:  1.31 
+--- ncurses-6.1-20190727+/c++/cursesp.h	2014-08-09 22:06:26.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesp.h	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2012,2014 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2014,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -34,7 +34,7 @@
+ #ifndef NCURSES_CURSESP_H_incl
+ #define NCURSES_CURSESP_H_incl 1
+ 
+-// $Id: cursesp.h,v 1.31 2014/08/09 22:06:26 Adam.Jiang Exp $
++// $Id: cursesp.h,v 1.32 2019/07/28 19:55:27 tom Exp $
+ 
+ #include <cursesw.h>
+ 
+@@ -131,7 +131,7 @@
+   {
+   }
+ 
+-  virtual ~NCursesPanel();
++  virtual ~NCursesPanel() THROWS(NCursesException);
+ 
+   // basic manipulation
+   inline void hide()
+@@ -250,7 +250,7 @@
+   // This creates an user panel associated with the ::stdscr and user data
+   // pointed to by p_UserData.
+ 
+-  virtual ~NCursesUserPanel() {};
++  virtual ~NCursesUserPanel() THROWS(NCursesException) {};
+ 
+   T* UserData (void)
+   {
+Index: c++/cursesw.cc
+Prereq:  1.54 
+--- ncurses-6.1-20190727+/c++/cursesw.cc	2014-02-01 22:10:42.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesw.cc	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 2007-2012,2014 Free Software Foundation, Inc.              *
++ * Copyright (c) 2007-2014,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -42,7 +42,7 @@
+ #include "internal.h"
+ #include "cursesw.h"
+ 
+-MODULE_ID("$Id: cursesw.cc,v 1.54 2014/02/01 22:10:42 tom Exp $")
++MODULE_ID("$Id: cursesw.cc,v 1.55 2019/07/28 19:55:27 tom Exp $")
+ 
+ #define COLORS_NEED_INITIALIZATION  -1
+ #define COLORS_NOT_INITIALIZED       0
+@@ -344,7 +344,7 @@
+ }
+ 
+ 
+-NCursesWindow::~NCursesWindow()
++NCursesWindow::~NCursesWindow() THROWS(NCursesException)
+ {
+     kill_subwindows();
+ 
+Index: c++/cursesw.h
+Prereq:  1.53 
+--- ncurses-6.1-20190727+/c++/cursesw.h	2017-11-21 00:37:23.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursesw.h	2019-07-28 19:55:27.000000000 +0000
+@@ -1,7 +1,7 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ // vile:cppmode
+ /****************************************************************************
+- * Copyright (c) 1998-2014,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -31,7 +31,7 @@
+ #ifndef NCURSES_CURSESW_H_incl
+ #define NCURSES_CURSESW_H_incl 1
+ 
+-// $Id: cursesw.h,v 1.53 2017/11/21 00:37:23 tom Exp $
++// $Id: cursesw.h,v 1.54 2019/07/28 19:55:27 tom Exp $
+ 
+ extern "C" {
+ #  include   <curses.h>
+@@ -837,7 +837,7 @@
+   {
+   }
+ 
+-  virtual ~NCursesWindow();
++  virtual ~NCursesWindow() THROWS(NCursesException);
+ 
+   NCursesWindow Clone();
+   // Make an exact copy of the window.
+@@ -1485,7 +1485,7 @@
+   {
+   }
+ 
+-  virtual ~NCursesPad() {}
++  virtual ~NCursesPad() THROWS(NCursesException) {}
+ 
+   int echochar(const chtype ch) { return ::pechochar(w, ch); }
+   // Put the attributed character onto the pad and immediately do a
+@@ -1546,7 +1546,7 @@
+   }
+   // Construct the FramedPad with the given Window win as viewport.
+ 
+-  virtual ~NCursesFramedPad() {
++  virtual ~NCursesFramedPad() THROWS(NCursesException) {
+     delete getSubWindow();
+   }
+ 
+Index: c++/cursslk.cc
+Prereq:  1.16 
+--- ncurses-6.1-20190727+/c++/cursslk.cc	2012-02-23 10:41:56.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursslk.cc	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2005,2012 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2012,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -35,7 +35,7 @@
+ #include "cursslk.h"
+ #include "cursesapp.h"
+ 
+-MODULE_ID("$Id: cursslk.cc,v 1.16 2012/02/23 10:41:56 tom Exp $")
++MODULE_ID("$Id: cursslk.cc,v 1.17 2019/07/28 19:55:27 tom Exp $")
+ 
+ Soft_Label_Key_Set::Soft_Label_Key&
+   Soft_Label_Key_Set::Soft_Label_Key::operator=(char *text)
+@@ -88,7 +88,7 @@
+   init();
+ }
+ 
+-Soft_Label_Key_Set::~Soft_Label_Key_Set() {
++Soft_Label_Key_Set::~Soft_Label_Key_Set() THROWS(NCursesException) {
+   if (!::isendwin())
+     clear();
+   delete[] slk_array;
+Index: c++/cursslk.h
+Prereq:  1.13 
+--- ncurses-6.1-20190727+/c++/cursslk.h	2005-05-28 21:58:18.000000000 +0000
++++ ncurses-6.1-20190728/c++/cursslk.h	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2003,2005 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2005,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -31,7 +31,7 @@
+  *   Author: Juergen Pfeifer, 1997                                          *
+  ****************************************************************************/
+ 
+-// $Id: cursslk.h,v 1.13 2005/05/28 21:58:18 tom Exp $
++// $Id: cursslk.h,v 1.14 2019/07/28 19:55:27 tom Exp $
+ 
+ #ifndef NCURSES_CURSSLK_H_incl
+ #define NCURSES_CURSSLK_H_incl
+@@ -161,7 +161,7 @@
+     init();		// allocate a new slk_array[]
+   }
+ 
+-  virtual ~Soft_Label_Key_Set();
++  virtual ~Soft_Label_Key_Set() THROWS(NCursesException);
+ 
+   // Get Label# i. Label counting starts with 1!
+   NCURSES_IMPEXP Soft_Label_Key& operator[](int i);
+Index: c++/demo.cc
+Prereq:  1.43 
+--- ncurses-6.1-20190727+/c++/demo.cc	2018-06-24 00:07:22.000000000 +0000
++++ ncurses-6.1-20190728/c++/demo.cc	2019-07-28 19:55:27.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -35,7 +35,7 @@
+  *   Demo code for NCursesMenu and NCursesForm written by
+  *   Juergen Pfeifer
+  *
+- * $Id: demo.cc,v 1.43 2018/06/24 00:07:22 tom Exp $
++ * $Id: demo.cc,v 1.44 2019/07/28 19:55:27 tom Exp $
+  */
+ 
+ #include "internal.h"
+@@ -176,7 +176,7 @@
+     : NCursesUserItem<T>(p_name, static_cast<const char*>(0), p_UserData)
+   {}
+ 
+-  virtual ~MyAction() {}
++  virtual ~MyAction() THROWS(NCursesException) {}
+ 
+   bool action() {
+     SillyDemo a;
+@@ -295,7 +295,7 @@
+   {
+   }
+ 
+-  ~TestForm() {
++  ~TestForm() THROWS(NCursesException) {
+     delete mft;
+     delete ift;
+     delete eft;
+@@ -473,7 +473,7 @@
+   {
+   }
+ 
+-  ~MyMenu()
++  ~MyMenu() THROWS(NCursesException)
+   {
+     P->hide();
+     delete P;
+Index: dist.mk
+Prereq:  1.1297 
+--- ncurses-6.1-20190727+/dist.mk	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/dist.mk	2019-07-28 10:39:10.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1297 2019/07/26 23:10:14 tom Exp $
++# $Id: dist.mk,v 1.1298 2019/07/28 10:39:10 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190727
++NCURSES_PATCH = 20190728
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: doc/hackguide.doc
+--- ncurses-6.1-20190727+/doc/hackguide.doc	2017-05-06 18:13:38.000000000 +0000
++++ ncurses-6.1-20190728/doc/hackguide.doc	2019-07-28 18:09:46.000000000 +0000
+@@ -205,7 +205,7 @@
+        If  your bug produces a core-dump, please include a symbolic stack
+        trace generated by gdb(1) or your local equivalent.
+        Tell  us about every terminal on which you have reproduced the bug
+-       --  and  every  terminal  on  which  you  cannot. Ideally, sent us
++       --  and  every  terminal  on  which  you  cannot. Ideally, send us
+        terminfo sources for all of these (yours might differ from ours).
+        Include  your ncurses version and your OS/machine type, of course!
+        You can find your ncurses version in the curses.h file.
+@@ -352,10 +352,10 @@
+ 
+    Here are some more details about mouse event handling:
+ 
+-   The lib_mouse()code is logically split into a lower level that accepts
+-   event  reports  in  a  device-dependent format and an upper level that
+-   parses mouse gestures and filters events. The mediating data structure
+-   is a circular queue of event structures.
++   The  lib_mouse()  code  is  logically  split  into  a lower level that
++   accepts  event reports in a device-dependent format and an upper level
++   that  parses  mouse  gestures  and  filters events. The mediating data
++   structure is a circular queue of event structures.
+ 
+    Functionally, the lower level's job is to pick up primitive events and
+    put  them  on  the circular queue. This can happen in one of two ways:
+@@ -382,24 +382,23 @@
+    The  brains  of this operation are the modules hashmap.c, hardscroll.c
+    and  lib_doupdate.c; the latter two use lib_mvcur.c. Essentially, what
+    happens looks like this:
+-
+-   The  hashmap.c  module tries to detect vertical motion changes between
+-   the  real  and virtual screens. This information is represented by the
+-   oldindex  members  in  the  newscr  structure.  These  are modified by
+-   vertical-motion  and  clear  operations,  and  both are re-initialized
+-   after each update. To this change-journalling information, the hashmap
+-   code  adds  deductions  made using a modified Heckel algorithm on hash
+-   values generated from the line contents.
+-
+-   The  hardscroll.c module computes an optimum set of scroll, insertion,
+-   and   deletion   operations  to  make  the  indices  match.  It  calls
+-   _nc_mvcur_scrolln() in lib_mvcur.c to do those motions.
+-
+-   Then  lib_doupdate.c  goes  to  work.  Its  job  is to do line-by-line
+-   transformations  of curscr lines to newscr lines. Its main tool is the
+-   routine  mvcur()  in  lib_mvcur.c.  This  routine does cursor-movement
+-   optimization,  attempting to get from given screen location A to given
+-   location B in the fewest output characters possible.
++     * The  hashmap.c  module  tries  to  detect  vertical motion changes
++       between   the  real  and  virtual  screens.  This  information  is
++       represented by the oldindex members in the newscr structure. These
++       are modified by vertical-motion and clear operations, and both are
++       re-initialized  after  each  update.  To  this  change-journalling
++       information,  the  hashmap  code  adds  deductions  made  using  a
++       modified  Heckel  algorithm on hash values generated from the line
++       contents.
++     * The  hardscroll.c  module  computes  an  optimum  set  of  scroll,
++       insertion,  and  deletion operations to make the indices match. It
++       calls _nc_mvcur_scrolln() in lib_mvcur.c to do those motions.
++     * Then  lib_doupdate.c  goes  to work. Its job is to do line-by-line
++       transformations  of curscr lines to newscr lines. Its main tool is
++       the   routine   mvcur()   in   lib_mvcur.c.   This   routine  does
++       cursor-movement  optimization, attempting to get from given screen
++       location  A  to  given  location B in the fewest output characters
++       possible.
+ 
+    If  you  want to work on screen optimizations, you should use the fact
+    that  (in  the  trace-enabled  version  of  the  library) enabling the
+Index: doc/html/hackguide.html
+Prereq:  1.31 
+--- ncurses-6.1-20190727+/doc/html/hackguide.html	2019-03-16 19:39:05.000000000 +0000
++++ ncurses-6.1-20190728/doc/html/hackguide.html	2019-07-28 18:08:54.000000000 +0000
+@@ -1,5 +1,5 @@
+ <!--
+-  $Id: hackguide.html,v 1.31 2019/03/16 19:39:05 tom Exp $
++  $Id: hackguide.html,v 1.32 2019/07/28 18:08:54 tom Exp $
+   ****************************************************************************
+   * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+@@ -33,7 +33,7 @@
+ <html>
+ <head>
+   <meta name="generator" content=
+-  "HTML Tidy for Linux (vers 25 March 2009), see www.w3.org">
++  "HTML Tidy for HTML5 for Linux version 5.2.0">
+ 
+   <title>A Hacker's Guide to Ncurses Internals</title>
+   <link rel="author" href="mailto:bugs-ncurses@gnu.org">
+@@ -63,8 +63,7 @@
+       </ul>
+     </li>
+ 
+-    <li><a href="#portability">Portability and
+-    Configuration</a></li>
++    <li><a href="#portability">Portability and Configuration</a></li>
+ 
+     <li><a href="#documentation">Documentation Conventions</a></li>
+ 
+@@ -233,7 +232,8 @@
+     These have to be viewable through traditional <em>man(1)</em>
+     programs.</li>
+ 
+-    <li><strong>Write everything else in HTML.</strong></li>
++    <li><strong>Write everything else in HTML.</strong>
++    </li>
+   </ol>
+ 
+   <p>When in doubt, HTMLize a master and use <em>lynx(1)</em> to
+@@ -256,6 +256,7 @@
+   majordomo list; to join, write to
+   <code>bug-ncurses-request@gnu.org</code> with a message
+   containing the line:</p>
++
+   <pre>
+              subscribe &lt;name&gt;@&lt;host.domain&gt;
+ </pre>
+@@ -365,7 +366,7 @@
+ 
+       <p>Tell us about every terminal on which you have reproduced
+       the bug &mdash; and every terminal on which you cannot.
+-      Ideally, sent us terminfo sources for all of these (yours
++      Ideally, send us terminfo sources for all of these (yours
+       might differ from ours).</p>
+ 
+       <p>Include your ncurses version and your OS/machine type, of
+@@ -547,7 +548,7 @@
+ 
+   <p>Here are some more details about mouse event handling:</p>
+ 
+-  <p>The <code>lib_mouse()</code>code is logically split into a
++  <p>The <code>lib_mouse()</code> code is logically split into a
+   lower level that accepts event reports in a device-dependent
+   format and an upper level that parses mouse gestures and filters
+   events. The mediating data structure is a circular queue of event
+@@ -566,8 +567,7 @@
+   reports (low-level events) into a gesture (a high-level or
+   composite event).</p>
+ 
+-  <h3><a name="output" id="output">Output and Screen
+-  Updating</a></h3>
++  <h3><a name="output" id="output">Output and Screen Updating</a></h3>
+ 
+   <p>With the single exception of character echoes during a
+   <code>wgetnstr()</code> call (which simulates cooked-mode line
+@@ -585,27 +585,35 @@
+   <code>lib_mvcur.c</code>. Essentially, what happens looks like
+   this:</p>
+ 
+-  <p>The <code>hashmap.c</code> module tries to detect vertical
+-  motion changes between the real and virtual screens. This
+-  information is represented by the oldindex members in the newscr
+-  structure. These are modified by vertical-motion and clear
+-  operations, and both are re-initialized after each update. To
+-  this change-journalling information, the hashmap code adds
+-  deductions made using a modified Heckel algorithm on hash values
+-  generated from the line contents.</p>
+-
+-  <p>The <code>hardscroll.c</code> module computes an optimum set
+-  of scroll, insertion, and deletion operations to make the indices
+-  match. It calls <code>_nc_mvcur_scrolln()</code> in
+-  <code>lib_mvcur.c</code> to do those motions.</p>
+-
+-  <p>Then <code>lib_doupdate.c</code> goes to work. Its job is to
+-  do line-by-line transformations of <code>curscr</code> lines to
+-  <code>newscr</code> lines. Its main tool is the routine
+-  <code>mvcur()</code> in <code>lib_mvcur.c</code>. This routine
+-  does cursor-movement optimization, attempting to get from given
+-  screen location A to given location B in the fewest output
+-  characters possible.</p>
++  <ul>
++    <li>
++      <p>The <code>hashmap.c</code> module tries to detect vertical
++      motion changes between the real and virtual screens. This
++      information is represented by the oldindex members in the
++      newscr structure. These are modified by vertical-motion and
++      clear operations, and both are re-initialized after each
++      update. To this change-journalling information, the hashmap
++      code adds deductions made using a modified Heckel algorithm
++      on hash values generated from the line contents.</p>
++    </li>
++
++    <li>
++      <p>The <code>hardscroll.c</code> module computes an optimum
++      set of scroll, insertion, and deletion operations to make the
++      indices match. It calls <code>_nc_mvcur_scrolln()</code> in
++      <code>lib_mvcur.c</code> to do those motions.</p>
++    </li>
++
++    <li>
++      <p>Then <code>lib_doupdate.c</code> goes to work. Its job is
++      to do line-by-line transformations of <code>curscr</code>
++      lines to <code>newscr</code> lines. Its main tool is the
++      routine <code>mvcur()</code> in <code>lib_mvcur.c</code>.
++      This routine does cursor-movement optimization, attempting to
++      get from given screen location A to given location B in the
++      fewest output characters possible.</p>
++    </li>
++  </ul>
+ 
+   <p>If you want to work on screen optimizations, you should use
+   the fact that (in the trace-enabled version of the library)
+@@ -621,8 +629,7 @@
+   <code>include/curses.h.in</code> for mask values, near the
+   end.</p>
+ 
+-  <h1><a name="fmnote" id="fmnote">The Forms and Menu
+-  Libraries</a></h1>
++  <h1><a name="fmnote" id="fmnote">The Forms and Menu Libraries</a></h1>
+ 
+   <p>The forms and menu libraries should work reliably in any
+   environment you can port ncurses to. The only portability issue
+@@ -639,8 +646,7 @@
+   This version has been slightly cleaned up for
+   <code>ncurses</code>.</p>
+ 
+-  <h1><a name="tic" id="tic">A Tour of the Terminfo
+-  Compiler</a></h1>
++  <h1><a name="tic" id="tic">A Tour of the Terminfo Compiler</a></h1>
+ 
+   <p>The <strong>ncurses</strong> implementation of
+   <strong>tic</strong> is rather complex internally; it has to do a
+@@ -950,11 +956,13 @@
+ 
+     <dd>gettimeofday(), select().</dd>
+   </dl>
++
+   <hr>
+ 
+   <address>
+     Eric S. Raymond &lt;esr@snark.thyrsus.com&gt;
+-  </address>(Note: This is <em>not</em> the <a href="#bugtrack">bug
++  </address>
++  (Note: This is <em>not</em> the <a href="#bugtrack">bug
+   address</a>!)
+ </body>
+ </html>
+Index: doc/html/ncurses-intro.html
+Prereq:  1.51 
+--- ncurses-6.1-20190727+/doc/html/ncurses-intro.html	2019-07-27 11:47:10.000000000 +0000
++++ ncurses-6.1-20190728/doc/html/ncurses-intro.html	2019-07-28 16:53:26.000000000 +0000
+@@ -1,5 +1,5 @@
+ <!--
+-  $Id: ncurses-intro.html,v 1.51 2019/07/27 11:47:10 tom Exp $
++  $Id: ncurses-intro.html,v 1.53 2019/07/28 16:53:26 tom Exp $
+   ****************************************************************************
+   * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+@@ -352,28 +352,30 @@
+ 
+   <p>Historically, the first ancestor of <code>curses</code> was
+   the routines written to provide screen-handling for the
+-  <code>vi</code> editor; these used the already-existing
+-  <code>termcap</code> database facility for describing terminal
++  <code>vi</code> editor; these used the <code>termcap</code>
++  database facility (both released in 3BSD) for describing terminal
+   capabilities. These routines were abstracted into a documented
+   library and first released with the early BSD UNIX versions. All
+-  of this work was done by students at the University of
+-  California.</p>
++  of this work was done by students at the University of California
++  (Berkeley campus). The curses library was first published in
++  4.0BSD, a year after 3BSD (i.e., late 1980).</p>
+ 
+   <p>After graduation, one of those students went to work at
+   AT&amp;T Bell Labs, and made an improved <code>termcap</code>
+   library called <code>terminfo</code> (i.e.,
+-  &ldquo;libterm&rdquo;). That was subsequently released in System
+-  V Release 2. Thereafter, other developers added to the terminfo
+-  library. For instance, a student at Cornell University wrote an
+-  improved terminfo library as well as a tool (<code>tic</code>) to
+-  compile the terminal descriptions. As a general rule, AT&amp;T
+-  did not identify the developers in the source-code or
+-  documentation; the <code>tic</code> and <code>infocmp</code>
+-  programs are the exceptions.</p>
++  &ldquo;libterm&rdquo;), and adapted the curses library to use
++  this. That was subsequently released in System V Release 2 (early
++  1984). Thereafter, other developers added to the curses and
++  terminfo libraries. For instance, a student at Cornell University
++  wrote an improved terminfo library as well as a tool
++  (<code>tic</code>) to compile the terminal descriptions. As a
++  general rule, AT&amp;T did not identify the developers in the
++  source-code or documentation; the <code>tic</code> and
++  <code>infocmp</code> programs are the exceptions.</p>
+ 
+   <p>System V Release 3 (System III UNIX) from Bell Labs featured a
+-  rewritten and much-improved <code>curses</code> library,l along
+-  with the <code>tic</code> program.</p>
++  rewritten and much-improved <code>curses</code> library, along
++  with the <code>tic</code> program (late 1986).</p>
+ 
+   <p>To recap, terminfo is based on Berkeley's termcap database,
+   but contains a number of improvements and extensions.
+Index: doc/ncurses-intro.doc
+--- ncurses-6.1-20190727+/doc/ncurses-intro.doc	2019-07-27 11:47:44.000000000 +0000
++++ ncurses-6.1-20190728/doc/ncurses-intro.doc	2019-07-28 18:09:40.000000000 +0000
+@@ -132,16 +132,19 @@
+ A Brief History of Curses
+ 
+    Historically, the first ancestor of curses was the routines written to
+-   provide   screen-handling   for   the   vi   editor;  these  used  the
+-   already-existing  termcap  database  facility  for describing terminal
++   provide  screen-handling  for  the  vi  editor; these used the termcap
++   database  facility  (both  released  in  3BSD) for describing terminal
+    capabilities. These routines were abstracted into a documented library
+    and  first released with the early BSD UNIX versions. All of this work
+-   was done by students at the University of California.
++   was  done  by  students  at  the  University  of  California (Berkeley
++   campus).  The  curses  library  was  first published in 4.0BSD, a year
++   after 3BSD (i.e., late 1980).
+ 
+    After  graduation,  one  of  those  students went to work at AT&T Bell
+    Labs,  and  made  an  improved  termcap library called terminfo (i.e.,
+-   "libterm").  That  was  subsequently  released  in System V Release 2.
+-   Thereafter,  other  developers  added  to  the  terminfo  library. For
++   "libterm"),  and  adapted  the  curses  library  to use this. That was
++   subsequently  released in System V Release 2 (early 1984). Thereafter,
++   other  developers  added  to  the  curses  and terminfo libraries. For
+    instance,  a  student at Cornell University wrote an improved terminfo
+    library  as well as a tool (tic) to compile the terminal descriptions.
+    As  a  general  rule,  AT&T  did  not  identify  the developers in the
+@@ -149,8 +152,8 @@
+    exceptions.
+ 
+    System  V  Release  3  (System  III  UNIX)  from  Bell Labs featured a
+-   rewritten  and  much-improved  curses  library,l  along  with  the tic
+-   program.
++   rewritten and much-improved curses library, along with the tic program
++   (late 1986).
+ 
+    To  recap,  terminfo  is  based  on  Berkeley's  termcap database, but
+    contains  a  number  of  improvements  and  extensions.  Parameterized
+Index: ncurses/curses.priv.h
+Prereq:  1.624 
+--- ncurses-6.1-20190727+/ncurses/curses.priv.h	2019-06-23 15:20:49.000000000 +0000
++++ ncurses-6.1-20190728/ncurses/curses.priv.h	2019-07-28 18:32:05.000000000 +0000
+@@ -34,7 +34,7 @@
+  ****************************************************************************/
+ 
+ /*
+- * $Id: curses.priv.h,v 1.624 2019/06/23 15:20:49 tom Exp $
++ * $Id: curses.priv.h,v 1.625 2019/07/28 18:32:05 tom Exp $
+  *
+  *	curses.priv.h
+  *
+@@ -2178,18 +2178,20 @@
+ 
+ #define SETUP_FAIL ERR
+ 
+-#define ret_error(code, fmt, arg)	if (errret) {\
+-					    *errret = code;\
++#define ret_error(rc, fmt, p, q)	if (errret) {\
++					    *errret = rc;\
++					    q;\
+ 					    returnCode(SETUP_FAIL);\
+ 					} else {\
+-					    fprintf(stderr, fmt, arg);\
++					    fprintf(stderr, fmt, p);\
++					    q;\
+ 					    ExitTerminfo(EXIT_FAILURE);\
+ 					}
+ 
+-#define ret_error1(code, fmt, arg)	ret_error(code, "'%s': " fmt, arg)
++#define ret_error1(rc, fmt, p, q)	ret_error(rc, "'%s': " fmt, p, q)
+ 
+-#define ret_error0(code, msg)		if (errret) {\
+-					    *errret = code;\
++#define ret_error0(rc, msg)		if (errret) {\
++					    *errret = rc;\
+ 					    returnCode(SETUP_FAIL);\
+ 					} else {\
+ 					    fprintf(stderr, msg);\
+Index: ncurses/tinfo/MKuserdefs.sh
+Prereq:  1.8 
+--- ncurses-6.1-20190727+/ncurses/tinfo/MKuserdefs.sh	2019-03-17 00:46:17.000000000 +0000
++++ ncurses-6.1-20190728/ncurses/tinfo/MKuserdefs.sh	2019-07-28 19:12:18.000000000 +0000
+@@ -26,7 +26,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: MKuserdefs.sh,v 1.8 2019/03/17 00:46:17 tom Exp $
++# $Id: MKuserdefs.sh,v 1.9 2019/07/28 19:12:18 tom Exp $
+ AWK=${1-awk}; shift 1
+ OPT1=${1-0}; shift 1
+ 
+@@ -55,6 +55,8 @@
+ 
+ cat <<EOF
+ 
++#define USERTABSIZE SIZEOF(user_names_data)
++
+ #if $OPT1
+ static void
+ next_string(const char *strings, unsigned *offset)
+@@ -68,11 +70,11 @@
+ 		const char *strings)
+ {
+     if (*actual == 0) {
+-	*actual = typeCalloc(struct user_table_entry, CAPTABSIZE);
++	*actual = typeCalloc(struct user_table_entry, USERTABSIZE);
+ 	if (*actual != 0) {
+ 	    unsigned n;
+ 	    unsigned len = 0;
+-	    for (n = 0; n < CAPTABSIZE; ++n) {
++	    for (n = 0; n < USERTABSIZE; ++n) {
+ 		(*actual)[n].ute_name = strings + len;
+ 		(*actual)[n].ute_type = (int) source[n].ute_type;
+ 		(*actual)[n].ute_argc = source[n].ute_argc;
+Index: ncurses/tinfo/lib_setup.c
+Prereq:  1.200 
+--- ncurses-6.1-20190727+/ncurses/tinfo/lib_setup.c	2019-06-22 00:15:32.000000000 +0000
++++ ncurses-6.1-20190728/ncurses/tinfo/lib_setup.c	2019-07-28 19:33:40.000000000 +0000
+@@ -48,7 +48,7 @@
+ #include <locale.h>
+ #endif
+ 
+-MODULE_ID("$Id: lib_setup.c,v 1.200 2019/06/22 00:15:32 tom Exp $")
++MODULE_ID("$Id: lib_setup.c,v 1.202 2019/07/28 19:33:40 tom Exp $")
+ 
+ /****************************************************************************
+  *
+@@ -662,7 +662,8 @@
+     if (strlen(myname) > MAX_NAME_SIZE) {
+ 	ret_error(TGETENT_ERR,
+ 		  "TERM environment must be <= %d characters.\n",
+-		  MAX_NAME_SIZE);
++		  MAX_NAME_SIZE,
++		  free(myname));
+     }
+ 
+     T(("your terminal name is %s", myname));
+@@ -713,8 +714,9 @@
+ 	termp = typeCalloc(TERMINAL, 1);
+ #endif
+ 	if (termp == 0) {
+-	    ret_error0(TGETENT_ERR,
+-		       "Not enough memory to create terminal structure.\n");
++	    ret_error1(TGETENT_ERR,
++		       "Not enough memory to create terminal structure.\n",
++		       myname, free(myname));
+ 	}
+ #if HAVE_SYSCONF
+ 	{
+@@ -742,8 +744,9 @@
+ 	    termp->Filedes = (short) Filedes;
+ 	    termp->_termname = strdup(myname);
+ 	} else {
+-	    ret_error0(errret ? *errret : TGETENT_ERR,
+-		       "Could not find any driver to handle this terminal.\n");
++	    ret_error1(errret ? *errret : TGETENT_ERR,
++		       "Could not find any driver to handle terminal.\n",
++		       myname, free(myname));
+ 	}
+ #else
+ #if NCURSES_USE_DATABASE || NCURSES_USE_TERMCAP
+@@ -768,9 +771,11 @@
+ 	if (status != TGETENT_YES) {
+ 	    del_curterm(termp);
+ 	    if (status == TGETENT_ERR) {
++		free(myname);
+ 		ret_error0(status, "terminals database is inaccessible\n");
+ 	    } else if (status == TGETENT_NO) {
+-		ret_error1(status, "unknown terminal type.\n", myname);
++		ret_error1(status, "unknown terminal type.\n",
++			   myname, free(myname));
+ 	    }
+ 	}
+ #if NCURSES_EXT_NUMBERS
+@@ -828,13 +833,16 @@
+ 	if ((VALID_STRING(cursor_address)
+ 	     || (VALID_STRING(cursor_down) && VALID_STRING(cursor_home)))
+ 	    && VALID_STRING(clear_screen)) {
+-	    ret_error1(TGETENT_YES, "terminal is not really generic.\n", myname);
++	    ret_error1(TGETENT_YES, "terminal is not really generic.\n",
++		       myname, free(myname));
+ 	} else {
+ 	    del_curterm(termp);
+-	    ret_error1(TGETENT_NO, "I need something more specific.\n", myname);
++	    ret_error1(TGETENT_NO, "I need something more specific.\n",
++		       myname, free(myname));
+ 	}
+     } else if (hard_copy) {
+-	ret_error1(TGETENT_YES, "I can't handle hardcopy terminals.\n", myname);
++	ret_error1(TGETENT_YES, "I can't handle hardcopy terminals.\n",
++		   myname, free(myname));
+     }
+ #endif
+     free(myname);
+Index: ncurses/tinfo/tinfo_driver.c
+Prereq:  1.63 
+--- ncurses-6.1-20190727+/ncurses/tinfo/tinfo_driver.c	2018-11-24 22:17:03.000000000 +0000
++++ ncurses-6.1-20190728/ncurses/tinfo/tinfo_driver.c	2019-07-28 18:43:09.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2008-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 2008-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -51,7 +51,7 @@
+ # endif
+ #endif
+ 
+-MODULE_ID("$Id: tinfo_driver.c,v 1.63 2018/11/24 22:17:03 tom Exp $")
++MODULE_ID("$Id: tinfo_driver.c,v 1.64 2019/07/28 18:43:09 tom Exp $")
+ 
+ /*
+  * SCO defines TIOCGSIZE and the corresponding struct.  Other systems (SunOS,
+@@ -144,6 +144,8 @@
+ #undef SETUP_FAIL
+ #define SETUP_FAIL FALSE
+ 
++#define NO_COPY {}
++
+ static bool
+ drv_CanHandle(TERMINAL_CONTROL_BLOCK * TCB, const char *tname, int *errret)
+ {
+@@ -184,7 +186,8 @@
+ 	if (status == TGETENT_ERR) {
+ 	    ret_error0(status, "terminals database is inaccessible\n");
+ 	} else if (status == TGETENT_NO) {
+-	    ret_error1(status, "unknown terminal type.\n", tname);
++	    ret_error1(status, "unknown terminal type.\n",
++		       tname, NO_COPY);
+ 	}
+     }
+     result = TRUE;
+@@ -225,15 +228,18 @@
+ 	     || (VALID_STRING(cursor_down) && VALID_STRING(cursor_home)))
+ 	    && VALID_STRING(clear_screen)) {
+ 	    cleanup_termtype();
+-	    ret_error1(TGETENT_YES, "terminal is not really generic.\n", tname);
++	    ret_error1(TGETENT_YES, "terminal is not really generic.\n",
++		       tname, NO_COPY);
+ 	} else {
+ 	    cleanup_termtype();
+-	    ret_error1(TGETENT_NO, "I need something more specific.\n", tname);
++	    ret_error1(TGETENT_NO, "I need something more specific.\n",
++		       tname, NO_COPY);
+ 	}
+     }
+     if (hard_copy) {
+ 	cleanup_termtype();
+-	ret_error1(TGETENT_YES, "I can't handle hardcopy terminals.\n", tname);
++	ret_error1(TGETENT_YES, "I can't handle hardcopy terminals.\n",
++		   tname, NO_COPY);
+     }
+ 
+     returnBool(result);
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190727+/package/debian-mingw/changelog	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/package/debian-mingw/changelog	2019-07-28 10:39:10.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190727) unstable; urgency=low
++ncurses6 (6.1+20190728) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 26 Jul 2019 19:10:14 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 28 Jul 2019 06:39:10 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190727+/package/debian-mingw64/changelog	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/package/debian-mingw64/changelog	2019-07-28 10:39:10.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190727) unstable; urgency=low
++ncurses6 (6.1+20190728) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 26 Jul 2019 19:10:14 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 28 Jul 2019 06:39:10 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190727+/package/debian/changelog	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/package/debian/changelog	2019-07-28 10:39:10.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190727) unstable; urgency=low
++ncurses6 (6.1+20190728) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 26 Jul 2019 19:10:14 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 28 Jul 2019 06:39:10 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.343 
+--- ncurses-6.1-20190727+/package/mingw-ncurses.nsi	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/package/mingw-ncurses.nsi	2019-07-28 10:39:10.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.343 2019/07/26 23:10:14 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.344 2019/07/28 10:39:10 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0727"
++!define VERSION_MMDD  "0728"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190727+/package/mingw-ncurses.spec	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/package/mingw-ncurses.spec	2019-07-28 10:39:10.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190727
++Release: 20190728
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190727+/package/ncurses.spec	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/package/ncurses.spec	2019-07-28 10:39:10.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190727
++Release: 20190728
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190727+/package/ncursest.spec	2019-07-26 23:10:14.000000000 +0000
++++ ncurses-6.1-20190728/package/ncursest.spec	2019-07-28 10:39:10.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190727
++Release: 20190728
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: progs/tput.c
+Prereq:  1.79 
+--- ncurses-6.1-20190727+/progs/tput.c	2018-06-30 15:56:01.000000000 +0000
++++ ncurses-6.1-20190728/progs/tput.c	2019-07-28 18:18:41.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -50,7 +50,7 @@
+ #include <transform.h>
+ #include <tty_settings.h>
+ 
+-MODULE_ID("$Id: tput.c,v 1.79 2018/06/30 15:56:01 Nicholas.Marriott Exp $")
++MODULE_ID("$Id: tput.c,v 1.80 2019/07/28 18:18:41 tom Exp $")
+ 
+ #define PUTS(s)		fputs(s, stdout)
+ 
+@@ -230,7 +230,7 @@
+ 	     * representations
+ 	     */
+ 
+-	    for (k = 1; k < argc; k++) {
++	    for (k = 1; (k < argc) && (k < NUM_PARM); k++) {
+ 		char *tmp = 0;
+ 		strings[k] = argv[k];
+ 		numbers[k] = strtol(argv[k], &tmp, 0);
+Index: test/test_sgr.c
+Prereq:  1.12 
+--- ncurses-6.1-20190727+/test/test_sgr.c	2019-06-22 00:20:06.000000000 +0000
++++ ncurses-6.1-20190728/test/test_sgr.c	2019-07-28 18:13:39.000000000 +0000
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey
+  *
+- * $Id: test_sgr.c,v 1.12 2019/06/22 00:20:06 tom Exp $
++ * $Id: test_sgr.c,v 1.13 2019/07/28 18:13:39 tom Exp $
+  *
+  * A simple demo of the sgr/sgr0 terminal capabilities.
+  */
+@@ -299,6 +299,7 @@
+ 	    free(values[count]);
+ 	}
+     }
++    free(my_name);
+     del_curterm(cur_term);
+ }
+ 

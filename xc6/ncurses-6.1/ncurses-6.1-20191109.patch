@@ -1,0 +1,482 @@
+# ncurses 6.1 - patch 20191109 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191109.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Nov 10 00:43:22 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |   11 +++
+# VERSION                          |    2 
+# dist.mk                          |    4 -
+# misc/terminfo.src                |  115 ++++++++++++++++++++++---------------
+# package/debian-mingw/changelog   |    4 -
+# package/debian-mingw64/changelog |    4 -
+# package/debian/changelog         |    4 -
+# package/mingw-ncurses.nsi        |    4 -
+# package/mingw-ncurses.spec       |    2 
+# package/ncurses.spec             |    2 
+# package/ncursest.spec            |    2 
+# progs/tic.c                      |    5 -
+# 12 files changed, 96 insertions(+), 63 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3401 
+--- ncurses-6.1-20191102+/NEWS	2019-11-03 00:12:08.000000000 +0000
++++ ncurses-6.1-20191109/NEWS	2019-11-10 00:18:59.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3401 2019/11/03 00:12:08 tom Exp $
++-- $Id: NEWS,v 1.3404 2019/11/10 00:18:59 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,15 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191109
++	+ add warning-check in tic for terminals with parm_dch vs parm_ich.
++	+ drop ich1 from rxvt-basic, Eterm and mlterm to improve compatibility
++	  with old non-curses programs -TD
++	+ reviewed st 0.8.2, updated some details -TD
++	+ use ansi+rep several places -TD
++	+ corrected tic's check for ich1 (report by Sebastian J. Bronner,
++	  cf: 20020901).
++
+ 20191102
+ 	+ check parameter of set_escdelay, return ERR if negative.
+ 	+ check parameter of set_tabsize, return ERR if not greater than zero
+Index: VERSION
+--- ncurses-6.1-20191102+/VERSION	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/VERSION	2019-11-06 09:37:05.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20191102
++5:0:10	6.1	20191109
+Index: dist.mk
+Prereq:  1.1313 
+--- ncurses-6.1-20191102+/dist.mk	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/dist.mk	2019-11-06 09:37:05.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1313 2019/11/02 09:43:29 tom Exp $
++# $Id: dist.mk,v 1.1314 2019/11/06 09:37:05 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20191102
++NCURSES_PATCH = 20191109
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: misc/terminfo.src
+--- ncurses-6.1-20191102+/misc/terminfo.src	2019-11-02 16:55:15.000000000 +0000
++++ ncurses-6.1-20191109/misc/terminfo.src	2019-11-09 23:52:28.000000000 +0000
+@@ -6,8 +6,8 @@
+ # Report bugs and new terminal descriptions to
+ #	bug-ncurses@gnu.org
+ #
+-#	$Revision: 1.767 $
+-#	$Date: 2019/11/02 16:55:15 $
++#	$Revision: 1.773 $
++#	$Date: 2019/11/09 23:52:28 $
+ #
+ # The original header is preserved below for reference.  It is noted that there
+ # is a "newer" version which differs in some cosmetic details (but actually
+@@ -1404,9 +1404,8 @@
+ 	kopt=\ENk, kpp=\E[V, kref=\ENl, kres=\ENp, krfr=\ENg,
+ 	kri=\E[b, krpl=\ENr, krst=\ENj, ksav=\ENq, kslt=\E[T,
+ 	ktbc=\ENd, kund=\ENu, ll=\E[99H, nel=\EE, op=\E[39;49m,
+-	rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m, ri=\E[T, rmacs=^O,
+-	rmam=\E[?7l, rmso=\E[27m, rmul=\E[24m,
+-	rs1=\017\E[?7h\E[0;39;49m$<2>\E>\E[?1l,
++	rev=\E[7m, ri=\E[T, rmacs=^O, rmam=\E[?7l, rmso=\E[27m,
++	rmul=\E[24m, rs1=\017\E[?7h\E[0;39;49m$<2>\E>\E[?1l,
+ 	rs2=\E>\E[?3l\E[?4l\E[?5l\E[?7h\E[?8h,
+ 	setb=\E[4%?%p1%{1}%=%t4%e%p1%{3}%=%t6%e%p1%{4}%=%t1%e%p1%{6}
+ 	     %=%t3%e%p1%d%;m,
+@@ -1416,7 +1415,8 @@
+ 	    %|%t;7%;%?%p7%t;9%;m%?%p9%t\016%e\017%;,
+ 	sgr0=\E[m\017, smacs=^N, smam=\E[?7h, smso=\E[7m,
+ 	smul=\E[4m, tbc=\E[3g,
+-	tsl=\E7\E1;24r\E[?6l\E[25;%i%p1%dH, use=ecma+index,
++	tsl=\E7\E1;24r\E[?6l\E[25;%i%p1%dH, use=ansi+rep,
++	use=ecma+index,
+ #
+ qansi|QNX ansi with console writes,
+ 	daisy, xhpa, use=qansi-g,
+@@ -5881,7 +5881,7 @@
+ 	dch=\E[%p1%dP, dch1=\E[P, dl=\E[%p1%dM, dl1=\E[M,
+ 	ech=\E[%p1%dX, ed=\E[J, el=\E[K, el1=\E[1K, enacs=,
+ 	home=\E[H, hpa=\E[%i%p1%dG, ht=^I, hts=\EH, ich=\E[%p1%d@,
+-	ich1=\E[@, il=\E[%p1%dL, il1=\E[L, ind=\n,
++	il=\E[%p1%dL, il1=\E[L, ind=\n,
+ 	is2=\E7\E[r\E[m\E[?7h\E[?1;3;4;6l\E[4l\E8\E>, kbs=^?,
+ 	kcbt=\E[Z, kcub1=\EOD, kcud1=\EOB, kcuf1=\EOC, kcuu1=\EOA,
+ 	kdch1=\E[3~, kend=\EOF, kent=\EOM, kfnd=\E[1~, khome=\EOH,
+@@ -5950,8 +5950,8 @@
+ 	cup=\E[%i%p1%d;%p2%dH, cuu=\E[%p1%dA, cuu1=\E[A,
+ 	dl=\E[%p1%dM, dl1=\E[M, ed=\E[J, el=\E[K, el1=\E[1K,
+ 	enacs=\E(B\E)0, flash=\E[?5h$<100/>\E[?5l, home=\E[H,
+-	ht=^I, hts=\EH, ich=\E[%p1%d@, ich1=\E[@, il=\E[%p1%dL,
+-	il1=\E[L, ind=\n, is1=\E[?47l\E=\E[?1l,
++	ht=^I, hts=\EH, ich=\E[%p1%d@, il=\E[%p1%dL, il1=\E[L,
++	ind=\n, is1=\E[?47l\E=\E[?1l,
+ 	is2=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;3;4;6l\E[4l, kbs=^H,
+ 	kcbt=\E[Z, kmous=\E[M, rc=\E8, rev=\E[7m, ri=\EM, rmacs=^O,
+ 	rmcup=\E[2J\E[?47l\E8, rmir=\E[4l, rmkx=\E>, rmso=\E[27m,
+@@ -6202,8 +6202,7 @@
+ 	dch=\E[%p1%dP, dch1=\E[P, dl=\E[%p1%dM, dl1=\E[M,
+ 	ech=\E[%p1%dX, ed=\E[J, el=\E[K, el1=\E[1K, enacs=\E)0,
+ 	home=\E[H, hpa=\E[%i%p1%dG, ht=^I, hts=\EH, ich=\E[%p1%d@,
+-	ich1=\E[@, il=\E[%p1%dL, il1=\E[L, ind=\n,
+-	is1=\E[?47l\E>\E[?1l,
++	il=\E[%p1%dL, il1=\E[L, ind=\n, is1=\E[?47l\E>\E[?1l,
+ 	is2=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;3;4;6l\E[4l, kNXT@,
+ 	kPRV@, ka1=\E[7~, ka3=\E[5~, kb2=\EOu, kbeg=\EOu, kbs=^H,
+ 	kc1=\E[8~, kc3=\E[6~, kent=\EOM, khlp=\E[28~, kmous=\E[M,
+@@ -6508,7 +6507,29 @@
+ # st.suckless.org
+ 
+ st|stterm| simpleterm,
+-	use=st-0.7,
++	use=st-0.8,
++
++# Reviewed 0.8.2:
++# In tack,
++#	there is some problem turning off line-drawing
++#	shift+control function-keys do nothing; shift+control cursor keys work
++#	the padding tests make the terminal non-functional.
++# In vttest,
++#	SD/SU work
++#	SL/SR/REP do not work
++#	ECMA-48 cursor movement works, e.g., CHA, CBT, etc.
++#
++# This entry discards the ccc/initc capabilities from st-0.7 because they
++# belong in st-256color.
++st-0.8|simpleterm 0.7,
++	dim=\E[2m, kcbt@, kent@, oc=\E]104\007,
++	sgr=%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|
++	    %t;7%;%?%p4%t;5%;%?%p5%t;2%;%?%p7%t;8%;m,
++	Ms=\E]52;%p1%s;%p2%s\007, kDN3=\E[1;3B, kDN5=\E[1;5B,
++	kLFT3=\E[1;3D, kLFT5=\E[1;5D, kNXT3=\E[6;3~,
++	kNXT5=\E[6;5~, kPRV3=\E[5;3~, kPRV5=\E[5;5~,
++	kRIT3=\E[1;3C, kRIT5=\E[1;5C, kUP3=\E[1;3A, kUP5=\E[1;5A,
++	use=ecma+strikeout, use=st-0.6,
+ 
+ # Reviewed 0.7:
+ #	dim is intermittent, sometimes works, sometimes does not
+@@ -6660,14 +6681,15 @@
+ 	use=ecma+index,
+ st-16color|stterm-16color|simpleterm with 16-colors,
+ 	use=ibm+16color, use=st,
+-# 256 colors "works", but when running xterm's test-scripts, some garbage is
+-# shown in the titlebar.
++# Tested with st 0.8.2
++# The issue with the titlebar is fixed, though st is very slow.
++# In st 0.7, 256 colors "works", but when running xterm's test-scripts, some
++# garbage is shown in the titlebar.
+ #
+ # terminal wants to use TERM=stterm-256color, but that is longer than 14
+ # characters, making the choice nonportable.
+ st-256color|stterm-256color|simpleterm with 256 colors,
+-	ccc@,
+-	initc@, oc@, use=xterm+256color, use=st,
++	use=xterm+256color, use=st,
+ 
+ #### TERMINATOR
+ # https://github.com/software-jessies-org/jessies/wiki/Terminator
+@@ -13307,16 +13329,15 @@
+ 	kf2=\EOV, kf3=\EOu, kf4=\ENj, kf5=\ENe, kf6=\ENf, kf7=\ENh,
+ 	kf8=\E[H, kf9=\EOc, kind=\E[S, kri=\E[T, ll=\E#2, mc0=\E[0i,
+ 	mc4=\E[?8i, mc5=\E[?4i, mgc=\E\:, nel=\EE,
+-	pln=\E[%p1%dp%p2%:-16s, rc=\E8,
+-	rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m, ri=\EM, rmacs=^O,
+-	rmir=\E[4l, rmkx=\E[19;0|, rmln=\E<, rmso=\E[m, rmul=\E[m,
+-	rmxon=\E[29;1|, rs2=\E[5;0|, sc=\E7,
++	pln=\E[%p1%dp%p2%:-16s, rc=\E8, rev=\E[7m, ri=\EM,
++	rmacs=^O, rmir=\E[4l, rmkx=\E[19;0|, rmln=\E<, rmso=\E[m,
++	rmul=\E[m, rmxon=\E[29;1|, rs2=\E[5;0|, sc=\E7,
+ 	sgr=\E[0%?%p5%p6%|%t;2%;%?%p2%t;4%;%?%p4%t;5%;%?%p3%p1%|%p6
+ 	    %|%t;7%;%?%p7%t;8%;m%?%p9%t\016%e\017%;,
+ 	sgr0=\E[m\017, smacs=^N, smgl=\E4, smgr=\E5, smir=\E[4h,
+ 	smkx=\E[19;1|, smln=\E?, smso=\E[7m, smul=\E[4m,
+ 	smxon=\E[29;0|, tbc=\E[3g, vpa=\E[%p1%{1}%+%dd,
+-	use=ecma+index,
++	use=ansi+rep, use=ecma+index,
+ 
+ # (att500: I merged this with the att513 entry, att500 just used att513 -- esr)
+ att500|att513|AT&T 513 using page mode,
+@@ -13357,8 +13378,7 @@
+ 	pfloc=\E[%p1%d;%p2%l%d;2;0p\s\s\sF%p1%d\s\s\s\s\s\s\s\s\s\s
+ 	      \s%p2%s,
+ 	pfx=\E[%p1%d;%p2%l%d;1;0p   F%p1%d           %p2%s,
+-	pln=\E[%p1%dp%p2%:-16s, rc=\E8,
+-	rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m, ri=\EM,
++	pln=\E[%p1%dp%p2%:-16s, rc=\E8, rev=\E[7m, ri=\EM,
+ 	rin=\E[%p1%dF, rmacs=^O, rmir=\E[4l,
+ 	rmkx=\E[19;0|\E[21;1|\212, rmln=\E<, rmso=\E[m,
+ 	rmul=\E[m,
+@@ -13369,7 +13389,7 @@
+ 	    %|%p6%|%t;7%;%?%p7%t;8%;m%?%p9%t\016%e\017%;,
+ 	sgr0=\E[m\017, smacs=^N, smir=\E[4h,
+ 	smkx=\E[19;1|\E[21;4|\Eent, smln=\E?, smso=\E[7m,
+-	smul=\E[4m, tbc=\E[3g, vpa=\E[%p1%{1}%+%dd,
++	smul=\E[4m, tbc=\E[3g, vpa=\E[%p1%{1}%+%dd, use=ansi+rep,
+ 
+ # 01-07-88
+ # printer must be set to EMUL ANSI to accept ESC codes
+@@ -13803,15 +13823,15 @@
+ 	mc0=\E[i, mc4=\E[?4i, mc5=\E[?5i, nel=\EE,
+ 	pfx=\E[%p1%d;%p2%l%02dq%?%p1%{9}%<%t\s\s\sF%p1%1d\s\s\s\s\s
+ 	    \s\s\s\s\s\s%;%p2%s,
+-	pln=\E[%p1%d;0;0;0q%p2%:-16.16s, rc=\E8,
+-	rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m, ri=\EM, rmacs=^O,
+-	rmir=\E[4l, rmln=\E[2p, rmso=\E[27m, rmul=\E[24m,
+-	rmxon=\E[53;3|, rs1=\Ec\E[?3;5l\E[56;0|, sc=\E7,
++	pln=\E[%p1%d;0;0;0q%p2%:-16.16s, rc=\E8, rev=\E[7m,
++	ri=\EM, rmacs=^O, rmir=\E[4l, rmln=\E[2p, rmso=\E[27m,
++	rmul=\E[24m, rmxon=\E[53;3|, rs1=\Ec\E[?3;5l\E[56;0|,
++	sc=\E7,
+ 	sgr=\E[0%?%p6%t;1%;%?%p5%t;2%;%?%p2%t;4%;%?%p4%t;5%;%?%p3%p1
+ 	    %|%t;7%;%?%p7%t;8%;m%?%p9%t\016%e\017%;,
+ 	sgr0=\E[m\017, smacs=^N, smir=\E[4h, smln=\E[p, smso=\E[7m,
+ 	smul=\E[4m, smxon=\E[53;0|, tbc=\E[3g,
+-	tsl=\E7\E[99;%i%p1%dx,
++	tsl=\E7\E[99;%i%p1%dx, use=ansi+rep,
+ 
+ # This entry was modified 3/13/90 by JWE.
+ # fixes include additions of <enacs>, correcting <rep>, and modification
+@@ -13858,15 +13878,15 @@
+ 	pfx=\E[%?%p1%{25}%<%t%p1%e%p1%{24}%-%;%d;%p2%l%02d%?%p1%{25}
+ 	    %<%tq\s\s\sSYS\s\s\s\s\sF%p1%:-2d\s\s%e;0;3q%;%p2%s,
+ 	pfxl=\E[%p1%d;%p2%l%02d;0;0q%p3%:-16.16s%p2%s,
+-	pln=\E[%p1%d;0;0;0q%p2%:-16.16s, rc=\E8,
+-	rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m, ri=\EM, rmacs=^O,
+-	rmam=\E[?7l, rmir=\E[4l, rmln=\E[?13h, rmso=\E[27m,
+-	rmul=\E[24m, rmxon=\E[?21l, rs2=\Ec\E[?3l, sc=\E7,
++	pln=\E[%p1%d;0;0;0q%p2%:-16.16s, rc=\E8, rev=\E[7m,
++	ri=\EM, rmacs=^O, rmam=\E[?7l, rmir=\E[4l, rmln=\E[?13h,
++	rmso=\E[27m, rmul=\E[24m, rmxon=\E[?21l, rs2=\Ec\E[?3l,
++	sc=\E7,
+ 	sgr=\E[0%?%p6%t;1%;%?%p5%t;2%;%?%p2%t;4%;%?%p4%t;5%;%?%p3%p1
+ 	    %|%t;7%;%?%p7%t;8%;m%?%p9%t\016%e\017%;,
+ 	sgr0=\E[m\017, smacs=^N, smam=\E[?7h, smir=\E[4h,
+ 	smln=\E[?13l, smso=\E[7m, smul=\E[4m, smxon=\E[?21h,
+-	swidm=\E#6, tsl=\E7\E[;%i%p1%dx,
++	swidm=\E#6, tsl=\E7\E[;%i%p1%dx, use=ansi+rep,
+ att730-41|730MTG-41|AT&T 730-41 windowing terminal Version,
+ 	lines#41, use=att730,
+ att730-24|730MTG-24|AT&T 730-24 windowing terminal Version,
+@@ -14340,8 +14360,7 @@
+ 	kf21=\EOU, kf22=\EOV, kf23=\EOW, kf24=\EOX, kf3=\EOC,
+ 	kf4=\EOD, kf5=\EOE, kf6=\EOF, kf7=\EOG, kf8=\EOH, kf9=\EOI,
+ 	khome=\E[H, kich1=\E[@, kil1=\E[L, krmir=\E6, mc0=\E[0i,
+-	mc4=^C, mc5=\E[v, mc5p=\E[%p1%dv, rc=\E8,
+-	rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m,
++	mc4=^C, mc5=\E[v, mc5p=\E[%p1%dv, rc=\E8, rev=\E[7m,
+ 	rmkx=\EP`>y~[[J`8xy~[[A`4xy~[[D`6xy~[[C`2xy~[[B\E
+ 	     \\,
+ 	rmm=\E[>52l, rmso=\E[m, rmul=\E[m, sc=\E7,
+@@ -14351,7 +14370,7 @@
+ 	smkx=\EP`>z~[[J`8xz~[[A`4xz~[[D`6xz~[[C`2xz~[[B\E
+ 	     \\,
+ 	smm=\E[>52h, smso=\E[7m, smul=\E[4m, tbc=\E[3g,
+-	vpa=\E[%p1%{1}%+%dd,
++	vpa=\E[%p1%{1}%+%dd, use=ansi+rep,
+ 
+ aaa+rv|ann arbor ambassador in reverse video,
+ 	blink=\E[5;7m, bold=\E[1;7m, invis=\E[7;8m,
+@@ -15455,17 +15474,16 @@
+ 	kf4=\EOS, khome=\E[H, kich1=\E\001\r, kil1=\E\003\r,
+ 	ll=\E[24H, mc0=\E[0i, mc4=\E[4i, mc5=\E[5i,
+ 	pfloc=\E[%p1%d;0u#%p2%s#, pfx=\E[%p1%d;1u#%p2%s#,
+-	prot=\E[99m, rc=\E8, rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m,
+-	ri=\EM$<4>, rmacs=\016$<1>, rmcup=\E[w\E2\r\n,
+-	rmir=\E[4l, rmkx=\E[!z\E[0;2u, rmso=\E[7!{, rmul=\E[4!{,
+-	sc=\E7,
++	prot=\E[99m, rc=\E8, rev=\E[7m, ri=\EM$<4>, rmacs=\016$<1>,
++	rmcup=\E[w\E2\r\n, rmir=\E[4l, rmkx=\E[!z\E[0;2u,
++	rmso=\E[7!{, rmul=\E[4!{, sc=\E7,
+ 	sgr=\E[%?%p1%t7;%;%?%p2%t4;%;%?%p3%t7;%;%?%p4%t5;%;%?%p6%t1;
+ 	    %;%?%p7%t8;%;%?%p8%t99;%;m%?%p5%t\E[1!{%;%?%p9%t\017%e
+ 	    \016%;$<1>,
+ 	sgr0=\E[m\016$<1>, smacs=\017$<1>,
+ 	smcup=\E[=4l\E[1;24w\E2\r, smir=\E[4h,
+ 	smkx=\E[1!z\E[0;3u, smso=\E[7m, smul=\E[4m, tbc=\E[3g,
+-	vpa=\E[%p1%{1}%+%dd,
++	vpa=\E[%p1%{1}%+%dd, use=ansi+rep,
+ avt-rv-ns|concept avt in reverse video mode/no status line,
+ 	flash=\E[=205l$<200>\E[=205h, is1=\E[=103l\E[=205h,
+ 	use=avt-ns,
+@@ -19546,13 +19564,12 @@
+ 	dl1=\E[M, ed=\E[J, el=\E[K, home=\E[H, hpa=\E[%p1%{1}%+%dG,
+ 	ht=^I, hts=\EH, ich=\E[%p1%d@, ich1=\E[@, il=\E[%p1%dL,
+ 	il1=\E[L, ind=\n, invis=\E[8m, kbs=^H, kcub1=\E[D,
+-	kcud1=\E[B, kcuf1=\E[C, kcuu1=\E[A, khome=\E[H,
+-	rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m, rmam=\E[?7l,
+-	rmso=\E[m, rmul=\E[m,
++	kcud1=\E[B, kcuf1=\E[C, kcuu1=\E[A, khome=\E[H, rev=\E[7m,
++	rmam=\E[?7l, rmso=\E[m, rmul=\E[m,
+ 	sgr=\E[%?%p1%t7;%;%?%p2%t4;%;%?%p3%t7;%;%?%p4%t5;%;%?%p6%t1;
+ 	    %;%?%p7%t8;%;m,
+ 	sgr0=\E[m, smam=\E[?7h, smso=\E[7m, smul=\E[4m, tbc=\E[3g,
+-	vpa=\E[%p1%{1}%+%dd,
++	vpa=\E[%p1%{1}%+%dd, use=ansi+rep,
+ # The tek4125 emulates a vt100 incorrectly - the scrolling region
+ # command is ignored.  The following entry replaces <csr> with the needed
+ # <il>, <il>, and <smir>; removes some cursor pad commands that the tek4125
+@@ -26397,4 +26414,10 @@
+ # 2019-11-02
+ #	+ add "xterm-mono" to help packagers (report by Sven Joachim) -TD
+ #
++# 2019-11-09
++#	+ drop ich1 from rxvt-basic, Eterm and mlterm to improve compatibility
++#	  with old non-curses programs -TD
++#	+ reviewed st 0.8.2, updated some details -TD
++#	+ use ansi+rep several places -TD
++#
+ ######## SHANTIH!  SHANTIH!  SHANTIH!
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20191102+/package/debian-mingw/changelog	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/package/debian-mingw/changelog	2019-11-06 09:37:05.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191102) unstable; urgency=low
++ncurses6 (6.1+20191109) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 02 Nov 2019 05:43:29 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Wed, 06 Nov 2019 04:37:04 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20191102+/package/debian-mingw64/changelog	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/package/debian-mingw64/changelog	2019-11-06 09:37:05.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191102) unstable; urgency=low
++ncurses6 (6.1+20191109) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 02 Nov 2019 05:43:29 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Wed, 06 Nov 2019 04:37:05 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20191102+/package/debian/changelog	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/package/debian/changelog	2019-11-06 09:37:05.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191102) unstable; urgency=low
++ncurses6 (6.1+20191109) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 02 Nov 2019 05:43:29 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Wed, 06 Nov 2019 04:37:04 -0500
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.359 
+--- ncurses-6.1-20191102+/package/mingw-ncurses.nsi	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/package/mingw-ncurses.nsi	2019-11-06 09:37:05.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.359 2019/11/02 09:43:29 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.360 2019/11/06 09:37:05 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "1102"
++!define VERSION_MMDD  "1109"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20191102+/package/mingw-ncurses.spec	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/package/mingw-ncurses.spec	2019-11-06 09:37:05.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20191102
++Release: 20191109
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20191102+/package/ncurses.spec	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/package/ncurses.spec	2019-11-06 09:37:05.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20191102
++Release: 20191109
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20191102+/package/ncursest.spec	2019-11-02 09:43:29.000000000 +0000
++++ ncurses-6.1-20191109/package/ncursest.spec	2019-11-06 09:37:05.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20191102
++Release: 20191109
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: progs/tic.c
+Prereq:  1.279 
+--- ncurses-6.1-20191102+/progs/tic.c	2019-10-15 22:18:29.000000000 +0000
++++ ncurses-6.1-20191109/progs/tic.c	2019-11-09 18:51:36.000000000 +0000
+@@ -48,7 +48,7 @@
+ #include <parametrized.h>
+ #include <transform.h>
+ 
+-MODULE_ID("$Id: tic.c,v 1.279 2019/10/15 22:18:29 tom Exp $")
++MODULE_ID("$Id: tic.c,v 1.281 2019/11/09 18:51:36 tom Exp $")
+ 
+ #define STDIN_NAME "<stdin>"
+ 
+@@ -2939,6 +2939,7 @@
+      * These are probably both or none.
+      */
+     PAIRED(parm_index, parm_rindex);
++    PAIRED(parm_ich, parm_dch);
+ 
+     /*
+      * These may be mismatched because the terminal description relies on
+@@ -3055,7 +3056,7 @@
+      * ncurses handles it.
+      */
+     if ((PRESENT(enter_insert_mode) || PRESENT(exit_insert_mode))
+-	&& PRESENT(parm_ich)) {
++	&& PRESENT(insert_character)) {
+ 	_nc_warning("non-curses applications may be confused by ich1 with smir/rmir");
+     }
+ 

@@ -1,0 +1,922 @@
+# ncurses 6.1 - patch 20190928 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190928.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sat Sep 28 15:09:31 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |   10 ++
+# VERSION                          |    2 
+# aclocal.m4                       |   72 ++++++++++++++++++++
+# configure                        |  106 +++++++++++++++++++++++++----
+# configure.in                     |    7 +
+# dist.mk                          |    4 -
+# misc/gen-pkgconfig.in            |   39 +++++------
+# misc/ncurses-config.in           |  131 +++++++++++++++++++++++++++++--------
+# misc/terminfo.src                |   11 +--
+# package/debian-mingw/changelog   |    4 -
+# package/debian-mingw64/changelog |    4 -
+# package/debian/changelog         |    4 -
+# package/mingw-ncurses.nsi        |    4 -
+# package/mingw-ncurses.spec       |    2 
+# package/ncurses.spec             |    2 
+# package/ncursest.spec            |    2 
+# test/ncurses.c                   |   10 +-
+# 17 files changed, 325 insertions(+), 89 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3376 
+--- ncurses-6.1-20190921+/NEWS	2019-09-21 23:47:04.000000000 +0000
++++ ncurses-6.1-20190928/NEWS	2019-09-28 12:57:39.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3376 2019/09/21 23:47:04 tom Exp $
++-- $Id: NEWS,v 1.3380 2019/09/28 12:57:39 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,14 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190928
++	+ amend the ncurse*-config and pc-files to take into account the rpath
++	  hack which differed between those files.
++	+ improve -L option filtering in ncurses*-config
++	+ improve recovery from error when reading command-character in
++	  test/ncurses.c, showing the relevant error message and not exiting on
++	  EINTR (cf: 20180922)
++
+ 20190921
+ 	+ add a note in resizeterm manpage about top-level windows which touch
+ 	  the screen's borders.
+Index: VERSION
+--- ncurses-6.1-20190921+/VERSION	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/VERSION	2019-09-27 18:43:59.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190921
++5:0:10	6.1	20190928
+Index: aclocal.m4
+Prereq:  1.883 
+--- ncurses-6.1-20190921+/aclocal.m4	2019-09-21 22:11:35.000000000 +0000
++++ ncurses-6.1-20190928/aclocal.m4	2019-09-27 21:08:36.000000000 +0000
+@@ -28,7 +28,7 @@
+ dnl
+ dnl Author: Thomas E. Dickey 1995-on
+ dnl
+-dnl $Id: aclocal.m4,v 1.883 2019/09/21 22:11:35 tom Exp $
++dnl $Id: aclocal.m4,v 1.884 2019/09/27 21:08:36 tom Exp $
+ dnl Macros used in NCURSES auto-configuration script.
+ dnl
+ dnl These macros are maintained separately from NCURSES.  The copyright on
+@@ -3850,6 +3850,76 @@
+ fi
+ ])dnl
+ dnl ---------------------------------------------------------------------------
++dnl CF_LD_SEARCHPATH version: 2 updated: 2019/09/26 20:34:14
++dnl ----------------
++dnl Try to obtain the linker's search-path, for use in scripts.
++dnl
++dnl Ignore LD_LIBRARY_PATH, etc.
++AC_DEFUN([CF_LD_SEARCHPATH],[
++AC_CACHE_CHECK(for linker search path,cf_cv_ld_searchpath,[
++
++if test "$cross_compiling" != yes ; then
++
++# GNU binutils' ld does not involve permissions which may stop ldconfig.
++cf_pathlist=`ld --verbose 2>/dev/null | grep SEARCH_DIR | sed -e 's,SEARCH_DIR[[("=]][[("=]]*,,g' -e 's/"[[)]];//gp' | sort -u`
++
++# The -NX options tell newer versions of Linux ldconfig to not attempt to
++# update the cache, which makes it run faster.
++test -z "$cf_pathlist" && \
++	cf_pathlist=`ldconfig -NX -v 2>/dev/null | sed -e '/^[[ 	]]/d' -e 's/:$//' | sort -u`
++
++test -z "$cf_pathlist" &&
++	cf_pathlist=`ldconfig -v 2>/dev/null | sed -n -e '/^[[ 	]]/d' -e 's/:$//p' | sort -u`
++
++# This works with OpenBSD 6.5, which lists only filenames
++test -z "$cf_pathlist" &&
++	cf_pathlist=`ldconfig -v 2>/dev/null | sed -n -e 's,^Adding \(.*\)/.*[$],\1,p' | sort -u`
++
++if test -z "$cf_pathlist"
++then
++	# dyld default path with MacOS
++	if test -f /usr/bin/otool && test "x`uname -s`" = xDarwin
++	then
++		# do this to bypass check
++		cf_cv_ld_searchpath='$HOME/lib'
++		cf_pathlist="/usr/local/lib /lib /usr/lib"
++	fi
++fi
++
++if test -z "$cf_pathlist"
++then
++	# Solaris is hardcoded
++	if test -d /opt/SUNWspro/lib
++	then
++		cf_pathlist="/opt/SUNWspro/lib /usr/ccs/lib /usr/lib"
++	elif test -d /usr/ccs/lib
++	then
++		cf_pathlist="/usr/ccs/lib /usr/lib"
++	fi
++fi
++
++fi
++
++# If nothing else, assume it is conventional
++test -z "$cf_pathlist" && cf_pathlist="/usr/lib /lib"
++
++# Finally, check that this is only directories
++for cf_path in [$]0 $cf_pathlist
++do
++	if test -d "$cf_path"; then
++		test -n "$cf_cv_ld_searchpath" && cf_cv_ld_searchpath="${cf_cv_ld_searchpath} "
++		cf_cv_ld_searchpath="${cf_cv_ld_searchpath}${cf_path}"
++	fi
++done
++
++# Ensure that it is nonempty
++test -z "$cf_cv_ld_searchpath" && cf_cv_ld_searchpath=/usr/lib
++])
++
++LD_SEARCHPATH=`echo "$cf_cv_ld_searchpath"|sed -e 's/ /|/g'`
++AC_SUBST(LD_SEARCHPATH)
++])dnl
++dnl ---------------------------------------------------------------------------
+ dnl CF_LIBRARY_PATH version: 10 updated: 2015/04/15 19:08:48
+ dnl ---------------
+ dnl Construct a search-list of directories for a nonstandard library-file
+Index: configure
+--- ncurses-6.1-20190921+/configure	2019-09-21 19:49:24.000000000 +0000
++++ ncurses-6.1-20190928/configure	2019-09-27 22:50:51.000000000 +0000
+@@ -1,5 +1,5 @@
+ #! /bin/sh
+-# From configure.in Revision: 1.689 .
++# From configure.in Revision: 1.690 .
+ # Guess values for system-dependent variables and create Makefiles.
+ # Generated by Autoconf 2.52.20190901.
+ #
+@@ -26022,6 +26022,77 @@
+ 	CHECK_BUILD=
+ fi
+ 
++# This is used for the *-config script and *.pc data files.
++
++echo "$as_me:26027: checking for linker search path" >&5
++echo $ECHO_N "checking for linker search path... $ECHO_C" >&6
++if test "${cf_cv_ld_searchpath+set}" = set; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++
++if test "$cross_compiling" != yes ; then
++
++# GNU binutils' ld does not involve permissions which may stop ldconfig.
++cf_pathlist=`ld --verbose 2>/dev/null | grep SEARCH_DIR | sed -e 's,SEARCH_DIR[("=][("=]*,,g' -e 's/"[)];//gp' | sort -u`
++
++# The -NX options tell newer versions of Linux ldconfig to not attempt to
++# update the cache, which makes it run faster.
++test -z "$cf_pathlist" && \
++	cf_pathlist=`ldconfig -NX -v 2>/dev/null | sed -e '/^[ 	]/d' -e 's/:$//' | sort -u`
++
++test -z "$cf_pathlist" &&
++	cf_pathlist=`ldconfig -v 2>/dev/null | sed -n -e '/^[ 	]/d' -e 's/:$//p' | sort -u`
++
++# This works with OpenBSD 6.5, which lists only filenames
++test -z "$cf_pathlist" &&
++	cf_pathlist=`ldconfig -v 2>/dev/null | sed -n -e 's,^Adding \(.*\)/.*$,\1,p' | sort -u`
++
++if test -z "$cf_pathlist"
++then
++	# dyld default path with MacOS
++	if test -f /usr/bin/otool && test "x`uname -s`" = xDarwin
++	then
++		# do this to bypass check
++		cf_cv_ld_searchpath='$HOME/lib'
++		cf_pathlist="/usr/local/lib /lib /usr/lib"
++	fi
++fi
++
++if test -z "$cf_pathlist"
++then
++	# Solaris is hardcoded
++	if test -d /opt/SUNWspro/lib
++	then
++		cf_pathlist="/opt/SUNWspro/lib /usr/ccs/lib /usr/lib"
++	elif test -d /usr/ccs/lib
++	then
++		cf_pathlist="/usr/ccs/lib /usr/lib"
++	fi
++fi
++
++fi
++
++# If nothing else, assume it is conventional
++test -z "$cf_pathlist" && cf_pathlist="/usr/lib /lib"
++
++# Finally, check that this is only directories
++for cf_path in $0 $cf_pathlist
++do
++	if test -d "$cf_path"; then
++		test -n "$cf_cv_ld_searchpath" && cf_cv_ld_searchpath="${cf_cv_ld_searchpath} "
++		cf_cv_ld_searchpath="${cf_cv_ld_searchpath}${cf_path}"
++	fi
++done
++
++# Ensure that it is nonempty
++test -z "$cf_cv_ld_searchpath" && cf_cv_ld_searchpath=/usr/lib
++
++fi
++echo "$as_me:26091: result: $cf_cv_ld_searchpath" >&5
++echo "${ECHO_T}$cf_cv_ld_searchpath" >&6
++
++LD_SEARCHPATH=`echo "$cf_cv_ld_searchpath"|sed -e 's/ /|/g'`
++
+ cat >>confdefs.h <<\EOF
+ #define HAVE_CURSES_DATA_BOOLNAMES 1
+ EOF
+@@ -26107,7 +26178,7 @@
+ : ${CONFIG_STATUS=./config.status}
+ ac_clean_files_save=$ac_clean_files
+ ac_clean_files="$ac_clean_files $CONFIG_STATUS"
+-{ echo "$as_me:26110: creating $CONFIG_STATUS" >&5
++{ echo "$as_me:26181: creating $CONFIG_STATUS" >&5
+ echo "$as_me: creating $CONFIG_STATUS" >&6;}
+ cat >$CONFIG_STATUS <<_ACEOF
+ #! $SHELL
+@@ -26283,7 +26354,7 @@
+     echo "$ac_cs_version"; exit 0 ;;
+   --he | --h)
+     # Conflict between --help and --header
+-    { { echo "$as_me:26286: error: ambiguous option: $1
++    { { echo "$as_me:26357: error: ambiguous option: $1
+ Try \`$0 --help' for more information." >&5
+ echo "$as_me: error: ambiguous option: $1
+ Try \`$0 --help' for more information." >&2;}
+@@ -26302,7 +26373,7 @@
+     ac_need_defaults=false;;
+ 
+   # This is an error.
+-  -*) { { echo "$as_me:26305: error: unrecognized option: $1
++  -*) { { echo "$as_me:26376: error: unrecognized option: $1
+ Try \`$0 --help' for more information." >&5
+ echo "$as_me: error: unrecognized option: $1
+ Try \`$0 --help' for more information." >&2;}
+@@ -26421,7 +26492,7 @@
+   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+   "default" ) CONFIG_COMMANDS="$CONFIG_COMMANDS default" ;;
+   "include/ncurses_cfg.h" ) CONFIG_HEADERS="$CONFIG_HEADERS include/ncurses_cfg.h:include/ncurses_cfg.hin" ;;
+-  *) { { echo "$as_me:26424: error: invalid argument: $ac_config_target" >&5
++  *) { { echo "$as_me:26495: error: invalid argument: $ac_config_target" >&5
+ echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
+    { (exit 1); exit 1; }; };;
+   esac
+@@ -26784,6 +26855,7 @@
+ s,@ADAGEN_LDFLAGS@,$ADAGEN_LDFLAGS,;t t
+ s,@CHECK_BUILD@,$CHECK_BUILD,;t t
+ s,@PRIVATE_LIBS@,$PRIVATE_LIBS,;t t
++s,@LD_SEARCHPATH@,$LD_SEARCHPATH,;t t
+ CEOF
+ 
+ EOF
+@@ -26916,7 +26988,7 @@
+   esac
+ 
+   if test x"$ac_file" != x-; then
+-    { echo "$as_me:26919: creating $ac_file" >&5
++    { echo "$as_me:26991: creating $ac_file" >&5
+ echo "$as_me: creating $ac_file" >&6;}
+     rm -f "$ac_file"
+   fi
+@@ -26934,7 +27006,7 @@
+       -) echo $tmp/stdin ;;
+       [\\/$]*)
+          # Absolute (can't be DOS-style, as IFS=:)
+-         test -f "$f" || { { echo "$as_me:26937: error: cannot find input file: $f" >&5
++         test -f "$f" || { { echo "$as_me:27009: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          echo $f;;
+@@ -26947,7 +27019,7 @@
+            echo $srcdir/$f
+          else
+            # /dev/null tree
+-           { { echo "$as_me:26950: error: cannot find input file: $f" >&5
++           { { echo "$as_me:27022: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          fi;;
+@@ -26963,7 +27035,7 @@
+       if test -n "$ac_seen"; then
+         ac_used=`grep '@datarootdir@' $ac_item`
+         if test -z "$ac_used"; then
+-          { echo "$as_me:26966: WARNING: datarootdir was used implicitly but not set:
++          { echo "$as_me:27038: WARNING: datarootdir was used implicitly but not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: datarootdir was used implicitly but not set:
+ $ac_seen" >&2;}
+@@ -26972,7 +27044,7 @@
+       fi
+       ac_seen=`grep '${datarootdir}' $ac_item`
+       if test -n "$ac_seen"; then
+-        { echo "$as_me:26975: WARNING: datarootdir was used explicitly but not set:
++        { echo "$as_me:27047: WARNING: datarootdir was used explicitly but not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: datarootdir was used explicitly but not set:
+ $ac_seen" >&2;}
+@@ -27009,7 +27081,7 @@
+             ac_init=`egrep '[ 	]*'$ac_name'[ 	]*=' $ac_file`
+             if test -z "$ac_init"; then
+               ac_seen=`echo "$ac_seen" |sed -e 's,^,'$ac_file':,'`
+-              { echo "$as_me:27012: WARNING: Variable $ac_name is used but was not set:
++              { echo "$as_me:27084: WARNING: Variable $ac_name is used but was not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: Variable $ac_name is used but was not set:
+ $ac_seen" >&2;}
+@@ -27020,7 +27092,7 @@
+     egrep -n '@[A-Z_][A-Z_0-9]+@' $ac_file >>$tmp/out
+     if test -s $tmp/out; then
+       ac_seen=`sed -e 's,^,'$ac_file':,' < $tmp/out`
+-      { echo "$as_me:27023: WARNING: Some variables may not be substituted:
++      { echo "$as_me:27095: WARNING: Some variables may not be substituted:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: Some variables may not be substituted:
+ $ac_seen" >&2;}
+@@ -27069,7 +27141,7 @@
+   * )   ac_file_in=$ac_file.in ;;
+   esac
+ 
+-  test x"$ac_file" != x- && { echo "$as_me:27072: creating $ac_file" >&5
++  test x"$ac_file" != x- && { echo "$as_me:27144: creating $ac_file" >&5
+ echo "$as_me: creating $ac_file" >&6;}
+ 
+   # First look for the input files in the build tree, otherwise in the
+@@ -27080,7 +27152,7 @@
+       -) echo $tmp/stdin ;;
+       [\\/$]*)
+          # Absolute (can't be DOS-style, as IFS=:)
+-         test -f "$f" || { { echo "$as_me:27083: error: cannot find input file: $f" >&5
++         test -f "$f" || { { echo "$as_me:27155: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          echo $f;;
+@@ -27093,7 +27165,7 @@
+            echo $srcdir/$f
+          else
+            # /dev/null tree
+-           { { echo "$as_me:27096: error: cannot find input file: $f" >&5
++           { { echo "$as_me:27168: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          fi;;
+@@ -27151,7 +27223,7 @@
+   rm -f $tmp/in
+   if test x"$ac_file" != x-; then
+     if cmp -s $ac_file $tmp/config.h 2>/dev/null; then
+-      { echo "$as_me:27154: $ac_file is unchanged" >&5
++      { echo "$as_me:27226: $ac_file is unchanged" >&5
+ echo "$as_me: $ac_file is unchanged" >&6;}
+     else
+       ac_dir=`$as_expr X"$ac_file" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
+@@ -27496,7 +27568,7 @@
+ 				(cygdll|msysdll|mingw)
+ 					test "x$with_shared_cxx" = xno && test -n "$verbose" && echo "	overriding CXX_MODEL to SHARED" 1>&6
+ 
+-echo "${as_me:-configure}:27499: testing overriding CXX_MODEL to SHARED ..." 1>&5
++echo "${as_me:-configure}:27571: testing overriding CXX_MODEL to SHARED ..." 1>&5
+ 
+ 					with_shared_cxx=yes
+ 					;;
+Index: configure.in
+Prereq:  1.689 
+--- ncurses-6.1-20190921+/configure.in	2019-09-07 20:06:52.000000000 +0000
++++ ncurses-6.1-20190928/configure.in	2019-09-27 21:12:34.000000000 +0000
+@@ -28,14 +28,14 @@
+ dnl
+ dnl Author: Thomas E. Dickey 1995-on
+ dnl
+-dnl $Id: configure.in,v 1.689 2019/09/07 20:06:52 tom Exp $
++dnl $Id: configure.in,v 1.690 2019/09/27 21:12:34 tom Exp $
+ dnl Process this file with autoconf to produce a configure script.
+ dnl
+ dnl See https://invisible-island.net/autoconf/ for additional information.
+ dnl
+ dnl ---------------------------------------------------------------------------
+ AC_PREREQ(2.52.20170501)
+-AC_REVISION($Revision: 1.689 $)
++AC_REVISION($Revision: 1.690 $)
+ AC_INIT(ncurses/base/lib_initscr.c)
+ AC_CONFIG_HEADER(include/ncurses_cfg.h:include/ncurses_cfg.hin)
+ 
+@@ -2391,6 +2391,9 @@
+ AC_SUBST(CHECK_BUILD)
+ AC_SUBST(PRIVATE_LIBS)
+ 
++# This is used for the *-config script and *.pc data files.
++CF_LD_SEARCHPATH
++
+ AC_DEFINE(HAVE_CURSES_DATA_BOOLNAMES,1,[definition needed for in-tree build of tack])
+ 
+ AC_OUTPUT( \
+Index: dist.mk
+Prereq:  1.1306 
+--- ncurses-6.1-20190921+/dist.mk	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/dist.mk	2019-09-27 18:43:59.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1306 2019/09/21 14:56:20 tom Exp $
++# $Id: dist.mk,v 1.1307 2019/09/27 18:43:59 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190921
++NCURSES_PATCH = 20190928
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: misc/gen-pkgconfig.in
+Prereq:  1.34 
+--- ncurses-6.1-20190921+/misc/gen-pkgconfig.in	2018-06-09 22:21:33.000000000 +0000
++++ ncurses-6.1-20190928/misc/gen-pkgconfig.in	2019-09-28 12:53:53.000000000 +0000
+@@ -1,7 +1,7 @@
+ #!@SHELL@
+-# $Id: gen-pkgconfig.in,v 1.34 2018/06/09 22:21:33 tom Exp $
++# $Id: gen-pkgconfig.in,v 1.36 2019/09/28 12:53:53 tom Exp $
+ ##############################################################################
+-# Copyright (c) 2009-2015,2018 Free Software Foundation, Inc.                #
++# Copyright (c) 2009-2018,2019 Free Software Foundation, Inc.                #
+ #                                                                            #
+ # Permission is hereby granted, free of charge, to any person obtaining a    #
+ # copy of this software and associated documentation files (the "Software"), #
+@@ -46,6 +46,7 @@
+ DFT_DEP_SUFFIX=@DFT_DEP_SUFFIX@
+ TINFO_ARG_SUFFIX=@TINFO_ARG_SUFFIX@
+ CXX_LIB_SUFFIX=@CXX_LIB_SUFFIX@
++RPATH_LIST=@RPATH_LIST@
+ PRIVATE_LIBS="@PRIVATE_LIBS@"
+ 
+ suffix=@PC_MODULE_SUFFIX@
+@@ -66,10 +67,10 @@
+ FORM_LIBRARY="${FORM_NAME}@USE_ARG_SUFFIX@"
+ 
+ CFLAGS="@PKG_CFLAGS@"
+-if test "$includedir" != "/usr/include" ; then
++if [ "$includedir" != "/usr/include" ]; then
+ 	includetop=`echo "$includedir" | sed -e 's,/include/[^/]*$,/include,'`
+-	test "$includetop" = "/usr/include" && includetop="$includedir"
+-	if test "x$includetop" != "x$includedir"
++	[ "$includetop" = "/usr/include" ] && includetop="$includedir"
++	if [ "x$includetop" != "x$includedir" ]
+ 	then
+ 		CFLAGS="$CFLAGS -I${includetop}"
+ 	fi
+@@ -77,10 +78,10 @@
+ fi
+ 
+ LDFLAGS=
+-if test "$libdir" != "/usr/lib" ; then
++if [ "$libdir" != "/usr/lib" ]; then
+ 	LDFLAGS="$LDFLAGS -L\${libdir}"
+ fi
+-if test "x@EXTRA_LDFLAGS@" != "x" ; then
++if [ "x@EXTRA_LDFLAGS@" != "x" ]; then
+ 	LDFLAGS="$LDFLAGS @EXTRA_LDFLAGS@"
+ fi
+ 
+@@ -88,8 +89,8 @@
+ # functions or curses variables (which also reside in tinfo) can be linked
+ # using the -lncurses option.
+ NEED_TINFO=no
+-if test "x@TINFO_LIBS@" != "x" && \
+-   test "x$TINFO_ARG_SUFFIX" != "x$MAIN_LIBRARY"
++if [ "x@TINFO_LIBS@" != "x" ] && \
++   [ "x$TINFO_ARG_SUFFIX" != "x$MAIN_LIBRARY" ]
+ then
+ 	NEED_TINFO=yes
+ fi
+@@ -102,10 +103,10 @@
+ 	desc="ncurses @NCURSES_MAJOR@.@NCURSES_MINOR@"
+ 	reqs=
+ 
+-	if test $name = $MAIN_LIBRARY ; then
++	if [ $name = $MAIN_LIBRARY ]; then
+ 		desc="$desc library"
+-		test $NEED_TINFO = yes && LIBS="$LIBS -l$TINFO_ARG_SUFFIX"
+-	elif test $name = $SUB_LIBRARY ; then
++		[ $NEED_TINFO = yes ] && LIBS="$LIBS -l$TINFO_ARG_SUFFIX"
++	elif [ $name = $SUB_LIBRARY ]; then
+ 		desc="$desc terminal interface library"
+ 	elif expr $name : ".*${CXX_NAME}.*" >/dev/null ; then
+ 		reqs="$PANEL_LIBRARY${suffix}, $MENU_LIBRARY${suffix}, $FORM_LIBRARY${suffix}, $MAIN_LIBRARY${suffix}"
+@@ -115,15 +116,15 @@
+ 		desc="$desc add-on library"
+ 	fi
+ 
+-	if test $name != $SUB_LIBRARY && \
+-	   test $SUB_LIBRARY != $MAIN_LIBRARY && \
+-	   test $name != $TINFO_NAME && \
+-	   test $NEED_TINFO != yes ; then
+-		test -n "$reqs" && reqs="$reqs, "
++	if [ $name != $SUB_LIBRARY ] && \
++	   [ $SUB_LIBRARY != $MAIN_LIBRARY ] && \
++	   [ $name != $TINFO_NAME ] && \
++	   [ $NEED_TINFO != yes ] ; then
++		[ -n "$reqs" ] && reqs="$reqs, "
+ 		reqs="${reqs}${SUB_LIBRARY}${suffix}"
+ 	fi
+ 
+-	if test $name = $MAIN_LIBRARY
++	if [ $name = $MAIN_LIBRARY ]
+ 	then
+ 		main_libs="$PRIVATE_LIBS"
+ 	else
+@@ -154,4 +155,4 @@
+ EOF
+ 
+ done
+-# vile:shmode
++# vile:shmode ts=4 sw=4
+Index: misc/ncurses-config.in
+Prereq:  1.37 
+--- ncurses-6.1-20190921+/misc/ncurses-config.in	2018-06-09 22:29:01.000000000 +0000
++++ ncurses-6.1-20190928/misc/ncurses-config.in	2019-09-28 12:54:17.000000000 +0000
+@@ -1,7 +1,7 @@
+ #!@SHELL@
+-# $Id: ncurses-config.in,v 1.37 2018/06/09 22:29:01 tom Exp $
++# $Id: ncurses-config.in,v 1.39 2019/09/28 12:54:17 tom Exp $
+ ##############################################################################
+-# Copyright (c) 2006-2017,2018 Free Software Foundation, Inc.                #
++# Copyright (c) 2006-2018,2019 Free Software Foundation, Inc.                #
+ #                                                                            #
+ # Permission is hereby granted, free of charge, to any person obtaining a    #
+ # copy of this software and associated documentation files (the "Software"), #
+@@ -54,7 +54,7 @@
+ # Ensure that RPATH_LIST contains only absolute pathnames, if it is nonempty.
+ # We cannot filter it out within the build-process since the variable is used
+ # in some special cases of installation using a relative path.
+-if test -n "$RPATH_LIST"
++if [ -n "$RPATH_LIST" ]
+ then
+ 	save_IFS="$IFS"
+ 	IFS='@PATH_SEPARATOR@'
+@@ -65,7 +65,7 @@
+ 		./*|../*|*/..|*/../*)
+ 			;;
+ 		*)
+-			test -n "$filtered" && filtered="${filtered}@PATH_SEPARATOR@"
++			[ -n "$filtered" ] && filtered="${filtered}@PATH_SEPARATOR@"
+ 			filtered="${filtered}${item}"
+ 			;;
+ 		esac
+@@ -78,7 +78,7 @@
+ # with --disable-overwrite, we installed into a subdirectory, but transformed
+ # the headers to include like this:
+ #	<ncurses@LIB_SUFFIX@/curses.h>
+-if test x@WITH_OVERWRITE@ = xno ; then
++if [ x@WITH_OVERWRITE@ = xno ]; then
+ 	case $includedir in
+ 	$prefix/include/ncurses@LIB_SUFFIX@@EXTRA_SUFFIX@)
+ 		includedir=`echo "$includedir" | sed -e 's,/[^/]*$,,'`
+@@ -86,9 +86,50 @@
+ 	esac
+ fi
+ 
+-test $# = 0 && exec @SHELL@ $0 --error
++LIBS="@LIBS@ @PRIVATE_LIBS@"
++if [ "@TINFO_NAME@" = "@LIB_NAME@" ]; then
++	LIBS="-l${THIS} $LIBS"
++else
++	LIBS="-l${THIS} -l${TINFO_LIB} $LIBS"
++fi
++
++# Ignore -L options which do not correspond to an actual directory, or which
++# are standard library directories (i.e., the linker is supposed to search
++# those directories).
++#
++# There is no portable way to find the list of standard library directories. 
++# Require a POSIX shell anyway, to keep this simple.
++lib_flags=
++for opt in -L$libdir @LDFLAGS@ @EXTRA_LDFLAGS@ $LIBS
++do
++	case $opt in
++	-L*)
++		[ -d ${opt##-L} ] || continue
++		case ${opt##-L} in
++		@LD_SEARCHPATH@) # skip standard libdir
++			continue
++			;;
++		*)
++			found=no
++			for check in $lib_flags
++			do
++				if [ "x$check" = "x$opt" ]
++				then
++					found=yes
++					break
++				fi
++			done
++			[ $found = yes ] && continue
++			;;
++		esac
++		;;
++	esac
++	lib_flags="$lib_flags $opt"
++done
+ 
+-while test $# -gt 0; do
++[ $# = 0 ] && exec @SHELL@ $0 --error
++
++while [ $# -gt 0 ]; do
+ 	case "$1" in
+ 	# basic configuration
+ 	--prefix)
+@@ -100,10 +141,10 @@
+ 	# compile/link
+ 	--cflags)
+ 		INCS="@PKG_CFLAGS@"
+-		if test "x@WITH_OVERWRITE@" = xno ; then
++		if [ "x@WITH_OVERWRITE@" = xno ]; then
+ 			INCS="$INCS -I${includesubdir}"
+ 		fi
+-		if test "${includedir}" != /usr/include ; then
++		if [ "${includedir}" != /usr/include ]; then
+ 			INCS="$INCS -I${includedir}"
+ 		fi
+ 		sed -e 's,^[ ]*,,' -e 's, [ ]*, ,g' -e 's,[ ]*$,,' <<-ENDECHO
+@@ -111,22 +152,54 @@
+ ENDECHO
+ 		;;
+ 	--libs)
+-		if test "$libdir" = /usr/lib
+-		then
+-			LIBDIR=
+-		else
+-			LIBDIR=-L$libdir
+-		fi
+-		LIBS="@LIBS@ @PRIVATE_LIBS@"
+-		if test @TINFO_NAME@ = @LIB_NAME@ ; then
+-		sed -e 's,^[ ]*,,' -e 's, [ ]*, ,g' -e 's,[ ]*$,,' <<-ENDECHO
+-			$LIBDIR @EXTRA_LDFLAGS@ -l${THIS} $LIBS
+-ENDECHO
+-		else
+-		sed -e 's,^[ ]*,,' -e 's, [ ]*, ,g' -e 's,[ ]*$,,' <<-ENDECHO
+-			$LIBDIR @EXTRA_LDFLAGS@ -l${THIS} -l${TINFO_LIB} $LIBS
+-ENDECHO
+-		fi
++		OPTS=
++		for opt in $lib_flags
++		do
++			[ -n "$OPTS" ] && OPTS="$OPTS "
++			OPTS="${OPTS}${opt}"
++		done
++		printf "%s\n" "$OPTS"
++		;;
++	--libs-only-L)
++		OPTS=
++		for opt in $lib_flags
++		do
++			case "x$opt" in
++			x-L*)
++				[ -n "$OPTS" ] && OPTS="$OPTS "
++				OPTS="${OPTS}${opt}"
++				;;
++			esac
++		done
++		printf "%s\n" "$OPTS"
++		;;
++	--libs-only-l)
++		OPTS=
++		for opt in $lib_flags
++		do
++			case "x$opt" in
++			x-l*)
++				[ -n "$OPTS" ] && OPTS="$OPTS "
++				OPTS="${OPTS}${opt}"
++				;;
++			esac
++		done
++		printf "%s\n" "$OPTS"
++		;;
++	--libs-only-other)
++		OPTS=
++		for opt in $lib_flags
++		do
++			case "x$opt" in
++			x-[lL]*)
++				;;
++			*)
++				[ -n "$OPTS" ] && OPTS="$OPTS "
++				OPTS="${OPTS}${opt}"
++				;;
++			esac
++		done
++		printf "%s\n" "$OPTS"
+ 		;;
+ 	# identification
+ 	--version)
+@@ -147,9 +220,9 @@
+ 		;;
+ 	--includedir)
+ 		INCS=
+-		if test "x@WITH_OVERWRITE@" = xno ; then
++		if [ "x@WITH_OVERWRITE@" = xno ]; then
+ 			INCS="${includesubdir}"
+-		elif test "${includedir}" != /usr/include ; then
++		elif [ "${includedir}" != /usr/include ]; then
+ 			INCS="${includedir}"
+ 		fi
+ 		echo $INCS
+@@ -181,6 +254,10 @@
+   --cflags           echos the C compiler flags needed to compile with ${THIS}
+   --libs             echos the libraries needed to link with ${THIS}
+ 
++  --libs-only-L      echos -L linker options (search path) for ${THIS}
++  --libs-only-l      echos -l linker options (libraries) for ${THIS}
++  --libs-only-other  echos linker options other than -L/-l
++
+   --version          echos the release+patchdate version of ${THIS}
+   --abi-version      echos the ABI version of ${THIS}
+   --mouse-version    echos the mouse-interface version of ${THIS}
+Index: misc/terminfo.src
+--- ncurses-6.1-20190921+/misc/terminfo.src	2019-08-03 21:42:15.000000000 +0000
++++ ncurses-6.1-20190928/misc/terminfo.src	2019-09-22 18:48:45.000000000 +0000
+@@ -6,8 +6,8 @@
+ # Report bugs and new terminal descriptions to
+ #	bug-ncurses@gnu.org
+ #
+-#	$Revision: 1.763 $
+-#	$Date: 2019/08/03 21:42:15 $
++#	$Revision: 1.765 $
++#	$Date: 2019/09/22 18:48:45 $
+ #
+ # The original header is preserved below for reference.  It is noted that there
+ # is a "newer" version which differs in some cosmetic details (but actually
+@@ -3292,7 +3292,7 @@
+ # tracked under rdar://problem/7365108 and rdar://problem/7365134
+ # in Apple's bug reporter.
+ #
+-# In OS X 10.7 (Leopard) the TERM which can be set in the preferences dialog
++# In OS X 10.5 (Leopard) the TERM which can be set in the preferences dialog
+ # defaults to xterm-color.  Alternative selections are ansi, dtterm, rxvt,
+ # vt52, vt100, vt102 and xterm.
+ nsterm-16color|AppKit Terminal.app v240.2+ with Mac OS X version 10.5,
+@@ -3364,7 +3364,7 @@
+ 
+ # This is tested with OS X 10.8 (Mountain Lion), 2012/08/11
+ #	TERM_PROGRAM_VERSION=309
+-# Earlier reports state that these differences also apply to OS X 10.7 (Leopard),
++# Earlier reports state that these differences also apply to OS X 10.7 (Lion),
+ #	TERM_PROGRAM_VERSION=303
+ nsterm-build309|Terminal.app in OS X 10.8,
+ 	use=xterm+256setaf, use=nsterm-bce,
+@@ -26372,4 +26372,7 @@
+ #	+ updated alacritty+common entry & notes -TD
+ #	+ use xterm+sl-twm for consistency -TD
+ #
++# 2019-09-22
++#	+ correct a comment -TD
++#
+ ######## SHANTIH!  SHANTIH!  SHANTIH!
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190921+/package/debian-mingw/changelog	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/package/debian-mingw/changelog	2019-09-27 18:43:59.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190921) unstable; urgency=low
++ncurses6 (6.1+20190928) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Sep 2019 10:56:20 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 22 Sep 2019 14:43:59 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190921+/package/debian-mingw64/changelog	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/package/debian-mingw64/changelog	2019-09-27 18:43:59.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190921) unstable; urgency=low
++ncurses6 (6.1+20190928) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Sep 2019 10:56:20 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 22 Sep 2019 14:43:59 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190921+/package/debian/changelog	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/package/debian/changelog	2019-09-27 18:43:59.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190921) unstable; urgency=low
++ncurses6 (6.1+20190928) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Sep 2019 10:56:20 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 22 Sep 2019 14:43:59 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.352 
+--- ncurses-6.1-20190921+/package/mingw-ncurses.nsi	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/package/mingw-ncurses.nsi	2019-09-27 18:43:59.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.352 2019/09/21 14:56:20 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.353 2019/09/27 18:43:59 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0921"
++!define VERSION_MMDD  "0928"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190921+/package/mingw-ncurses.spec	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/package/mingw-ncurses.spec	2019-09-27 18:43:59.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190921
++Release: 20190928
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190921+/package/ncurses.spec	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/package/ncurses.spec	2019-09-27 18:43:59.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190921
++Release: 20190928
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190921+/package/ncursest.spec	2019-09-21 14:56:20.000000000 +0000
++++ ncurses-6.1-20190928/package/ncursest.spec	2019-09-27 18:43:59.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190921
++Release: 20190928
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: test/ncurses.c
+Prereq:  1.518 
+--- ncurses-6.1-20190921+/test/ncurses.c	2019-08-31 23:22:40.000000000 +0000
++++ ncurses-6.1-20190928/test/ncurses.c	2019-09-22 19:12:40.000000000 +0000
+@@ -40,7 +40,7 @@
+    Author: Eric S. Raymond <esr@snark.thyrsus.com> 1993
+            Thomas E. Dickey (beginning revision 1.27 in 1996).
+ 
+-$Id: ncurses.c,v 1.518 2019/08/31 23:22:40 tom Exp $
++$Id: ncurses.c,v 1.519 2019/09/22 19:12:40 tom Exp $
+ 
+ ***************************************************************************/
+ 
+@@ -7815,11 +7815,13 @@
+ 	for (;;) {
+ 	    char ch = '\0';
+ 	    if (read(fileno(stdin), &ch, (size_t) 1) <= 0) {
+-		if (command == 0)
+-		    command = 'q';
+-		if (errno == EINTR) {
++		int save_err = errno;
++		perror("\nOOPS");
++		if (save_err == EINTR) {
+ 		    clearerr(stdin);
+ 		    continue;
++		} else if (command == 0) {
++		    command = 'q';
+ 		}
+ 		break;
+ 	    } else if (command == 0 && !isspace(UChar(ch))) {

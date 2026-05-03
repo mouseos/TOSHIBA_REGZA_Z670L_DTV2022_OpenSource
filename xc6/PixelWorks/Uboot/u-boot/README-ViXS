@@ -1,0 +1,24 @@
+====================================
+	U-Boot tips
+====================================
+
+1. add new xcode6 customer board
+	a. edit boards.cfg, search for xc6_sdk, 
+	   duplicate the line and change the sdk to customer(x);
+
+	b. copy include/configs/xc6_sdk.h to include/configs/xc6_customer(x).h
+	   edit the file for customer board specific options;
+
+	c. symbolic link the board/vixs/sdk to board/vixs/customer(x);
+
+	d. make xc6_customer(x) to compile the u-boot
+
+2. u-boot bootargs NFS root
+	a. Dynamic IP
+	   setenv bootargs root=/dev/nfs nfsroot=$serverip:$nfsrootpath ip=dhcp
+
+	b. Static IP
+	   setenv bootargs root=/dev/nfs nfsroot=$serverip:$nfsrootpath \
+	   ip=$ipaddr:$serverip:$gatewayip:$netmask:$hostname::off
+	
+	Note: the eth configure in rootfs should be disabled for NFS Root

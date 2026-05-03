@@ -1,0 +1,1901 @@
+# ncurses 6.1 - patch 20191214 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191214.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Dec 15 02:10:35 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                                  |    6 ++++-
+# VERSION                               |    2 -
+# c++/cursesmain.cc                     |    6 ++---
+# dist.mk                               |    4 +--
+# doc/html/ada/funcs/T.htm              |    2 -
+# doc/html/man/adacurses6-config.1.html |    2 -
+# doc/html/man/captoinfo.1m.html        |    2 -
+# doc/html/man/clear.1.html             |    2 -
+# doc/html/man/curs_memleaks.3x.html    |   35 +++++++++++++++++++++-----------
+# doc/html/man/form.3x.html             |    2 -
+# doc/html/man/infocmp.1m.html          |    2 -
+# doc/html/man/infotocap.1m.html        |    2 -
+# doc/html/man/menu.3x.html             |    2 -
+# doc/html/man/ncurses.3x.html          |    2 -
+# doc/html/man/ncurses6-config.1.html   |    2 -
+# doc/html/man/panel.3x.html            |    2 -
+# doc/html/man/tabs.1.html              |    2 -
+# doc/html/man/terminfo.5.html          |    2 -
+# doc/html/man/tic.1m.html              |    2 -
+# doc/html/man/toe.1m.html              |    2 -
+# doc/html/man/tput.1.html              |    2 -
+# doc/html/man/tset.1.html              |    2 -
+# include/MKterm.h.awk.in               |   13 +++++++++--
+# include/curses.tail                   |    4 ++-
+# include/nc_alloc.h                    |   16 ++++++++++----
+# man/curs_memleaks.3x                  |   29 +++++++++++++++++++-------
+# ncurses/base/lib_freeall.c            |   19 ++++++++++++++---
+# ncurses/curses.priv.h                 |    9 +-------
+# ncurses/llib-lncurses                 |   15 +++++++++++++
+# ncurses/llib-lncursest                |   16 ++++++++++++++
+# ncurses/llib-lncursestw               |   16 ++++++++++++++
+# ncurses/llib-lncursesw                |   16 ++++++++++++++
+# ncurses/tinfo/comp_parse.c            |    4 +--
+# ncurses/tinfo/entries.c               |   11 +++++++++-
+# ncurses/tty/hashmap.c                 |   16 +++++---------
+# package/debian-mingw/changelog        |    4 +--
+# package/debian-mingw64/changelog      |    4 +--
+# package/debian/changelog              |    4 +--
+# package/mingw-ncurses.nsi             |    4 +--
+# package/mingw-ncurses.spec            |    2 -
+# package/ncurses.map                   |   11 ++++++++--
+# package/ncurses.spec                  |    2 -
+# package/ncurses.sym                   |    4 ++-
+# package/ncursest.map                  |   12 +++++++++-
+# package/ncursest.spec                 |    2 -
+# package/ncursest.sym                  |    4 ++-
+# package/ncursestw.map                 |   11 ++++++++--
+# package/ncursestw.sym                 |    4 ++-
+# package/ncursesw.map                  |   11 ++++++++--
+# package/ncursesw.sym                  |    4 ++-
+# progs/progs.priv.h                    |    7 +++---
+# test/demo_new_pair.c                  |    6 ++---
+# test/echochar.c                       |    4 +--
+# test/firework.c                       |    6 ++---
+# test/gdc.c                            |    8 +++----
+# test/hanoi.c                          |    6 ++---
+# test/lrtest.c                         |    4 +--
+# test/ncurses.c                        |    8 +++----
+# test/newdemo.c                        |    8 +++----
+# test/picsmap.c                        |   14 ++++++------
+# test/rain.c                           |    8 +++----
+# test/savescreen.c                     |    8 +++----
+# test/tclock.c                         |    4 +--
+# test/test.priv.h                      |    8 +++----
+# test/testcurs.c                       |    8 +++----
+# test/worm.c                           |    6 ++---
+# test/xmas.c                           |    6 ++---
+# 67 files changed, 315 insertions(+), 158 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3415 
+--- ncurses-6.1-20191207+/NEWS	2019-12-07 23:36:25.000000000 +0000
++++ ncurses-6.1-20191214/NEWS	2019-12-14 21:26:03.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3415 2019/12/07 23:36:25 tom Exp $
++-- $Id: NEWS,v 1.3416 2019/12/14 21:26:03 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,10 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191214
++	+ add exit_curses() and exit_terminfo() to replace internal symbols for
++	  leak-checking.
++
+ 20191207
+ 	+ fix a few warnings for test-package builds
+ 	+ add curses_trace(), to replace trace().
+Index: VERSION
+--- ncurses-6.1-20191207+/VERSION	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/VERSION	2019-12-14 17:50:13.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20191207
++5:0:10	6.1	20191214
+Index: c++/cursesmain.cc
+Prereq:  1.15 
+--- ncurses-6.1-20191207+/c++/cursesmain.cc	2013-09-28 20:56:47.000000000 +0000
++++ ncurses-6.1-20191214/c++/cursesmain.cc	2019-12-14 22:48:23.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright (c) 1998-2007,2013 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2013,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -43,7 +43,7 @@
+ #define CPP_HAS_TRY_CATCH 0
+ #endif
+ 
+-MODULE_ID("$Id: cursesmain.cc,v 1.15 2013/09/28 20:56:47 tom Exp $")
++MODULE_ID("$Id: cursesmain.cc,v 1.16 2019/12/14 22:48:23 tom Exp $")
+ 
+ #if HAVE_LOCALE_H
+ #include <locale.h>
+@@ -87,7 +87,7 @@
+ #endif
+ #if NO_LEAKS
+     delete A;
+-    _nc_free_and_exit(res);
++    exit_curses(res);
+ #else
+     return(res);
+ #endif
+Index: dist.mk
+Prereq:  1.1318 
+--- ncurses-6.1-20191207+/dist.mk	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/dist.mk	2019-12-14 17:50:13.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1318 2019/12/07 10:19:49 tom Exp $
++# $Id: dist.mk,v 1.1319 2019/12/14 17:50:13 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20191207
++NCURSES_PATCH = 20191214
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: doc/html/ada/funcs/T.htm
+--- ncurses-6.1-20191207+/doc/html/ada/funcs/T.htm	2019-07-26 23:48:31.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/ada/funcs/T.htm	2019-12-15 00:54:38.000000000 +0000
+@@ -20,8 +20,8 @@
+ <LI><A HREF="../terminal_interface-curses-termcap__adb.htm#ref_89_16" TARGET="main">tgetnum</A>
+ <LI><A HREF="../terminal_interface-curses-termcap__adb.htm#ref_108_16" TARGET="main">tgetstr -  terminal_interface-curses-termcap.adb:108</A>
+ <LI><A HREF="../terminal_interface-curses-termcap__adb.htm#ref_129_16" TARGET="main">tgetstr -  terminal_interface-curses-termcap.adb:129</A>
+-<LI><A HREF="../terminal_interface-curses-termcap__ads.htm#ref_53_13" TARGET="main">TGoto</A>
+ <LI><A HREF="../terminal_interface-curses-termcap__adb.htm#ref_151_16" TARGET="main">tgoto</A>
++<LI><A HREF="../terminal_interface-curses-termcap__ads.htm#ref_53_13" TARGET="main">TGoto</A>
+ <LI><A HREF="../terminal_interface-curses-terminfo__adb.htm#ref_69_16" TARGET="main">tigetflag</A>
+ <LI><A HREF="../terminal_interface-curses-terminfo__adb.htm#ref_87_16" TARGET="main">tigetstr -  terminal_interface-curses-terminfo.adb:87</A>
+ <LI><A HREF="../terminal_interface-curses-terminfo__adb.htm#ref_108_16" TARGET="main">tigetstr -  terminal_interface-curses-terminfo.adb:108</A>
+Index: doc/html/man/adacurses6-config.1.html
+--- ncurses-6.1-20191207+/doc/html/man/adacurses6-config.1.html	2019-12-07 20:48:39.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/adacurses6-config.1.html	2019-12-15 00:54:32.000000000 +0000
+@@ -125,7 +125,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: doc/html/man/captoinfo.1m.html
+--- ncurses-6.1-20191207+/doc/html/man/captoinfo.1m.html	2019-12-07 20:48:39.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/captoinfo.1m.html	2019-12-15 00:54:32.000000000 +0000
+@@ -198,7 +198,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/clear.1.html
+--- ncurses-6.1-20191207+/doc/html/man/clear.1.html	2019-12-07 20:48:39.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/clear.1.html	2019-12-15 00:54:32.000000000 +0000
+@@ -148,7 +148,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tput.1.html">tput(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: doc/html/man/curs_memleaks.3x.html
+--- ncurses-6.1-20191207+/doc/html/man/curs_memleaks.3x.html	2019-03-16 19:34:44.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/curs_memleaks.3x.html	2019-12-15 00:54:33.000000000 +0000
+@@ -1,6 +1,6 @@
+ <!-- 
+   ****************************************************************************
+-  * Copyright (c) 2008-2010,2017 Free Software Foundation, Inc.              *
++  * Copyright (c) 2008-2017,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -53,6 +53,10 @@
+ </PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+        <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+ 
++       <STRONG>void</STRONG> <STRONG>exit_curses(int);</STRONG>
++       <STRONG>void</STRONG> <STRONG>exit_terminfo(int);</STRONG>
++
++       /* deprecated */
+        <STRONG>void</STRONG> <STRONG>_nc_freeall(void);</STRONG>
+        <STRONG>void</STRONG> <STRONG>_nc_free_and_exit(int);</STRONG>
+        <STRONG>void</STRONG> <STRONG>_nc_free_tinfo(int);</STRONG>
+@@ -60,22 +64,19 @@
+ 
+ </PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+        These functions are used to simplify analysis of memory  leaks  in  the
+-       ncurses library.  They are normally not available; they must be config-
+-       ured into the library at build time using the  <STRONG>--disable-leaks</STRONG>  option.
+-       That  compiles-in  code  that  frees  memory that normally would not be
+-       freed.
++       ncurses library.
+ 
+        Any implementation of curses must not free the memory associated with a
+        screen, since (even after calling <STRONG>endwin</STRONG>), it must be available for use
+-       in the next call to <STRONG><A HREF="curs_refresh.3x.html">refresh(3x)</A></STRONG>.  There are also chunks of memory  held
++       in  the next call to <STRONG><A HREF="curs_refresh.3x.html">refresh(3x)</A></STRONG>.  There are also chunks of memory held
+        for performance reasons.  That makes it hard to analyze curses applica-
+-       tions for memory leaks.  When using the specially configured  debugging
+-       version  of  the ncurses library, applications can call functions which
+-       free those chunks of memory, simplifying  the  process  of  memory-leak
++       tions  for memory leaks.  When using the specially configured debugging
++       version of the ncurses library, applications can call  functions  which
++       free  those  chunks  of  memory, simplifying the process of memory-leak
+        checking.
+ 
+-       These functions are named with a "_nc_" prefix because they are not in-
+-       tended for use in the non-debugging library:
++       Some of the functions are named with a "_nc_" prefix because  they  are
++       not intended for use in the non-debugging library:
+ 
+        <STRONG>_nc_freeall</STRONG>
+             This frees (almost) all of the memory allocated by ncurses.
+@@ -87,10 +88,20 @@
+             ply exiting (with the given exit-code) is safer.
+ 
+        <STRONG>_nc_free_tinfo</STRONG>
+-            Use  this  function  if only the low-level terminfo functions (and
++            Use this function if only the low-level  terminfo  functions  (and
+             corresponding library) are used.  Like <STRONG>_nc_free_and_exit</STRONG>, it exits
+             the program after freeing memory.
+ 
++       The functions prefixed "_nc" are normally not available; they  must  be
++       configured into the library at build time using the <STRONG>--disable-leaks</STRONG> op-
++       tion.  That compiles-in code that frees memory that normally would  not
++       be freed.
++
++       The  <STRONG>exit_curses</STRONG> and <STRONG>exit_terminfo</STRONG> functions call <STRONG>_nc_free_and_exit</STRONG> and
++       <STRONG>_nc_free_tinfo</STRONG> if the library  is  configured  to  support  memory-leak
++       checking.   If  the  library  is  not configured to support memory-leak
++       checking, they simply call <STRONG>exit</STRONG>.
++
+ 
+ </PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+        These functions do not return a value.
+Index: doc/html/man/form.3x.html
+--- ncurses-6.1-20191207+/doc/html/man/form.3x.html	2019-12-07 20:48:42.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/form.3x.html	2019-12-15 00:54:34.000000000 +0000
+@@ -246,7 +246,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "form_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: doc/html/man/infocmp.1m.html
+--- ncurses-6.1-20191207+/doc/html/man/infocmp.1m.html	2019-12-07 20:48:43.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/infocmp.1m.html	2019-12-15 00:54:35.000000000 +0000
+@@ -512,7 +512,7 @@
+ 
+        https://invisible-island.net/ncurses/tctest.html
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/infotocap.1m.html
+--- ncurses-6.1-20191207+/doc/html/man/infotocap.1m.html	2019-12-07 20:48:43.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/infotocap.1m.html	2019-12-15 00:54:35.000000000 +0000
+@@ -90,7 +90,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/menu.3x.html
+--- ncurses-6.1-20191207+/doc/html/man/menu.3x.html	2019-12-07 20:48:44.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/menu.3x.html	2019-12-15 00:54:35.000000000 +0000
+@@ -221,7 +221,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "menu_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: doc/html/man/ncurses.3x.html
+--- ncurses-6.1-20191207+/doc/html/man/ncurses.3x.html	2019-12-07 20:48:45.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/ncurses.3x.html	2019-12-15 00:54:36.000000000 +0000
+@@ -59,7 +59,7 @@
+        method of updating  character  screens  with  reasonable  optimization.
+        This  implementation  is  "new  curses"  (ncurses)  and is the approved
+        replacement for 4.4BSD classic curses,  which  has  been  discontinued.
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+        The  <STRONG>ncurses</STRONG>  library emulates the curses library of System V Release 4
+        UNIX, and XPG4 (X/Open Portability Guide) curses  (also  known  as  XSI
+Index: doc/html/man/ncurses6-config.1.html
+--- ncurses-6.1-20191207+/doc/html/man/ncurses6-config.1.html	2019-12-07 20:48:45.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/ncurses6-config.1.html	2019-12-15 00:54:36.000000000 +0000
+@@ -112,7 +112,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: doc/html/man/panel.3x.html
+--- ncurses-6.1-20191207+/doc/html/man/panel.3x.html	2019-12-07 20:48:45.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/panel.3x.html	2019-12-15 00:54:36.000000000 +0000
+@@ -204,7 +204,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>,
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/tabs.1.html
+--- ncurses-6.1-20191207+/doc/html/man/tabs.1.html	2019-12-07 20:48:45.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/tabs.1.html	2019-12-15 00:54:36.000000000 +0000
+@@ -205,7 +205,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: doc/html/man/terminfo.5.html
+--- ncurses-6.1-20191207+/doc/html/man/terminfo.5.html	2019-12-07 20:48:45.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/terminfo.5.html	2019-12-15 00:54:36.000000000 +0000
+@@ -103,7 +103,7 @@
+        have, by specifying how to perform screen operations, and by specifying
+        padding requirements and initialization sequences.
+ 
+-       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ </PRE><H3><a name="h3-Terminfo-Entry-Syntax">Terminfo Entry Syntax</a></H3><PRE>
+Index: doc/html/man/tic.1m.html
+--- ncurses-6.1-20191207+/doc/html/man/tic.1m.html	2019-12-07 20:48:45.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/tic.1m.html	2019-12-15 00:54:37.000000000 +0000
+@@ -460,7 +460,7 @@
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,   <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,   <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>,   <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,
+        <STRONG><A HREF="term.5.html">term(5)</A></STRONG>.  <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.  <STRONG><A HREF="user_caps.5.html">user_caps(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/toe.1m.html
+--- ncurses-6.1-20191207+/doc/html/man/toe.1m.html	2019-12-07 20:48:46.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/toe.1m.html	2019-12-15 00:54:37.000000000 +0000
+@@ -170,7 +170,7 @@
+        <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,  <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,  <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,  <STRONG>ter-</STRONG>
+        <STRONG><A HREF="terminfo.5.html">minfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: doc/html/man/tput.1.html
+--- ncurses-6.1-20191207+/doc/html/man/tput.1.html	2019-12-07 20:48:46.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/tput.1.html	2019-12-15 00:54:37.000000000 +0000
+@@ -522,7 +522,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="clear.1.html">clear(1)</A></STRONG>, <STRONG>stty(1)</STRONG>, <STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>, <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>, <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: doc/html/man/tset.1.html
+--- ncurses-6.1-20191207+/doc/html/man/tset.1.html	2019-12-07 20:48:46.000000000 +0000
++++ ncurses-6.1-20191214/doc/html/man/tset.1.html	2019-12-15 00:54:37.000000000 +0000
+@@ -389,7 +389,7 @@
+        <STRONG>csh(1)</STRONG>,  <STRONG>sh(1)</STRONG>,  <STRONG>stty(1)</STRONG>,   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>,   <STRONG>tty(4)</STRONG>,   <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>,
+        <STRONG>ttys(5)</STRONG>, <STRONG>environ(7)</STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191207).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191214).
+ 
+ 
+ 
+Index: include/MKterm.h.awk.in
+Prereq:  1.71 
+--- ncurses-6.1-20191207+/include/MKterm.h.awk.in	2019-04-13 22:34:42.000000000 +0000
++++ ncurses-6.1-20191214/include/MKterm.h.awk.in	2019-12-14 22:31:32.000000000 +0000
+@@ -59,7 +59,7 @@
+ 	print  "/*    and: Thomas E. Dickey                        1995-on                  */"
+ 	print  "/****************************************************************************/"
+ 	print  ""
+-	print  "/* $Id: MKterm.h.awk.in,v 1.71 2019/04/13 22:34:42 tom Exp $ */"
++	print  "/* $Id: MKterm.h.awk.in,v 1.72 2019/12/14 22:31:32 tom Exp $ */"
+ 	print  ""
+ 	print  "/*"
+ 	print  "**	term.h -- Definition of struct term"
+@@ -298,12 +298,14 @@
+ 	print  ""
+ 	print  ""
+ 	print  "/*"
+-	print  " * These entrypoints are used by tack."
++	print  " * These entrypoints are used by tack 1.07."
+ 	print  " */"
+ 	print  "extern NCURSES_EXPORT(const TERMTYPE *) _nc_fallback (const char *);"
+ 	print  "extern NCURSES_EXPORT(int) _nc_read_entry (const char * const, char * const, TERMTYPE *const);"
+ 	print  ""
+-	print  "/* Normal entry points */"
++	print  "/*"
++	print  " * Normal entry points"
++	print  " */"
+ 	print  "extern NCURSES_EXPORT(TERMINAL *) set_curterm (TERMINAL *);"
+ 	print  "extern NCURSES_EXPORT(int) del_curterm (TERMINAL *);"
+ 	print  ""
+@@ -371,6 +373,11 @@
+ 	print  "extern NCURSES_EXPORT(int)     NCURSES_SP_NAME(restartterm) (SCREEN*, NCURSES_CONST char *, int, int *);"
+ 	print  "#endif /* NCURSES_SP_FUNCS */"
+ 	print  ""
++	print  "/*"
++	print  " * Debugging features."
++	print  " */"
++	print  "extern NCURSES_EXPORT(void)    exit_terminfo(int) GCC_NORETURN;"
++	print  ""
+ 	print  "#ifdef __cplusplus"
+ 	printf "%s\n", rcurl;
+ 	print  "#endif"
+Index: include/curses.tail
+Prereq:  1.24 
+--- ncurses-6.1-20191207+/include/curses.tail	2019-12-07 16:10:32.000000000 +0000
++++ ncurses-6.1-20191214/include/curses.tail	2019-12-14 22:28:39.000000000 +0000
+@@ -1,4 +1,4 @@
+-/* $Id: curses.tail,v 1.24 2019/12/07 16:10:32 tom Exp $ */
++/* $Id: curses.tail,v 1.25 2019/12/14 22:28:39 tom Exp $ */
+ /*
+  * vile:cmode:
+  * This file is part of ncurses, designed to be appended after curses.h.in
+@@ -174,6 +174,8 @@
+ #define OPTIMIZE_ALL		0xff	/* enable all optimizations (dflt) */
+ #endif
+ 
++extern NCURSES_EXPORT(void) exit_curses (int) GCC_NORETURN;
++
+ #include <unctrl.h>
+ 
+ #ifdef __cplusplus
+Index: include/nc_alloc.h
+Prereq:  1.23 
+--- ncurses-6.1-20191207+/include/nc_alloc.h	2017-07-22 16:59:37.000000000 +0000
++++ ncurses-6.1-20191214/include/nc_alloc.h	2019-12-15 01:00:51.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2013,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -29,7 +29,7 @@
+ /****************************************************************************
+  *  Author: Thomas E. Dickey                    1996-on                     *
+  ****************************************************************************/
+-/* $Id: nc_alloc.h,v 1.23 2017/07/22 16:59:37 tom Exp $ */
++/* $Id: nc_alloc.h,v 1.24 2019/12/15 01:00:51 tom Exp $ */
+ 
+ #ifndef NC_ALLOC_included
+ #define NC_ALLOC_included 1
+@@ -72,8 +72,9 @@
+ #if HAVE_LIBDBMALLOC || HAVE_LIBDMALLOC || NO_LEAKS
+ #define HAVE_NC_FREEALL 1
+ struct termtype;
+-extern NCURSES_EXPORT(void) _nc_free_and_exit(int) GCC_NORETURN;
+-extern NCURSES_EXPORT(void) _nc_free_tinfo(int) GCC_NORETURN;
++extern NCURSES_EXPORT(void) _nc_free_tinfo(int) GCC_NORETURN GCC_DEPRECATED("use exit_terminfo");
++
++#ifdef NCURSES_INTERNALS
+ extern NCURSES_EXPORT(void) _nc_free_tic(int) GCC_NORETURN;
+ extern NCURSES_EXPORT(void) _nc_free_tparm(void);
+ extern NCURSES_EXPORT(void) _nc_leaks_dump_entry(void);
+@@ -82,8 +83,13 @@
+ #if NCURSES_SP_FUNCS
+ extern NCURSES_EXPORT(void) NCURSES_SP_NAME(_nc_free_and_exit)(SCREEN*, int) GCC_NORETURN;
+ #endif
++extern NCURSES_EXPORT(void) _nc_free_and_exit(int) GCC_NORETURN;
++
++#else /* !NCURSES_INTERNALS */
++extern NCURSES_EXPORT(void) _nc_free_and_exit(int) GCC_NORETURN GCC_DEPRECATED("use exit_curses");
++#endif
+ 
+-#define ExitProgram(code) _nc_free_and_exit(code)
++#define ExitProgram(code) exit_curses(code)
+ 
+ #endif /* NO_LEAKS, etc */
+ 
+Index: man/curs_memleaks.3x
+Prereq:  1.6 
+--- ncurses-6.1-20191207+/man/curs_memleaks.3x	2017-08-22 08:35:37.000000000 +0000
++++ ncurses-6.1-20191214/man/curs_memleaks.3x	2019-12-14 23:21:32.000000000 +0000
+@@ -1,5 +1,5 @@
+ .\"***************************************************************************
+-.\" Copyright (c) 2008-2010,2017 Free Software Foundation, Inc.              *
++.\" Copyright (c) 2008-2017,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: curs_memleaks.3x,v 1.6 2017/08/22 08:35:37 Sven.Joachim Exp $
++.\" $Id: curs_memleaks.3x,v 1.7 2019/12/14 23:21:32 tom Exp $
+ .TH curs_memleaks 3X ""
+ .ie \n(.g .ds `` \(lq
+ .el       .ds `` ``
+@@ -43,6 +43,12 @@
+ .SH SYNOPSIS
+ \fB#include <curses.h>\fR
+ .sp
++\fBvoid exit_curses(int);\fR
++.br
++\fBvoid exit_terminfo(int);\fR
++.sp
++/* deprecated */
++.br
+ \fBvoid _nc_freeall(void);\fR
+ .br
+ \fBvoid _nc_free_and_exit(int);\fR
+@@ -51,10 +57,6 @@
+ .SH DESCRIPTION
+ These functions are used to simplify analysis of memory leaks in the ncurses
+ library.
+-They are normally not available;
+-they must be configured into the library
+-at build time using the \fB\-\-disable-leaks\fP option.
+-That compiles-in code that frees memory that normally would not be freed.
+ .PP
+ Any implementation of curses must not free the memory associated with
+ a screen, since (even after calling \fBendwin\fP), it must be available
+@@ -65,8 +67,8 @@
+ applications can call functions which free those chunks of memory,
+ simplifying the process of memory-leak checking.
+ .PP
+-These functions are named with a \*(``_nc_\*('' prefix because they are not
+-intended for use in the non-debugging library:
++Some of the functions are named with a \*(``_nc_\*('' prefix
++because they are not intended for use in the non-debugging library:
+ .TP 5
+ \fB_nc_freeall\fP
+ This frees (almost) all of the memory allocated by ncurses.
+@@ -82,6 +84,17 @@
+ Use this function if only the low-level terminfo functions (and
+ corresponding library) are used.
+ Like \fB_nc_free_and_exit\fP, it exits the program after freeing memory.
++.PP
++The functions prefixed \*(``_nc\*('' are normally not available;
++they must be configured into the library
++at build time using the \fB\-\-disable-leaks\fP option.
++That compiles-in code that frees memory that normally would not be freed.
++.PP
++The \fBexit_curses\fP and \fBexit_terminfo\fP functions
++call \fB_nc_free_and_exit\fP and \fB_nc_free_tinfo\fP if
++the library is configured to support memory-leak checking.
++If the library is not configured to support memory-leak checking,
++they simply call \fBexit\fP.
+ .SH RETURN VALUE
+ These functions do not return a value.
+ .SH PORTABILITY
+Index: ncurses/base/lib_freeall.c
+Prereq:  1.70 
+--- ncurses-6.1-20191207+/ncurses/base/lib_freeall.c	2019-12-07 20:28:03.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/base/lib_freeall.c	2019-12-15 00:30:49.000000000 +0000
+@@ -39,7 +39,7 @@
+ extern int malloc_errfd;	/* FIXME */
+ #endif
+ 
+-MODULE_ID("$Id: lib_freeall.c,v 1.70 2019/12/07 20:28:03 tom Exp $")
++MODULE_ID("$Id: lib_freeall.c,v 1.71 2019/12/15 00:30:49 tom Exp $")
+ 
+ /*
+  * Free all ncurses data.  This is used for testing only (there's no practical
+@@ -159,7 +159,7 @@
+     exit(code);
+ }
+ 
+-#else
++#else /* !HAVE_NC_FREEALL */
+ NCURSES_EXPORT(void)
+ _nc_freeall(void)
+ {
+@@ -175,7 +175,7 @@
+     }
+     exit(code);
+ }
+-#endif
++#endif /* HAVE_NC_FREEALL */
+ 
+ #if NCURSES_SP_FUNCS
+ NCURSES_EXPORT(void)
+@@ -184,3 +184,16 @@
+     NCURSES_SP_NAME(_nc_free_and_exit) (CURRENT_SCREEN, code);
+ }
+ #endif
++
++NCURSES_EXPORT(void)
++exit_curses(int code)
++{
++#if NO_LEAKS
++#if NCURSES_SP_FUNCS
++    NCURSES_SP_NAME(_nc_free_and_exit) (CURRENT_SCREEN, code);
++#else
++    _nc_free_and_exit(code);	/* deprecated... */
++#endif
++#endif
++    exit(code);
++}
+Index: ncurses/curses.priv.h
+Prereq:  1.626 
+--- ncurses-6.1-20191207+/ncurses/curses.priv.h	2019-12-07 20:08:06.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/curses.priv.h	2019-12-14 22:36:12.000000000 +0000
+@@ -34,7 +34,7 @@
+  ****************************************************************************/
+ 
+ /*
+- * $Id: curses.priv.h,v 1.626 2019/12/07 20:08:06 tom Exp $
++ * $Id: curses.priv.h,v 1.627 2019/12/14 22:36:12 tom Exp $
+  *
+  *	curses.priv.h
+  *
+@@ -2170,11 +2170,7 @@
+ extern NCURSES_EXPORT(int)    _nc_ripoffline(int, int(*)(WINDOW*, int));
+ 
+ /* lib_setup.c */
+-#if NO_LEAKS
+-#define ExitTerminfo(code)    _nc_free_tinfo(code)
+-#else
+-#define ExitTerminfo(code)    exit(code)
+-#endif
++#define ExitTerminfo(code)    exit_terminfo(code)
+ 
+ #define SETUP_FAIL ERR
+ 
+@@ -2264,7 +2260,6 @@
+ extern NCURSES_EXPORT(void) _nc_init_termtype (TERMTYPE2 *const);
+ extern NCURSES_EXPORT(void) _nc_do_color (int, int, int, NCURSES_OUTC);
+ extern NCURSES_EXPORT(void) _nc_flush (void);
+-extern NCURSES_EXPORT(void) _nc_free_and_exit (int) GCC_NORETURN;
+ extern NCURSES_EXPORT(void) _nc_free_entry (ENTRY *, TERMTYPE2 *);
+ extern NCURSES_EXPORT(void) _nc_freeall (void);
+ extern NCURSES_EXPORT(void) _nc_hash_map (void);
+Index: ncurses/llib-lncurses
+--- ncurses-6.1-20191207+/ncurses/llib-lncurses	2019-03-17 01:14:53.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/llib-lncurses	2019-12-15 01:12:20.000000000 +0000
+@@ -2577,6 +2577,11 @@
+ 		int	code)
+ 		{ /* void */ }
+ 
++#undef exit_curses
++void	exit_curses(
++		int	code)
++		{ /* void */ }
++
+ /* ./expanded.c */
+ 
+ #undef _nc_toggle_attr_on
+@@ -2987,6 +2992,11 @@
+ void	_nc_leaks_tinfo(void)
+ 		{ /* void */ }
+ 
++#undef exit_terminfo
++void	exit_terminfo(
++		int	code)
++		{ /* void */ }
++
+ /* ./fallback.c */
+ 
+ #undef _nc_fallback
+@@ -3732,6 +3742,11 @@
+ #undef _nc_outchars
+ long	_nc_outchars;
+ 
++#undef curses_trace
++unsigned curses_trace(
++		unsigned tracelevel)
++		{ return(*(unsigned *)0); }
++
+ #undef trace
+ void	trace(
+ 		const unsigned int tracelevel)
+Index: ncurses/llib-lncursest
+--- ncurses-6.1-20191207+/ncurses/llib-lncursest	2019-03-17 01:14:53.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/llib-lncursest	2019-12-15 01:12:20.000000000 +0000
+@@ -34,6 +34,7 @@
+ /* ./tty/hardscroll.c */
+ 
+ #include <curses.priv.h>
++
+ #undef _nc_oldnums
+ int	*_nc_oldnums;
+ 
+@@ -2585,6 +2586,11 @@
+ 		int	code)
+ 		{ /* void */ }
+ 
++#undef exit_curses
++void	exit_curses(
++		int	code)
++		{ /* void */ }
++
+ /* ./expanded.c */
+ 
+ #undef _nc_toggle_attr_on
+@@ -3000,6 +3006,11 @@
+ void	_nc_leaks_tinfo(void)
+ 		{ /* void */ }
+ 
++#undef exit_terminfo
++void	exit_terminfo(
++		int	code)
++		{ /* void */ }
++
+ /* ./fallback.c */
+ 
+ #undef _nc_fallback
+@@ -3830,6 +3841,11 @@
+ 		long	increment)
+ 		{ /* void */ }
+ 
++#undef curses_trace
++unsigned curses_trace(
++		unsigned tracelevel)
++		{ return(*(unsigned *)0); }
++
+ #undef trace
+ void	trace(
+ 		const unsigned int tracelevel)
+Index: ncurses/llib-lncursestw
+--- ncurses-6.1-20191207+/ncurses/llib-lncursestw	2019-03-17 01:14:53.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/llib-lncursestw	2019-12-15 01:12:20.000000000 +0000
+@@ -34,6 +34,7 @@
+ /* ./tty/hardscroll.c */
+ 
+ #include <curses.priv.h>
++
+ #undef _nc_oldnums
+ int	*_nc_oldnums;
+ 
+@@ -3177,6 +3178,11 @@
+ 		int	code)
+ 		{ /* void */ }
+ 
++#undef exit_curses
++void	exit_curses(
++		int	code)
++		{ /* void */ }
++
+ /* ./widechar/charable.c */
+ 
+ #undef _nc_is_charable
+@@ -3939,6 +3945,11 @@
+ void	_nc_leaks_tinfo(void)
+ 		{ /* void */ }
+ 
++#undef exit_terminfo
++void	exit_terminfo(
++		int	code)
++		{ /* void */ }
++
+ /* ./fallback.c */
+ 
+ #undef _nc_fallback2
+@@ -4779,6 +4790,11 @@
+ 		long	increment)
+ 		{ /* void */ }
+ 
++#undef curses_trace
++unsigned curses_trace(
++		unsigned tracelevel)
++		{ return(*(unsigned *)0); }
++
+ #undef trace
+ void	trace(
+ 		const unsigned int tracelevel)
+Index: ncurses/llib-lncursesw
+--- ncurses-6.1-20191207+/ncurses/llib-lncursesw	2019-03-17 01:14:53.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/llib-lncursesw	2019-12-15 01:12:20.000000000 +0000
+@@ -34,6 +34,7 @@
+ /* ./tty/hardscroll.c */
+ 
+ #include <curses.priv.h>
++
+ #undef _nc_oldnums
+ int	*_nc_oldnums;
+ 
+@@ -3168,6 +3169,11 @@
+ 		int	code)
+ 		{ /* void */ }
+ 
++#undef exit_curses
++void	exit_curses(
++		int	code)
++		{ /* void */ }
++
+ /* ./widechar/charable.c */
+ 
+ #undef _nc_is_charable
+@@ -3925,6 +3931,11 @@
+ void	_nc_leaks_tinfo(void)
+ 		{ /* void */ }
+ 
++#undef exit_terminfo
++void	exit_terminfo(
++		int	code)
++		{ /* void */ }
++
+ /* ./fallback.c */
+ 
+ #undef _nc_fallback2
+@@ -4680,6 +4691,11 @@
+ #undef _nc_outchars
+ long	_nc_outchars;
+ 
++#undef curses_trace
++unsigned curses_trace(
++		unsigned tracelevel)
++		{ return(*(unsigned *)0); }
++
+ #undef trace
+ void	trace(
+ 		const unsigned int tracelevel)
+Index: ncurses/tinfo/comp_parse.c
+Prereq:  1.107 
+--- ncurses-6.1-20191207+/ncurses/tinfo/comp_parse.c	2019-10-19 20:47:43.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/tinfo/comp_parse.c	2019-12-14 22:34:35.000000000 +0000
+@@ -47,7 +47,7 @@
+ 
+ #include <tic.h>
+ 
+-MODULE_ID("$Id: comp_parse.c,v 1.107 2019/10/19 20:47:43 tom Exp $")
++MODULE_ID("$Id: comp_parse.c,v 1.108 2019/12/14 22:34:35 tom Exp $")
+ 
+ static void sanity_check2(TERMTYPE2 *, bool);
+ NCURSES_IMPEXP void NCURSES_API(*_nc_check_termtype2) (TERMTYPE2 *, bool) = sanity_check2;
+@@ -724,6 +724,6 @@
+ _nc_free_tic(int code)
+ {
+     _nc_leaks_tic();
+-    _nc_free_tinfo(code);
++    exit_terminfo(code);
+ }
+ #endif
+Index: ncurses/tinfo/entries.c
+Prereq:  1.28 
+--- ncurses-6.1-20191207+/ncurses/tinfo/entries.c	2019-12-07 20:28:55.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/tinfo/entries.c	2019-12-15 00:18:03.000000000 +0000
+@@ -37,7 +37,7 @@
+ 
+ #include <tic.h>
+ 
+-MODULE_ID("$Id: entries.c,v 1.28 2019/12/07 20:28:55 tom Exp $")
++MODULE_ID("$Id: entries.c,v 1.29 2019/12/15 00:18:03 tom Exp $")
+ 
+ /****************************************************************************
+  *
+@@ -164,3 +164,12 @@
+     exit(code);
+ }
+ #endif
++
++NCURSES_EXPORT(void)
++exit_terminfo(int code)
++{
++#if NO_LEAKS
++    _nc_leaks_tinfo();
++#endif
++    exit(code);
++}
+Index: ncurses/tty/hashmap.c
+Prereq:  1.66 
+--- ncurses-6.1-20191207+/ncurses/tty/hashmap.c	2016-05-28 23:32:40.000000000 +0000
++++ ncurses-6.1-20191214/ncurses/tty/hashmap.c	2019-12-15 00:57:15.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2015,2016 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2016,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -73,7 +73,7 @@
+ #define CUR SP_TERMTYPE
+ #endif
+ 
+-MODULE_ID("$Id: hashmap.c,v 1.66 2016/05/28 23:32:40 tom Exp $")
++MODULE_ID("$Id: hashmap.c,v 1.67 2019/12/15 00:57:15 tom Exp $")
+ 
+ #ifdef HASHDEBUG
+ 
+@@ -119,7 +119,7 @@
+ static const NCURSES_CH_T blankchar = NewChar(BLANK_TEXT);
+ 
+ static NCURSES_INLINE unsigned long
+-hash(SCREEN *sp, NCURSES_CH_T * text)
++hash(SCREEN *sp, NCURSES_CH_T *text)
+ {
+     int i;
+     NCURSES_CH_T ch;
+@@ -135,7 +135,7 @@
+ 
+ /* approximate update cost */
+ static int
+-update_cost(SCREEN *sp, NCURSES_CH_T * from, NCURSES_CH_T * to)
++update_cost(SCREEN *sp, NCURSES_CH_T *from, NCURSES_CH_T *to)
+ {
+     int cost = 0;
+     int i;
+@@ -149,7 +149,7 @@
+ }
+ 
+ static int
+-update_cost_from_blank(SCREEN *sp, NCURSES_CH_T * to)
++update_cost_from_blank(SCREEN *sp, NCURSES_CH_T *to)
+ {
+     int cost = 0;
+     int i;
+@@ -583,11 +583,7 @@
+ 	    break;
+ 	}
+     }
+-#if NO_LEAKS
+-    _nc_free_and_exit(EXIT_SUCCESS);
+-#else
+-    return EXIT_SUCCESS;
+-#endif
++    exit_curses(EXIT_SUCCESS);
+ }
+ 
+ #endif /* HASHDEBUG */
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20191207+/package/debian-mingw/changelog	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/package/debian-mingw/changelog	2019-12-14 17:50:13.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191207) unstable; urgency=low
++ncurses6 (6.1+20191214) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Dec 2019 05:19:49 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Dec 2019 12:50:13 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20191207+/package/debian-mingw64/changelog	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/package/debian-mingw64/changelog	2019-12-14 17:50:13.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191207) unstable; urgency=low
++ncurses6 (6.1+20191214) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Dec 2019 05:19:49 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Dec 2019 12:50:13 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20191207+/package/debian/changelog	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/package/debian/changelog	2019-12-14 17:50:13.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191207) unstable; urgency=low
++ncurses6 (6.1+20191214) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Dec 2019 05:19:49 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Dec 2019 12:50:13 -0500
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.364 
+--- ncurses-6.1-20191207+/package/mingw-ncurses.nsi	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/package/mingw-ncurses.nsi	2019-12-14 17:50:13.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.364 2019/12/07 10:19:49 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.365 2019/12/14 17:50:13 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "1207"
++!define VERSION_MMDD  "1214"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20191207+/package/mingw-ncurses.spec	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/package/mingw-ncurses.spec	2019-12-14 17:50:13.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20191207
++Release: 20191214
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.map
+Prereq:  1.48 
+--- ncurses-6.1-20191207+/package/ncurses.map	2019-12-07 18:03:20.000000000 +0000
++++ ncurses-6.1-20191214/package/ncurses.map	2019-12-14 23:28:36.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncurses.map,v 1.48 2019/12/07 18:03:20 tom Exp $
++# $Id: ncurses.map,v 1.50 2019/12/14 23:28:36 tom Exp $
+ # script for shared library symbol-versioning using ld
+ #
+ # This file was generated by ncu-mapsyms
+@@ -765,7 +765,6 @@
+ 		reset_color_pairs_sp;
+ 		unfocus_current_field;
+ 	local:
+-		_*;
+ 		_nc_Unset_Current_Field;
+ 		_nc_change_pair;
+ 		_nc_init_color;
+@@ -775,6 +774,13 @@
+ 		_nc_set_color_pair;
+ } NCURSES_5.9.20150530;
+ 
++NCURSES_6.1.current {
++	global:
++		exit_curses;
++	local:
++		_*;
++} NCURSES_6.1.20171230;
++
+ NCURSES_TIC_5.0.19991023 {
+ 	global:
+ 		_nc_capcmp;
+@@ -1199,6 +1205,7 @@
+ 		_nc_fmt_funcptr;
+ 		_nc_wacs_width;
+ 		curses_trace;
++		exit_terminfo;
+ 	local:
+ 		_*;
+ } NCURSES_TINFO_6.1.20171230;
+Index: package/ncurses.spec
+--- ncurses-6.1-20191207+/package/ncurses.spec	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/package/ncurses.spec	2019-12-14 17:50:13.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20191207
++Release: 20191214
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.sym
+Prereq:  1.34 
+--- ncurses-6.1-20191207+/package/ncurses.sym	2019-12-07 18:03:20.000000000 +0000
++++ ncurses-6.1-20191214/package/ncurses.sym	2019-12-14 22:40:34.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncurses.sym,v 1.34 2019/12/07 18:03:20 tom Exp $
++# $Id: ncurses.sym,v 1.35 2019/12/14 22:40:34 tom Exp $
+ # script for shared library symbol-visibility using libtool
+ #
+ # This file was generated by ncu-mapsyms
+@@ -328,6 +328,8 @@
+ erase
+ erasechar
+ erasechar_sp
++exit_curses
++exit_terminfo
+ extended_color_content
+ extended_color_content_sp
+ extended_pair_content
+Index: package/ncursest.map
+Prereq:  1.46 
+--- ncurses-6.1-20191207+/package/ncursest.map	2019-12-07 18:03:20.000000000 +0000
++++ ncurses-6.1-20191214/package/ncursest.map	2019-12-14 23:28:54.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursest.map,v 1.46 2019/12/07 18:03:20 tom Exp $
++# $Id: ncursest.map,v 1.48 2019/12/14 23:28:54 tom Exp $
+ # script for shared library symbol-versioning using ld
+ #
+ # This file was generated by ncu-mapsyms
+@@ -484,6 +484,7 @@
+ 		_nc_fmt_funcptr;
+ 		_nc_wacs_width;
+ 		curses_trace;
++		exit_terminfo;
+ 	local:
+ 		_*;
+ } NCURSES_TINFO_6.1.20171230;
+@@ -1158,7 +1159,6 @@
+ 		reset_color_pairs_sp;
+ 		unfocus_current_field;
+ 	local:
+-		_*;
+ 		_nc_Unset_Current_Field;
+ 		_nc_change_pair;
+ 		_nc_init_color;
+@@ -1167,3 +1167,11 @@
+ 		_nc_reset_color_pair;
+ 		_nc_set_color_pair;
+ } NCURSEST_5.9.20150530;
++
++NCURSEST_6.1.current {
++	global:
++		exit_curses;
++	local:
++		_*;
++} NCURSEST_6.1.20171230;
++
+Index: package/ncursest.spec
+--- ncurses-6.1-20191207+/package/ncursest.spec	2019-12-07 10:19:49.000000000 +0000
++++ ncurses-6.1-20191214/package/ncursest.spec	2019-12-14 17:50:13.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20191207
++Release: 20191214
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.sym
+Prereq:  1.38 
+--- ncurses-6.1-20191207+/package/ncursest.sym	2019-12-07 18:03:20.000000000 +0000
++++ ncurses-6.1-20191214/package/ncursest.sym	2019-12-14 22:42:32.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursest.sym,v 1.38 2019/12/07 18:03:20 tom Exp $
++# $Id: ncursest.sym,v 1.39 2019/12/14 22:42:32 tom Exp $
+ # script for shared library symbol-visibility using libtool
+ #
+ # This file was generated by ncu-mapsyms
+@@ -337,6 +337,8 @@
+ erase
+ erasechar
+ erasechar_sp
++exit_curses
++exit_terminfo
+ extended_color_content
+ extended_color_content_sp
+ extended_pair_content
+Index: package/ncursestw.map
+Prereq:  1.48 
+--- ncurses-6.1-20191207+/package/ncursestw.map	2019-12-07 18:03:20.000000000 +0000
++++ ncurses-6.1-20191214/package/ncursestw.map	2019-12-14 23:28:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursestw.map,v 1.48 2019/12/07 18:03:20 tom Exp $
++# $Id: ncursestw.map,v 1.50 2019/12/14 23:28:20 tom Exp $
+ # script for shared library symbol-versioning using ld
+ #
+ # This file was generated by ncu-mapsyms
+@@ -490,6 +490,7 @@
+ 		_nc_fmt_funcptr;
+ 		_nc_wacs_width;
+ 		curses_trace;
++		exit_terminfo;
+ 	local:
+ 		_*;
+ } NCURSES_TINFO_6.1.20171230;
+@@ -1279,7 +1280,6 @@
+ 		reset_color_pairs_sp;
+ 		unfocus_current_field;
+ 	local:
+-		_*;
+ 		_nc_Unset_Current_Field;
+ 		_nc_change_pair;
+ 		_nc_init_color;
+@@ -1288,3 +1288,10 @@
+ 		_nc_reset_color_pair;
+ 		_nc_set_color_pair;
+ } NCURSESTW_5.9.20150530;
++
++NCURSESTW_6.1.current {
++	global:
++		exit_curses;
++	local:
++		_*;
++} NCURSESTW_6.1.20171230;
+Index: package/ncursestw.sym
+Prereq:  1.37 
+--- ncurses-6.1-20191207+/package/ncursestw.sym	2019-12-07 18:03:20.000000000 +0000
++++ ncurses-6.1-20191214/package/ncursestw.sym	2019-12-14 22:44:31.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursestw.sym,v 1.37 2019/12/07 18:03:20 tom Exp $
++# $Id: ncursestw.sym,v 1.38 2019/12/14 22:44:31 tom Exp $
+ # script for shared library symbol-visibility using libtool
+ #
+ # This file was generated by ncu-mapsyms
+@@ -355,6 +355,8 @@
+ erasechar
+ erasechar_sp
+ erasewchar
++exit_curses
++exit_terminfo
+ extended_color_content
+ extended_color_content_sp
+ extended_pair_content
+Index: package/ncursesw.map
+Prereq:  1.51 
+--- ncurses-6.1-20191207+/package/ncursesw.map	2019-12-07 18:03:20.000000000 +0000
++++ ncurses-6.1-20191214/package/ncursesw.map	2019-12-14 23:28:02.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursesw.map,v 1.51 2019/12/07 18:03:20 tom Exp $
++# $Id: ncursesw.map,v 1.53 2019/12/14 23:28:02 tom Exp $
+ # script for shared library symbol-versioning using ld
+ #
+ # This file was generated by ncu-mapsyms
+@@ -484,6 +484,7 @@
+ 		_nc_fmt_funcptr;
+ 		_nc_wacs_width;
+ 		curses_trace;
++		exit_terminfo;
+ 	local:
+ 		_*;
+ } NCURSES_TINFO_6.1.20171230;
+@@ -1300,7 +1301,6 @@
+ 		reset_color_pairs_sp;
+ 		unfocus_current_field;
+ 	local:
+-		_*;
+ 		_nc_Unset_Current_Field;
+ 		_nc_change_pair;
+ 		_nc_init_color;
+@@ -1309,3 +1309,10 @@
+ 		_nc_reset_color_pair;
+ 		_nc_set_color_pair;
+ } NCURSESW_5.9.20150530;
++
++NCURSESW_6.1.current {
++	global:
++		exit_curses;
++	local:
++		_*;
++} NCURSESW_6.1.20171230;
+Index: package/ncursesw.sym
+Prereq:  1.36 
+--- ncurses-6.1-20191207+/package/ncursesw.sym	2019-12-07 18:03:20.000000000 +0000
++++ ncurses-6.1-20191214/package/ncursesw.sym	2019-12-14 22:45:41.000000000 +0000
+@@ -1,4 +1,4 @@
+-# $Id: ncursesw.sym,v 1.36 2019/12/07 18:03:20 tom Exp $
++# $Id: ncursesw.sym,v 1.37 2019/12/14 22:45:41 tom Exp $
+ # script for shared library symbol-visibility using libtool
+ #
+ # This file was generated by ncu-mapsyms
+@@ -343,6 +343,8 @@
+ erasechar
+ erasechar_sp
+ erasewchar
++exit_curses
++exit_terminfo
+ extended_color_content
+ extended_color_content_sp
+ extended_pair_content
+Index: progs/progs.priv.h
+Prereq:  1.46 
+--- ncurses-6.1-20191207+/progs/progs.priv.h	2017-10-09 00:30:38.000000000 +0000
++++ ncurses-6.1-20191214/progs/progs.priv.h	2019-12-14 23:53:12.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2015,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -30,7 +30,7 @@
+  *  Author: Thomas E. Dickey                    1997-on                     *
+  ****************************************************************************/
+ /*
+- * $Id: progs.priv.h,v 1.46 2017/10/09 00:30:38 tom Exp $
++ * $Id: progs.priv.h,v 1.47 2019/12/14 23:53:12 tom Exp $
+  *
+  *	progs.priv.h
+  *
+@@ -129,10 +129,11 @@
+ 
+ #include <nc_string.h>
+ #include <nc_alloc.h>
++
+ #if HAVE_NC_FREEALL
+ #undef ExitProgram
+ #ifdef USE_LIBTINFO
+-#define ExitProgram(code) _nc_free_tinfo(code)
++#define ExitProgram(code) exit_terminfo(code)
+ #else
+ #define ExitProgram(code) _nc_free_tic(code)
+ #endif
+Index: test/demo_new_pair.c
+Prereq:  1.19 
+--- ncurses-6.1-20191207+/test/demo_new_pair.c	2018-05-12 14:30:04.000000000 +0000
++++ ncurses-6.1-20191214/test/demo_new_pair.c	2019-12-14 23:26:09.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2017,2018 Free Software Foundation, Inc.                   *
++ * Copyright (c) 2017-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_new_pair.c,v 1.19 2018/05/12 14:30:04 tom Exp $
++ * $Id: demo_new_pair.c,v 1.20 2019/12/14 23:26:09 tom Exp $
+  *
+  * Demonstrate the alloc_pair() function.
+  */
+@@ -336,7 +336,7 @@
+ 	total_cells += 1 + (use_wide ? 1 : 0);
+ 	++current;
+     }
+-    exit_curses();
++    stop_curses();
+     fclose(output);
+ 
+     printf("%.1f cells/second\n",
+Index: test/echochar.c
+Prereq:  1.19 
+--- ncurses-6.1-20191207+/test/echochar.c	2019-08-24 23:11:01.000000000 +0000
++++ ncurses-6.1-20191214/test/echochar.c	2019-12-14 23:25:29.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: echochar.c,v 1.19 2019/08/24 23:11:01 tom Exp $
++ * $Id: echochar.c,v 1.20 2019/12/14 23:25:29 tom Exp $
+  *
+  * Demonstrate the echochar function (compare to dots.c).
+  * Thomas Dickey - 2006/11/4
+@@ -43,7 +43,7 @@
+ static void
+ cleanup(void)
+ {
+-    exit_curses();
++    stop_curses();
+ 
+     printf("\n\n%ld total cells, rate %.2f/sec\n",
+ 	   total_chars,
+Index: test/firework.c
+Prereq:  1.35 
+--- ncurses-6.1-20191207+/test/firework.c	2017-09-30 15:42:24.000000000 +0000
++++ ncurses-6.1-20191214/test/firework.c	2019-12-14 23:26:09.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2014,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: firework.c,v 1.35 2017/09/30 15:42:24 tom Exp $
++ * $Id: firework.c,v 1.36 2019/12/14 23:26:09 tom Exp $
+  */
+ #include <test.priv.h>
+ 
+@@ -37,7 +37,7 @@
+ static void
+ cleanup(void)
+ {
+-    exit_curses();
++    stop_curses();
+ }
+ 
+ static void
+Index: test/gdc.c
+Prereq:  1.52 
+--- ncurses-6.1-20191207+/test/gdc.c	2019-08-24 23:11:01.000000000 +0000
++++ ncurses-6.1-20191214/test/gdc.c	2019-12-14 23:25:29.000000000 +0000
+@@ -33,7 +33,7 @@
+  * modified 10-18-89 for curses (jrl)
+  * 10-18-89 added signal handling
+  *
+- * $Id: gdc.c,v 1.52 2019/08/24 23:11:01 tom Exp $
++ * $Id: gdc.c,v 1.53 2019/12/14 23:25:29 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -66,7 +66,7 @@
+     signal(signo, sighndl);
+     sigtermed = signo;
+     if (redirected) {
+-	exit_curses();
++	stop_curses();
+ 	ExitProgram(EXIT_FAILURE);
+     }
+ }
+@@ -76,7 +76,7 @@
+ {
+     if (sigtermed) {
+ 	(void) standend();
+-	exit_curses();
++	stop_curses();
+ 	fprintf(stderr, "gdc terminated by signal %d\n", sigtermed);
+ 	ExitProgram(EXIT_FAILURE);
+     }
+@@ -447,6 +447,6 @@
+ 	}
+     } while (--count);
+     (void) standend();
+-    exit_curses();
++    stop_curses();
+     ExitProgram(EXIT_SUCCESS);
+ }
+Index: test/hanoi.c
+Prereq:  1.39 
+--- ncurses-6.1-20191207+/test/hanoi.c	2017-09-09 00:19:24.000000000 +0000
++++ ncurses-6.1-20191214/test/hanoi.c	2019-12-14 23:26:09.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2014,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -41,7 +41,7 @@
+  *
+  *	Date: 05.Nov.90
+  *
+- * $Id: hanoi.c,v 1.39 2017/09/09 00:19:24 tom Exp $
++ * $Id: hanoi.c,v 1.40 2019/12/14 23:26:09 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -354,6 +354,6 @@
+ 	    }
+ 	}
+     }
+-    exit_curses();
++    stop_curses();
+     ExitProgram(EXIT_SUCCESS);
+ }
+Index: test/lrtest.c
+Prereq:  1.25 
+--- ncurses-6.1-20191207+/test/lrtest.c	2019-12-07 18:07:04.000000000 +0000
++++ ncurses-6.1-20191214/test/lrtest.c	2019-12-14 23:25:29.000000000 +0000
+@@ -34,7 +34,7 @@
+  * This can't be part of the ncurses test-program, because ncurses rips off the
+  * bottom line to do labels.
+  *
+- * $Id: lrtest.c,v 1.25 2019/12/07 18:07:04 tom Exp $
++ * $Id: lrtest.c,v 1.26 2019/12/14 23:25:29 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -174,7 +174,7 @@
+ 	refresh();
+     }
+ 
+-    exit_curses();
++    stop_curses();
+     ExitProgram(EXIT_SUCCESS);
+ }
+ 
+Index: test/ncurses.c
+Prereq:  1.520 
+--- ncurses-6.1-20191207+/test/ncurses.c	2019-12-07 19:04:52.000000000 +0000
++++ ncurses-6.1-20191214/test/ncurses.c	2019-12-14 23:25:29.000000000 +0000
+@@ -40,7 +40,7 @@
+    Author: Eric S. Raymond <esr@snark.thyrsus.com> 1993
+            Thomas E. Dickey (beginning revision 1.27 in 1996).
+ 
+-$Id: ncurses.c,v 1.520 2019/12/07 19:04:52 tom Exp $
++$Id: ncurses.c,v 1.521 2019/12/14 23:25:29 tom Exp $
+ 
+ ***************************************************************************/
+ 
+@@ -7329,7 +7329,7 @@
+     delwin(win2);
+     delwin(win1);
+     erase();
+-    exit_curses();
++    stop_curses();
+     return OK;
+ }
+ 
+@@ -7529,7 +7529,7 @@
+     delwin(win2);
+     delwin(win1);
+     erase();
+-    exit_curses();
++    stop_curses();
+     return OK;
+ }
+ #endif /* USE_WIDEC_SUPPORT */
+@@ -7619,7 +7619,7 @@
+ #endif
+     Pause();
+     erase();
+-    exit_curses();
++    stop_curses();
+     return OK;
+ }
+ 
+Index: test/newdemo.c
+Prereq:  1.46 
+--- ncurses-6.1-20191207+/test/newdemo.c	2019-08-24 23:02:49.000000000 +0000
++++ ncurses-6.1-20191214/test/newdemo.c	2019-12-14 23:25:29.000000000 +0000
+@@ -2,7 +2,7 @@
+  *  newdemo.c	-	A demo program using PDCurses. The program illustrate
+  *  	 		the use of colours for text output.
+  *
+- * $Id: newdemo.c,v 1.46 2019/08/24 23:02:49 tom Exp $
++ * $Id: newdemo.c,v 1.47 2019/12/14 23:25:29 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -50,7 +50,7 @@
+ static void
+ trap(int sig GCC_UNUSED)
+ {
+-    exit_curses();
++    stop_curses();
+     ExitProgram(EXIT_FAILURE);
+ }
+ 
+@@ -238,7 +238,7 @@
+     height = 14;		/* Create a drawing window */
+     win = newwin(height, width, (LINES - height) / 2, (COLS - width) / 2);
+     if (win == NULL) {
+-	exit_curses();
++	stop_curses();
+ 	ExitProgram(EXIT_FAILURE);
+     }
+ 
+@@ -362,6 +362,6 @@
+ 	if (WaitForUser(win) == 1)
+ 	    break;
+     }
+-    exit_curses();
++    stop_curses();
+     ExitProgram(EXIT_SUCCESS);
+ }
+Index: test/picsmap.c
+Prereq:  1.130 
+--- ncurses-6.1-20191207+/test/picsmap.c	2019-08-24 23:07:34.000000000 +0000
++++ ncurses-6.1-20191214/test/picsmap.c	2019-12-14 23:51:39.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: picsmap.c,v 1.130 2019/08/24 23:07:34 tom Exp $
++ * $Id: picsmap.c,v 1.131 2019/12/14 23:51:39 tom Exp $
+  *
+  * Author: Thomas E. Dickey
+  *
+@@ -103,7 +103,7 @@
+ #define P2I(n) (((int)(my_intptr_t)(n)) - 1)
+ #define I2P(n) (void *)(my_intptr_t)((n) + 1)
+ 
+-#define stop_curses() if (in_curses) endwin()
++#define pause_curses() if (in_curses) stop_curses()
+ 
+ #define debugmsg if (debugging) logmsg
+ #define debugmsg2 if (debugging) logmsg2
+@@ -187,7 +187,7 @@
+ static void
+ cleanup(int code)
+ {
+-    stop_curses();
++    pause_curses();
+     close_log();
+     ExitProgram(code);
+     /* NOTREACHED */
+@@ -423,7 +423,7 @@
+     struct stat sb;
+ 
+     if (!quiet) {
+-	stop_curses();
++	pause_curses();
+ 	printf("** %s\n", filename);
+     }
+ 
+@@ -511,7 +511,7 @@
+     };
+     size_t n;
+ 
+-    stop_curses();
++    pause_curses();
+ 
+     fflush(stdout);
+     for (n = 0; n < SIZEOF(msg); n++)
+@@ -524,7 +524,7 @@
+ {
+     va_list ap;
+ 
+-    stop_curses();
++    pause_curses();
+     fflush(stdout);
+ 
+     va_start(ap, fmt);
+@@ -1469,7 +1469,7 @@
+ 	    init_palette(palette_path);
+ 	}
+ 	scrollok(stdscr, FALSE);
+-	exit_curses();
++	stop_curses();
+     }
+ }
+ 
+Index: test/rain.c
+Prereq:  1.49 
+--- ncurses-6.1-20191207+/test/rain.c	2018-06-23 21:35:06.000000000 +0000
++++ ncurses-6.1-20191214/test/rain.c	2019-12-14 23:26:09.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: rain.c,v 1.49 2018/06/23 21:35:06 tom Exp $
++ * $Id: rain.c,v 1.50 2019/12/14 23:26:09 tom Exp $
+  */
+ #include <test.priv.h>
+ #include <popup_msg.h>
+@@ -78,7 +78,7 @@
+ static void
+ onsig(int n GCC_UNUSED)
+ {
+-    exit_curses();
++    stop_curses();
+     ExitProgram(EXIT_FAILURE);
+ }
+ 
+@@ -437,7 +437,7 @@
+ 	}
+ 	napms(50);
+     }
+-    exit_curses();
++    stop_curses();
+ #ifdef USE_PTHREADS
+     printf("Counts per thread:\n");
+     for (j = 0; j < MAX_THREADS; ++j)
+Index: test/savescreen.c
+Prereq:  1.55 
+--- ncurses-6.1-20191207+/test/savescreen.c	2019-01-20 15:59:28.000000000 +0000
++++ ncurses-6.1-20191214/test/savescreen.c	2019-12-14 23:25:29.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: savescreen.c,v 1.55 2019/01/20 15:59:28 tom Exp $
++ * $Id: savescreen.c,v 1.56 2019/12/14 23:25:29 tom Exp $
+  *
+  * Demonstrate save/restore functions from the curses library.
+  * Thomas Dickey - 2007/7/14
+@@ -495,7 +495,7 @@
+ 	    }
+ 	    move(0, 0);
+ 	} else {
+-	    exit_curses();
++	    stop_curses();
+ 	    fprintf(stderr, "Cannot open \"%s\"\n", fill_by);
+ 	    ExitProgram(EXIT_FAILURE);
+ 	}
+@@ -507,14 +507,14 @@
+ 	 * Use the last file as the initial/current screen.
+ 	 */
+ 	if (last < 0) {
+-	    exit_curses();
++	    stop_curses();
+ 	    printf("No screen-dumps given\n");
+ 	    ExitProgram(EXIT_FAILURE);
+ 	}
+ 
+ 	which = last;
+ 	if (load_screen(files[which]) == ERR) {
+-	    exit_curses();
++	    stop_curses();
+ 	    printf("Cannot load screen-dump %s\n", files[which]);
+ 	    ExitProgram(EXIT_FAILURE);
+ 	}
+Index: test/tclock.c
+Prereq:  1.39 
+--- ncurses-6.1-20191207+/test/tclock.c	2018-12-29 17:23:42.000000000 +0000
++++ ncurses-6.1-20191214/test/tclock.c	2019-12-14 23:25:29.000000000 +0000
+@@ -1,4 +1,4 @@
+-/* $Id: tclock.c,v 1.39 2018/12/29 17:23:42 tom Exp $ */
++/* $Id: tclock.c,v 1.40 2019/12/14 23:25:29 tom Exp $ */
+ 
+ #define NEED_TIME_H
+ #include <test.priv.h>
+@@ -282,7 +282,7 @@
+ 
+     }
+ 
+-    exit_curses();
++    stop_curses();
+     ExitProgram(EXIT_SUCCESS);
+ }
+ #else
+Index: test/test.priv.h
+Prereq:  1.183 
+--- ncurses-6.1-20191207+/test/test.priv.h	2019-12-07 19:03:20.000000000 +0000
++++ ncurses-6.1-20191214/test/test.priv.h	2019-12-14 23:25:29.000000000 +0000
+@@ -29,7 +29,7 @@
+ /****************************************************************************
+  *  Author: Thomas E. Dickey                    1996-on                     *
+  ****************************************************************************/
+-/* $Id: test.priv.h,v 1.183 2019/12/07 19:03:20 tom Exp $ */
++/* $Id: test.priv.h,v 1.184 2019/12/14 23:25:29 tom Exp $ */
+ 
+ #ifndef __TEST_PRIV_H
+ #define __TEST_PRIV_H 1
+@@ -885,9 +885,9 @@
+  * ncurses restores the cursor in endwin().  Other libraries may not.
+  */
+ #ifdef NCURSES_VERSION
+-#define exit_curses() endwin()
++#define stop_curses() endwin()
+ #else
+-#define exit_curses() do { endwin(); curs_set(1); } while (0)
++#define stop_curses() do { endwin(); curs_set(1); } while (0)
+ #endif
+ 
+ /* ncurses implements tparm() with varargs, X/Open with a fixed-parameter list
+@@ -904,7 +904,7 @@
+ #include <nc_alloc.h>
+ #if HAVE_NC_FREEALL && defined(USE_TINFO)
+ #undef ExitProgram
+-#define ExitProgram(code) _nc_free_tinfo(code)
++#define ExitProgram(code) exit_terminfo(code)
+ #endif
+ #else
+ #define typeMalloc(type,n) (type *) malloc((size_t)(n) * sizeof(type))
+Index: test/testcurs.c
+Prereq:  1.54 
+--- ncurses-6.1-20191207+/test/testcurs.c	2019-12-07 18:06:12.000000000 +0000
++++ ncurses-6.1-20191214/test/testcurs.c	2019-12-14 23:25:29.000000000 +0000
+@@ -6,7 +6,7 @@
+  *  wrs(5/28/93) -- modified to be consistent (perform identically) with either
+  *                  PDCurses or under Unix System V, R4
+  *
+- * $Id: testcurs.c,v 1.54 2019/12/07 18:06:12 tom Exp $
++ * $Id: testcurs.c,v 1.55 2019/12/14 23:25:29 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -73,7 +73,7 @@
+     height = 13;		/* Create a drawing window */
+     *win = newwin(height, width, (LINES - height) / 2, (COLS - width) / 2);
+     if (*win == NULL) {
+-	exit_curses();
++	stop_curses();
+ 	return 0;
+     }
+     return 1;
+@@ -557,7 +557,7 @@
+ 
+     win1 = newwin(10, 50, 14, 25);
+     if (win1 == NULL) {
+-	exit_curses();
++	stop_curses();
+ 	return;
+     }
+ #ifdef A_COLOR
+@@ -760,7 +760,7 @@
+ 
+     delwin(win);
+ 
+-    exit_curses();
++    stop_curses();
+ #ifdef XCURSES
+     XCursesExit();
+ #endif
+Index: test/worm.c
+Prereq:  1.80 
+--- ncurses-6.1-20191207+/test/worm.c	2019-12-07 19:04:09.000000000 +0000
++++ ncurses-6.1-20191214/test/worm.c	2019-12-14 23:25:29.000000000 +0000
+@@ -52,7 +52,7 @@
+   traces will be dumped.  The program stops and waits for one character of
+   input at the beginning and end of the interval.
+ 
+-  $Id: worm.c,v 1.80 2019/12/07 19:04:09 tom Exp $
++  $Id: worm.c,v 1.81 2019/12/14 23:25:29 tom Exp $
+ */
+ 
+ #include <test.priv.h>
+@@ -215,7 +215,7 @@
+ failed(const char *s)
+ {
+     perror(s);
+-    exit_curses();
++    stop_curses();
+     ExitProgram(EXIT_FAILURE);
+ }
+ #endif
+@@ -224,7 +224,7 @@
+ cleanup(void)
+ {
+     USING_WINDOW1(stdscr, wrefresh, safe_wrefresh);
+-    exit_curses();
++    stop_curses();
+ }
+ 
+ static void
+Index: test/xmas.c
+Prereq:  1.33 
+--- ncurses-6.1-20191207+/test/xmas.c	2017-09-30 19:14:13.000000000 +0000
++++ ncurses-6.1-20191214/test/xmas.c	2019-12-14 23:25:29.000000000 +0000
+@@ -92,7 +92,7 @@
+ /******************************************************************************/
+ 
+ /*
+- * $Id: xmas.c,v 1.33 2017/09/30 19:14:13 tom Exp $
++ * $Id: xmas.c,v 1.34 2019/12/14 23:25:29 tom Exp $
+  */
+ #include <test.priv.h>
+ 
+@@ -638,7 +638,7 @@
+ {
+     move(LINES - 1, 0);
+     refresh();
+-    exit_curses();
++    stop_curses();
+ 
+ #if NO_LEAKS
+     if (my_pairs != 0)
+@@ -749,7 +749,7 @@
+ 	(w_holiday = newwin(1, 26, 3, 27)) == 0 ||
+ 
+ 	(w_del_msg = newwin(1, 19, 23, 60)) == 0) {
+-	exit_curses();
++	stop_curses();
+ 	fprintf(stderr, "Cannot create windows - screen too small\n");
+ 	ExitProgram(EXIT_FAILURE);
+     }

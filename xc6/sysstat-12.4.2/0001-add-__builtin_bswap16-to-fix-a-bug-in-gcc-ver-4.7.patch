@@ -1,0 +1,28 @@
+From 05322b4d9b9550c21042411164ab1254b0e46e9e Mon Sep 17 00:00:00 2001
+From: "yuta3.sasaki" <yuta3.sasaki@partners.toshiba-visual.com>
+Date: Wed, 13 Oct 2021 14:50:07 +0900
+Subject: [PATCH] add __builtin_bswap16() to fix a bug in gcc ver 4.7
+
+---
+ sa_common.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/sa_common.c b/sa_common.c
+index 88994aa..035014c 100644
+--- a/sa_common.c
++++ b/sa_common.c
+@@ -56,6 +56,11 @@ unsigned int rec_types_nr[] = {RECORD_HEADER_ULL_NR, RECORD_HEADER_UL_NR, RECORD
+ unsigned int extra_desc_types_nr[] = {EXTRA_DESC_ULL_NR, EXTRA_DESC_UL_NR, EXTRA_DESC_U_NR};
+ unsigned int nr_types_nr[]  = {0, 0, 1};
+ 
++static inline unsigned short __builtin_bswap16(unsigned short a)
++{
++	return (a<<8)|(a>>8);
++}
++
+ /*
+  ***************************************************************************
+  * Look for activity in array.
+-- 
+2.17.1
+

@@ -1,0 +1,387 @@
+# ncurses 6.1 - patch 20191123 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191123.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Nov 24 02:39:05 UTC 2019
+# ------------------------------------------------------------------------------
+# Ada95/package/AdaCurses-doc.spec         |   12 ++++++++++--
+# Ada95/package/AdaCurses.spec             |   12 ++++++++++--
+# NEWS                                     |    6 +++++-
+# VERSION                                  |    2 +-
+# dist.mk                                  |    4 ++--
+# package/debian-mingw/changelog           |    4 ++--
+# package/debian-mingw64/changelog         |    4 ++--
+# package/debian/changelog                 |    4 ++--
+# package/mingw-ncurses.nsi                |    4 ++--
+# package/mingw-ncurses.spec               |    6 +++---
+# package/ncurses.spec                     |   12 ++++++++++--
+# package/ncursest.spec                    |   12 ++++++++++--
+# test/package/mingw-ncurses-examples.spec |   12 ++++++++++--
+# test/package/ncurses-examples.spec       |   12 ++++++++++--
+# 14 files changed, 79 insertions(+), 27 deletions(-)
+# ------------------------------------------------------------------------------
+Index: Ada95/package/AdaCurses-doc.spec
+Prereq:  1.6 
+--- ncurses-6.1-20191116+/Ada95/package/AdaCurses-doc.spec	2019-09-07 20:37:52.000000000 +0000
++++ ncurses-6.1-20191123/Ada95/package/AdaCurses-doc.spec	2019-11-23 21:15:53.000000000 +0000
+@@ -3,7 +3,7 @@
+ %define AppVersion MAJOR.MINOR
+ %define AppRelease YYYYMMDD
+ %define AppPackage %{AppProgram}-doc
+-# $Id: AdaCurses-doc.spec,v 1.6 2019/09/07 20:37:52 tom Exp $
++# $Id: AdaCurses-doc.spec,v 1.7 2019/11/23 21:15:53 tom Exp $
+ Name: %{AppPackage}
+ Version: %{AppVersion}
+ Release: %{AppRelease}
+@@ -37,7 +37,12 @@
+ (cd doc && make install.html DESTDIR=$RPM_BUILD_ROOT )
+ 
+ %clean
+-[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
++if rm -rf $RPM_BUILD_ROOT; then
++  echo OK
++else
++  find $RPM_BUILD_ROOT -type f | grep -F -v /.nfs && exit 1
++fi
++exit 0
+ 
+ %files
+ %defattr(-,root,root)
+@@ -46,6 +51,9 @@
+ %changelog
+ # each patch should add its ChangeLog entries here
+ 
++* Sat Nov 16 2019 Thomas Dickey
++- modify clean-rule to work around Fedora NFS bugs.
++
+ * Sat Sep 07 2019 Thomas Dickey
+ - use AppProgram to replace "AdaCurses" globally
+ 
+Index: Ada95/package/AdaCurses.spec
+Prereq:  1.24 
+--- ncurses-6.1-20191116+/Ada95/package/AdaCurses.spec	2019-09-15 00:07:32.000000000 +0000
++++ ncurses-6.1-20191123/Ada95/package/AdaCurses.spec	2019-11-23 21:15:31.000000000 +0000
+@@ -2,7 +2,7 @@
+ %define AppProgram AdaCurses
+ %define AppVersion MAJOR.MINOR
+ %define AppRelease YYYYMMDD
+-# $Id: AdaCurses.spec,v 1.24 2019/09/15 00:07:32 tom Exp $
++# $Id: AdaCurses.spec,v 1.25 2019/11/23 21:15:31 tom Exp $
+ Name: %{AppProgram}
+ Version: %{AppVersion}
+ Release: %{AppRelease}
+@@ -65,7 +65,12 @@
+ )
+ 
+ %clean
+-[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
++if rm -rf $RPM_BUILD_ROOT; then
++  echo OK
++else
++  find $RPM_BUILD_ROOT -type f | grep -F -v /.nfs && exit 1
++fi
++exit 0
+ 
+ %files
+ %defattr(-,root,root)
+@@ -82,6 +87,9 @@
+ %changelog
+ # each patch should add its ChangeLog entries here
+ 
++* Sat Nov 16 2019 Thomas Dickey
++- modify clean-rule to work around Fedora NFS bugs.
++
+ * Sat Sep 14 2019 Thomas Dickey
+ - build-fixes for Fedora29, OpenSUSE
+ 
+Index: NEWS
+Prereq:  1.3407 
+--- ncurses-6.1-20191116+/NEWS	2019-11-16 20:48:27.000000000 +0000
++++ ncurses-6.1-20191123/NEWS	2019-11-24 01:55:57.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3407 2019/11/16 20:48:27 tom Exp $
++-- $Id: NEWS,v 1.3410 2019/11/24 01:55:57 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,10 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191123
++	+ fix typo for MinGW rpm test-package.
++	+ workaround in rpm specs for NFS problems in Fedora 31.
++
+ 20191116
+ 	+ modify ncurses/Makefile.in to fix a case where Debian/testing changes
+ 	  to the ld --as-needed configuration broke ncurses-examples test
+Index: VERSION
+--- ncurses-6.1-20191116+/VERSION	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/VERSION	2019-11-23 15:45:17.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20191116
++5:0:10	6.1	20191123
+Index: dist.mk
+Prereq:  1.1315 
+--- ncurses-6.1-20191116+/dist.mk	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/dist.mk	2019-11-23 15:45:17.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1315 2019/11/16 15:09:15 tom Exp $
++# $Id: dist.mk,v 1.1316 2019/11/23 15:45:17 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20191116
++NCURSES_PATCH = 20191123
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20191116+/package/debian-mingw/changelog	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/package/debian-mingw/changelog	2019-11-23 15:45:17.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191116) unstable; urgency=low
++ncurses6 (6.1+20191123) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 16 Nov 2019 10:09:15 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 23 Nov 2019 10:45:17 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20191116+/package/debian-mingw64/changelog	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/package/debian-mingw64/changelog	2019-11-23 15:45:17.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191116) unstable; urgency=low
++ncurses6 (6.1+20191123) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 16 Nov 2019 10:09:15 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 23 Nov 2019 10:45:17 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20191116+/package/debian/changelog	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/package/debian/changelog	2019-11-23 15:45:17.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191116) unstable; urgency=low
++ncurses6 (6.1+20191123) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 16 Nov 2019 10:09:15 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 23 Nov 2019 10:45:17 -0500
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.361 
+--- ncurses-6.1-20191116+/package/mingw-ncurses.nsi	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/package/mingw-ncurses.nsi	2019-11-23 15:45:17.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.361 2019/11/16 15:09:15 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.362 2019/11/23 15:45:17 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "1116"
++!define VERSION_MMDD  "1123"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20191116+/package/mingw-ncurses.spec	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/package/mingw-ncurses.spec	2019-11-24 01:54:24.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20191116
++Release: 20191123
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+@@ -68,8 +68,8 @@
+ 	--with-cxx-shared \\\
+ 	--with-develop \\\
+ 	--with-fallbacks=unknown,xterm \\\
+-	--with-tic-path=/usr/bin/tic${MY_ABI} \\\
+-	--with-infocmp-path=/usr/bin/infocmp${MY_ABI} \\\
++	--with-tic-path=/usr/bin/tic%{MY_ABI} \\\
++	--with-infocmp-path=/usr/bin/infocmp%{MY_ABI} \\\
+ 	--with-install-prefix=$RPM_BUILD_ROOT \\\
+ 	--with-pc-suffix=%{MY_ABI} \\\
+ 	--with-pcre2 \\\
+Index: package/ncurses.spec
+--- ncurses-6.1-20191116+/package/ncurses.spec	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/package/ncurses.spec	2019-11-23 21:14:34.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20191116
++Release: 20191123
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+@@ -114,7 +114,12 @@
+ ( cd test && make ncurses LOCAL_LIBDIR=%{_libdir} && mv ncurses $RPM_BUILD_ROOT/%{_bindir}/ncurses%{MY_ABI} )
+ 
+ %clean
+-rm -rf $RPM_BUILD_ROOT
++if rm -rf $RPM_BUILD_ROOT; then
++  echo OK
++else
++  find $RPM_BUILD_ROOT -type f | grep -F -v /.nfs && exit 1
++fi
++exit 0
+ 
+ %files
+ %defattr(-,root,root,-)
+@@ -124,6 +129,9 @@
+ 
+ %changelog
+ 
++* Sat Nov 16 2019 Thomas Dickey
++- modify clean-rule to work around Fedora NFS bugs.
++
+ * Sat Aug 25 2018 Thomas E. Dickey
+ - split spec-file into ncurses6 and ncursest6 to work around toolset breakage
+   in Fedora 28
+Index: package/ncursest.spec
+--- ncurses-6.1-20191116+/package/ncursest.spec	2019-11-16 15:09:15.000000000 +0000
++++ ncurses-6.1-20191123/package/ncursest.spec	2019-11-23 21:14:52.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20191116
++Release: 20191123
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+@@ -118,7 +118,12 @@
+ ( cd test && make ncurses LOCAL_LIBDIR=%{_libdir} && mv ncurses $RPM_BUILD_ROOT/%{_bindir}/ncursest%{MY_ABI} )
+ 
+ %clean
+-rm -rf $RPM_BUILD_ROOT
++if rm -rf $RPM_BUILD_ROOT; then
++  echo OK
++else
++  find $RPM_BUILD_ROOT -type f | grep -F -v /.nfs && exit 1
++fi
++exit 0
+ 
+ %files
+ %defattr(-,root,root,-)
+@@ -128,6 +133,9 @@
+ 
+ %changelog
+ 
++* Sat Nov 16 2019 Thomas Dickey
++- modify clean-rule to work around Fedora NFS bugs.
++
+ * Sat Aug 25 2018 Thomas E. Dickey
+ - split spec-file into ncurses6 and ncursest6 to work around toolset breakage
+   in Fedora 28
+Index: test/package/mingw-ncurses-examples.spec
+Prereq:  1.8 
+--- ncurses-6.1-20191116+/test/package/mingw-ncurses-examples.spec	2019-01-27 00:22:16.000000000 +0000
++++ ncurses-6.1-20191123/test/package/mingw-ncurses-examples.spec	2019-11-23 21:13:52.000000000 +0000
+@@ -4,7 +4,7 @@
+ %global AppProgram ncurses-examples
+ %global AppVersion MAJOR.MINOR
+ %global AppRelease YYYYMMDD
+-# $Id: mingw-ncurses-examples.spec,v 1.8 2019/01/27 00:22:16 tom Exp $
++# $Id: mingw-ncurses-examples.spec,v 1.9 2019/11/23 21:13:52 tom Exp $
+ Name: mingw32-ncurses6-examples
+ Version: %{AppVersion}
+ Release: %{AppRelease}
+@@ -97,7 +97,12 @@
+ popd
+ 
+ %clean
+-rm -rf $RPM_BUILD_ROOT
++if rm -rf $RPM_BUILD_ROOT; then
++  echo OK
++else
++  find $RPM_BUILD_ROOT -type f | grep -F -v /.nfs && exit 1
++fi
++exit 0
+ 
+ %defattr(-,root,root,-)
+ 
+@@ -111,5 +116,8 @@
+ 
+ %changelog
+ 
++* Sat Nov 16 2019 Thomas Dickey
++- modify clean-rule to work around Fedora NFS bugs.
++
+ * Sat Oct 19 2013 Thomas E. Dickey
+ - initial version
+Index: test/package/ncurses-examples.spec
+Prereq:  1.14 
+--- ncurses-6.1-20191116+/test/package/ncurses-examples.spec	2019-02-03 01:17:27.000000000 +0000
++++ ncurses-6.1-20191123/test/package/ncurses-examples.spec	2019-11-23 21:11:34.000000000 +0000
+@@ -3,7 +3,7 @@
+ %global AltProgram ncursest-examples
+ %global AppVersion MAJOR.MINOR
+ %global AppRelease YYYYMMDD
+-# $Id: ncurses-examples.spec,v 1.14 2019/02/03 01:17:27 tom Exp $
++# $Id: ncurses-examples.spec,v 1.16 2019/11/23 21:11:34 tom Exp $
+ Name: %{AppProgram}
+ Version: %{AppVersion}
+ Release: %{AppRelease}
+@@ -86,7 +86,12 @@
+ popd
+ 
+ %clean
+-[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
++if rm -rf $RPM_BUILD_ROOT; then
++  echo OK
++else
++  find $RPM_BUILD_ROOT -type f | grep -F -v /.nfs && exit 1
++fi
++exit 0
+ 
+ %files -n %{AppProgram}
+ %defattr(-,root,root)
+@@ -101,6 +106,9 @@
+ %changelog
+ # each patch should add its ChangeLog entries here
+ 
++* Sat Nov 16 2019 Thomas Dickey
++- modify clean-rule to work around Fedora NFS bugs.
++
+ * Sat Nov 11 2017 Thomas Dickey
+ - add example data-files
+ - use rpm built-in "configure"

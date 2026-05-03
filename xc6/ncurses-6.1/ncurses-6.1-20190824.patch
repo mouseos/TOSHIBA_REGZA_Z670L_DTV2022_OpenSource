@@ -1,0 +1,1843 @@
+# ncurses 6.1 - patch 20190824 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190824.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Aug 25 01:15:21 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |    5 +-
+# VERSION                          |    2 
+# dist.mk                          |    4 -
+# package/debian-mingw/changelog   |    4 -
+# package/debian-mingw64/changelog |    4 -
+# package/debian/changelog         |    4 -
+# package/mingw-ncurses.nsi        |    4 -
+# package/mingw-ncurses.spec       |    2 
+# package/ncurses.spec             |    2 
+# package/ncursest.spec            |    2 
+# test/demo_menus.c                |    5 +-
+# test/demo_panels.c               |   35 +++++++++------
+# test/demo_termcap.c              |   12 ++---
+# test/demo_terminfo.c             |   12 ++---
+# test/dots.c                      |   16 +++---
+# test/dots_curses.c               |   16 +++---
+# test/dots_mvcur.c                |   16 +++---
+# test/dots_termcap.c              |   20 ++++----
+# test/dots_xcurses.c              |   14 ++----
+# test/echochar.c                  |   14 +++---
+# test/extended_color.c            |    6 +-
+# test/filter.c                    |    6 +-
+# test/foldkeys.c                  |   14 +++---
+# test/gdc.c                       |   10 ++--
+# test/inch_wide.c                 |    7 +--
+# test/inchs.c                     |    7 +--
+# test/insdelln.c                  |    6 +-
+# test/knight.c                    |   28 +++++-------
+# test/list_keys.c                 |   14 +++---
+# test/ncurses.c                   |   86 ++++++++++++++++++++-----------------
+# test/newdemo.c                   |   14 +++---
+# test/pair_content.c              |    4 -
+# test/picsmap.c                   |   35 +++++++++------
+# test/railroad.c                  |    8 +--
+# 34 files changed, 237 insertions(+), 201 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3364 
+--- ncurses-6.1-20190817+/NEWS	2019-08-17 21:47:27.000000000 +0000
++++ ncurses-6.1-20190824/NEWS	2019-08-24 23:16:29.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3364 2019/08/17 21:47:27 tom Exp $
++-- $Id: NEWS,v 1.3366 2019/08/24 23:16:29 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,9 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190824
++	+ fix some cppcheck warnings, mostly style, in ncurses test-programs.
++
+ 20190817
+ 	+ amend 20181208 changes for wbkgd() and wbkgrnd(), fixing a few
+ 	  details where it still differed from SVr4.
+Index: VERSION
+--- ncurses-6.1-20190817+/VERSION	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/VERSION	2019-08-24 13:12:23.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190817
++5:0:10	6.1	20190824
+Index: dist.mk
+Prereq:  1.1301 
+--- ncurses-6.1-20190817+/dist.mk	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/dist.mk	2019-08-24 13:12:23.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1301 2019/08/17 13:26:39 tom Exp $
++# $Id: dist.mk,v 1.1302 2019/08/24 13:12:23 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190817
++NCURSES_PATCH = 20190824
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190817+/package/debian-mingw/changelog	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/package/debian-mingw/changelog	2019-08-24 13:12:23.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190817) unstable; urgency=low
++ncurses6 (6.1+20190824) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 17 Aug 2019 09:26:39 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 24 Aug 2019 09:12:23 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190817+/package/debian-mingw64/changelog	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/package/debian-mingw64/changelog	2019-08-24 13:12:23.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190817) unstable; urgency=low
++ncurses6 (6.1+20190824) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 17 Aug 2019 09:26:39 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 24 Aug 2019 09:12:23 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190817+/package/debian/changelog	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/package/debian/changelog	2019-08-24 13:12:23.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190817) unstable; urgency=low
++ncurses6 (6.1+20190824) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 17 Aug 2019 09:26:39 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 24 Aug 2019 09:12:23 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.347 
+--- ncurses-6.1-20190817+/package/mingw-ncurses.nsi	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/package/mingw-ncurses.nsi	2019-08-24 13:12:23.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.347 2019/08/17 13:26:39 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.348 2019/08/24 13:12:23 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0817"
++!define VERSION_MMDD  "0824"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190817+/package/mingw-ncurses.spec	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/package/mingw-ncurses.spec	2019-08-24 13:12:23.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190817
++Release: 20190824
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190817+/package/ncurses.spec	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/package/ncurses.spec	2019-08-24 13:12:23.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190817
++Release: 20190824
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190817+/package/ncursest.spec	2019-08-17 13:26:39.000000000 +0000
++++ ncurses-6.1-20190824/package/ncursest.spec	2019-08-24 13:12:23.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190817
++Release: 20190824
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: test/demo_menus.c
+Prereq:  1.68 
+--- ncurses-6.1-20190817+/test/demo_menus.c	2019-08-17 21:45:32.000000000 +0000
++++ ncurses-6.1-20190824/test/demo_menus.c	2019-08-24 21:41:50.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_menus.c,v 1.68 2019/08/17 21:45:32 tom Exp $
++ * $Id: demo_menus.c,v 1.69 2019/08/24 21:41:50 tom Exp $
+  *
+  * Demonstrate a variety of functions from the menu library.
+  * Thomas Dickey - 2005/4/9
+@@ -586,13 +586,14 @@
+ update_trace_menu(MENU * m)
+ {
+     ITEM **items;
+-    ITEM *i, **p;
++    ITEM *i;
+     bool changed = FALSE;
+ 
+     items = menu_items(m);
+     i = current_item(m);
+     if (i == items[0]) {
+ 	if (item_value(i)) {
++	    ITEM **p;
+ 	    for (p = items + 1; *p != 0; p++)
+ 		if (item_value(*p)) {
+ 		    set_item_value(*p, FALSE);
+Index: test/demo_panels.c
+Prereq:  1.42 
+--- ncurses-6.1-20190817+/test/demo_panels.c	2018-05-20 19:21:18.000000000 +0000
++++ ncurses-6.1-20190824/test/demo_panels.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2007-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 2007-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: demo_panels.c,v 1.42 2018/05/20 19:21:18 tom Exp $
++ * $Id: demo_panels.c,v 1.43 2019/08/24 23:11:01 tom Exp $
+  *
+  * Demonstrate a variety of functions from the panel library.
+  */
+@@ -250,7 +250,6 @@
+ static void
+ my_create_panel(PANEL **pans, int which, FillPanel myFill)
+ {
+-    PANEL *pan = 0;
+     int code;
+     short pair = (short) which;
+     short fg = (short) ((pair == COLOR_BLUE) ? COLOR_WHITE : COLOR_BLACK);
+@@ -281,7 +280,10 @@
+ 	if (code > 0) {
+ 	    int tly = MIN(y0, y1);
+ 	    int tlx = MIN(x0, x1);
+-	    pan = mkpanel(pair, ABS(y1 - y0) + 1, ABS(x1 - x0) + 1, tly, tlx);
++	    PANEL *pan = mkpanel(pair,
++				 ABS(y1 - y0) + 1,
++				 ABS(x1 - x0) + 1,
++				 tly, tlx);
+ 	    /* finish */
+ 	    myFill(pan);
+ 	    pans[which] = pan;
+@@ -465,7 +467,7 @@
+ }
+ 
+ static void
+-show_panels(PANEL *px[MAX_PANELS + 1])
++show_help(WINDOW *win)
+ {
+     static const char *help[] =
+     {
+@@ -481,7 +483,17 @@
+ 	"  s - show the panel",
+ 	"  t - put the panel on the top of the stack"
+     };
++    int j;
++
++    for (j = 0; j < (int) SIZEOF(help); ++j) {
++	if (wprintw(win, "%s\n", help[j]) == ERR)
++	    break;
++    }
++}
+ 
++static void
++show_panels(PANEL *px[MAX_PANELS + 1])
++{
+     struct {
+ 	bool valid;
+ 	bool hidden;
+@@ -490,7 +502,6 @@
+     } table[MAX_PANELS + 1];
+ 
+     WINDOW *win;
+-    PANEL *pan;
+     int j;
+ 
+     memset(table, 0, sizeof(table));
+@@ -504,6 +515,8 @@
+     }
+ 
+     if ((win = newwin(LINES - 1, COLS, 0, 0)) != 0) {
++	PANEL *pan;
++
+ 	keypad(win, TRUE);
+ 	if ((pan = new_panel(win)) != 0) {
+ 	    werase(win);
+@@ -527,10 +540,7 @@
+ 		    waddch(win, '\n');
+ 		}
+ 	    }
+-	    for (j = 0; j < (int) SIZEOF(help); ++j) {
+-		if (wprintw(win, "%s\n", help[j]) == ERR)
+-		    break;
+-	    }
++	    show_help(win);
+ 	    wgetch(win);
+ 	    del_panel(pan);
+ 	    pflush();
+@@ -626,7 +636,6 @@
+ {
+     int length = 0;
+     int y0, x0;
+-    int c0, ch;
+     WINDOW *win;
+ 
+     getyx(stdscr, y0, x0);
+@@ -645,9 +654,9 @@
+ 	}
+ 	(void) wgetch(win);
+     } else {
+-	c0 = 0;
++	int c0 = 0;
+ 	for (;;) {
+-	    ch = wgetch(win);
++	    int ch = wgetch(win);
+ 	    if (ch == ERR || ch == QUIT || ch == ESCAPE) {
+ 		buffer[0] = '\0';
+ 		break;
+Index: test/demo_termcap.c
+Prereq:  1.57 
+--- ncurses-6.1-20190817+/test/demo_termcap.c	2019-01-21 22:50:46.000000000 +0000
++++ ncurses-6.1-20190824/test/demo_termcap.c	2019-08-24 21:47:19.000000000 +0000
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey
+  *
+- * $Id: demo_termcap.c,v 1.57 2019/01/21 22:50:46 tom Exp $
++ * $Id: demo_termcap.c,v 1.58 2019/08/24 21:47:19 tom Exp $
+  *
+  * A simple demo of the termcap interface.
+  */
+@@ -159,7 +159,8 @@
+ 	    db_item++;
+ 	}
+     }
+-    printf("** %s\n", result);
++    if (result != 0)
++	printf("** %s\n", result);
+     return result;
+ }
+ 
+@@ -327,8 +328,6 @@
+ static void
+ demo_termcap(NCURSES_CONST char *name)
+ {
+-    unsigned n;
+-    NCURSES_CONST char *cap;
+     char buffer[1024];
+ 
+     if (db_list) {
+@@ -337,6 +336,8 @@
+     if (!q_opt)
+ 	printf("Terminal type \"%s\"\n", name);
+     if (tgetent(buffer, name) >= 0) {
++	NCURSES_CONST char *cap;
++	unsigned n;
+ 
+ 	if (b_opt) {
+ 	    for (n = 0;; ++n) {
+@@ -698,7 +699,6 @@
+     size_t count;
+     size_t length = 1;
+     char **result = 0;
+-    char *blob = 0;
+     char *unused = 0;
+ 
+     for (pass = 0; pass < 2; ++pass) {
+@@ -713,7 +713,7 @@
+ 	    }
+ 	}
+ 	if (pass == 0) {
+-	    blob = malloc(length);
++	    char *blob = malloc(length);
+ 	    result = typeCalloc(char *, count + 1);
+ 	    unused = blob;
+ 	    if (blob == 0 || result == 0)
+Index: test/demo_terminfo.c
+Prereq:  1.48 
+--- ncurses-6.1-20190817+/test/demo_terminfo.c	2017-11-24 20:49:11.000000000 +0000
++++ ncurses-6.1-20190824/test/demo_terminfo.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2009-2016,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 2009-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey
+  *
+- * $Id: demo_terminfo.c,v 1.48 2017/11/24 20:49:11 tom Exp $
++ * $Id: demo_terminfo.c,v 1.49 2019/08/24 23:11:01 tom Exp $
+  *
+  * A simple demo of the terminfo interface.
+  */
+@@ -150,7 +150,8 @@
+ 	    db_item++;
+ 	}
+     }
+-    printf("** %s\n", result);
++    if (result != 0)
++	printf("** %s\n", result);
+     return result;
+ }
+ 
+@@ -362,7 +363,6 @@
+     }
+ #ifdef NCURSES_VERSION
+     if (x_opt && (my_blob == 0)) {
+-	int mod;
+ 	if (y_opt) {
+ #if NCURSES_XNAMES
+ 	    TERMTYPE *term = (TERMTYPE *) cur_term;
+@@ -389,6 +389,7 @@
+ 		"kLFT", "kNXT", "kPRV", "kRIT", "kUP",
+ 	    };
+ 	    for (n = 0; n < SIZEOF(xterm_keys); ++n) {
++		int mod;
+ 		for (mod = 0; mod < 8; ++mod) {
+ 		    if (mod == 0) {
+ 			/* these happen to be standard - avoid duplicates */
+@@ -728,7 +729,6 @@
+     size_t count;
+     size_t length = 1;
+     char **result = 0;
+-    char *blob = 0;
+     char *unused = 0;
+ 
+     for (pass = 0; pass < 2; ++pass) {
+@@ -743,7 +743,7 @@
+ 	    }
+ 	}
+ 	if (pass == 0) {
+-	    blob = malloc(length);
++	    char *blob = malloc(length);
+ 	    result = typeCalloc(char *, count + 1);
+ 	    unused = blob;
+ 	    if (blob == 0 || result == 0)
+Index: test/dots.c
+Prereq:  1.34 
+--- ncurses-6.1-20190817+/test/dots.c	2019-01-21 14:20:18.000000000 +0000
++++ ncurses-6.1-20190824/test/dots.c	2019-08-24 21:49:50.000000000 +0000
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey <dickey@clark.net> 1999
+  *
+- * $Id: dots.c,v 1.34 2019/01/21 14:20:18 tom Exp $
++ * $Id: dots.c,v 1.35 2019/08/24 21:49:50 tom Exp $
+  *
+  * A simple demo of the terminfo interface.
+  */
+@@ -136,7 +136,7 @@
+ main(int argc,
+      char *argv[])
+ {
+-    int x, y, z, p;
++    int ch;
+     double r;
+     double c;
+     int my_colors;
+@@ -146,8 +146,8 @@
+     size_t need;
+     char *my_env;
+ 
+-    while ((x = getopt(argc, argv, "T:efm:s:")) != -1) {
+-	switch (x) {
++    while ((ch = getopt(argc, argv, "T:efm:s:")) != -1) {
++	switch (ch) {
+ 	case 'T':
+ 	    need = 6 + strlen(optarg);
+ 	    my_env = malloc(need);
+@@ -195,13 +195,13 @@
+     started = time((time_t *) 0);
+ 
+     while (!interrupted) {
+-	x = (int) (c * ranf()) + m_option;
+-	y = (int) (r * ranf()) + m_option;
+-	p = (ranf() > 0.9) ? '*' : ' ';
++	int x = (int) (c * ranf()) + m_option;
++	int y = (int) (r * ranf()) + m_option;
++	int p = (ranf() > 0.9) ? '*' : ' ';
+ 
+ 	tputs(tparm3(cursor_address, y, x), 1, outc);
+ 	if (my_colors > 0) {
+-	    z = (int) (ranf() * my_colors);
++	    int z = (int) (ranf() * my_colors);
+ 	    if (ranf() > 0.01) {
+ 		tputs(tparm2(set_a_foreground, z), 1, outc);
+ 	    } else {
+Index: test/dots_curses.c
+Prereq:  1.14 
+--- ncurses-6.1-20190817+/test/dots_curses.c	2019-01-21 14:20:18.000000000 +0000
++++ ncurses-6.1-20190824/test/dots_curses.c	2019-08-24 21:50:35.000000000 +0000
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey
+  *
+- * $Id: dots_curses.c,v 1.14 2019/01/21 14:20:18 tom Exp $
++ * $Id: dots_curses.c,v 1.15 2019/08/24 21:50:35 tom Exp $
+  *
+  * A simple demo of the curses interface used for comparison with termcap.
+  */
+@@ -113,7 +113,7 @@
+ int
+ main(int argc, char *argv[])
+ {
+-    int x, y, z, p;
++    int ch;
+     int fg, bg;
+     double r;
+     double c;
+@@ -125,8 +125,8 @@
+     size_t need;
+     char *my_env;
+ 
+-    while ((x = getopt(argc, argv, "T:dem:s:")) != -1) {
+-	switch (x) {
++    while ((ch = getopt(argc, argv, "T:dem:s:")) != -1) {
++	switch (ch) {
+ 	case 'T':
+ 	    need = 6 + strlen(optarg);
+ 	    my_env = malloc(need);
+@@ -185,13 +185,13 @@
+     fg = COLOR_WHITE;
+     bg = COLOR_BLACK;
+     while (!interrupted) {
+-	x = (int) (c * ranf()) + m_option;
+-	y = (int) (r * ranf()) + m_option;
+-	p = (ranf() > 0.9) ? '*' : ' ';
++	int x = (int) (c * ranf()) + m_option;
++	int y = (int) (r * ranf()) + m_option;
++	int p = (ranf() > 0.9) ? '*' : ' ';
+ 
+ 	move(y, x);
+ 	if (has_colors()) {
+-	    z = (int) (ranf() * COLORS);
++	    int z = (int) (ranf() * COLORS);
+ 	    if (ranf() > 0.01) {
+ 		set_colors(fg = z, bg);
+ 		attron(COLOR_PAIR(mypair(fg, bg)));
+Index: test/dots_mvcur.c
+Prereq:  1.20 
+--- ncurses-6.1-20190817+/test/dots_mvcur.c	2019-01-21 14:20:18.000000000 +0000
++++ ncurses-6.1-20190824/test/dots_mvcur.c	2019-08-24 22:19:28.000000000 +0000
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey - 2007
+  *
+- * $Id: dots_mvcur.c,v 1.20 2019/01/21 14:20:18 tom Exp $
++ * $Id: dots_mvcur.c,v 1.21 2019/08/24 22:19:28 tom Exp $
+  *
+  * A simple demo of the terminfo interface, and mvcur.
+  */
+@@ -138,7 +138,7 @@
+      char *argv[]GCC_UNUSED)
+ {
+     int x0 = 1, y0 = 1;
+-    int x, y, z, p;
++    int ch;
+     double r;
+     double c;
+     SCREEN *sp;
+@@ -149,8 +149,8 @@
+     size_t need;
+     char *my_env;
+ 
+-    while ((x = getopt(argc, argv, "T:efm:s:")) != -1) {
+-	switch (x) {
++    while ((ch = getopt(argc, argv, "T:efm:s:")) != -1) {
++	switch (ch) {
+ 	case 'T':
+ 	    need = 6 + strlen(optarg);
+ 	    my_env = malloc(need);
+@@ -205,9 +205,9 @@
+     started = time((time_t *) 0);
+ 
+     while (!interrupted) {
+-	x = (int) (c * ranf()) + m_option;
+-	y = (int) (r * ranf()) + m_option;
+-	p = (ranf() > 0.9) ? '*' : ' ';
++	int x = (int) (c * ranf()) + m_option;
++	int y = (int) (r * ranf()) + m_option;
++	int p = (ranf() > 0.9) ? '*' : ' ';
+ 
+ 	if (mvcur(y0, x0, y, x) != ERR) {
+ 	    x0 = x;
+@@ -215,7 +215,7 @@
+ 	}
+ 
+ 	if (my_colors > 0) {
+-	    z = (int) (ranf() * my_colors);
++	    int z = (int) (ranf() * my_colors);
+ 	    if (ranf() > 0.01) {
+ 		tputs(tparm2(set_a_foreground, z), 1, outc);
+ 	    } else {
+Index: test/dots_termcap.c
+Prereq:  1.18 
+--- ncurses-6.1-20190817+/test/dots_termcap.c	2019-01-21 14:20:18.000000000 +0000
++++ ncurses-6.1-20190824/test/dots_termcap.c	2019-08-24 22:25:55.000000000 +0000
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey
+  *
+- * $Id: dots_termcap.c,v 1.18 2019/01/21 14:20:18 tom Exp $
++ * $Id: dots_termcap.c,v 1.19 2019/08/24 22:25:55 tom Exp $
+  *
+  * A simple demo of the termcap interface.
+  */
+@@ -201,7 +201,7 @@
+ int
+ main(int argc, char *argv[])
+ {
+-    int x, y, z, p;
++    int ch;
+     int num_colors;
+     int num_lines;
+     int num_columns;
+@@ -216,8 +216,8 @@
+     size_t need;
+     char *my_env;
+ 
+-    while ((x = getopt(argc, argv, "T:em:s:")) != -1) {
+-	switch (x) {
++    while ((ch = getopt(argc, argv, "T:em:s:")) != -1) {
++	switch (ch) {
+ 	case 'T':
+ 	    need = 6 + strlen(optarg);
+ 	    my_env = malloc(need);
+@@ -246,8 +246,8 @@
+ 
+     srand((unsigned) time(0));
+ 
+-    InitAndCatch(z = tgetent(buffer, name), onsig);
+-    if (z < 0) {
++    InitAndCatch(ch = tgetent(buffer, name), onsig);
++    if (ch < 0) {
+ 	fprintf(stderr, "terminal description not found\n");
+ 	ExitProgram(EXIT_FAILURE);
+     } else {
+@@ -278,13 +278,13 @@
+     started = time((time_t *) 0);
+ 
+     while (!interrupted) {
+-	x = (int) (c * ranf()) + m_option;
+-	y = (int) (r * ranf()) + m_option;
+-	p = (ranf() > 0.9) ? '*' : ' ';
++	int x = (int) (c * ranf()) + m_option;
++	int y = (int) (r * ranf()) + m_option;
++	int p = (ranf() > 0.9) ? '*' : ' ';
+ 
+ 	tputs(tgoto(t_cm, x, y), 1, outc);
+ 	if (num_colors > 0) {
+-	    z = (int) (ranf() * num_colors);
++	    int z = (int) (ranf() * num_colors);
+ 	    if (ranf() > 0.01) {
+ 		tputs(tgoto(t_AF, 0, z), 1, outc);
+ 	    } else {
+Index: test/dots_xcurses.c
+Prereq:  1.17 
+--- ncurses-6.1-20190817+/test/dots_xcurses.c	2019-01-21 14:20:18.000000000 +0000
++++ ncurses-6.1-20190824/test/dots_xcurses.c	2019-08-24 22:31:43.000000000 +0000
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey
+  *
+- * $Id: dots_xcurses.c,v 1.17 2019/01/21 14:20:18 tom Exp $
++ * $Id: dots_xcurses.c,v 1.18 2019/08/24 22:31:43 tom Exp $
+  *
+  * A simple demo of the wide-curses interface used for comparison with termcap.
+  */
+@@ -139,10 +139,8 @@
+ int
+ main(int argc, char *argv[])
+ {
+-    int x, y, z, p;
+     int fg, bg, ch;
+     wchar_t wch[2];
+-    int pair;
+     double r;
+     double c;
+ #if HAVE_USE_DEFAULT_COLORS
+@@ -205,6 +203,7 @@
+ 	{
+ 	    for (fg = 0; fg < COLORS; fg++) {
+ 		for (bg = 0; bg < COLORS; bg++) {
++		    int pair;
+ 		    if (interrupted) {
+ 			cleanup();
+ 			ExitProgram(EXIT_FAILURE);
+@@ -224,16 +223,15 @@
+ 
+     fg = COLOR_WHITE;
+     bg = COLOR_BLACK;
+-    pair = 0;
+     wch[1] = 0;
+     while (!interrupted) {
+-	x = (int) (c * ranf()) + m_option;
+-	y = (int) (r * ranf()) + m_option;
+-	p = (ranf() > 0.9) ? '*' : ' ';
++	int x = (int) (c * ranf()) + m_option;
++	int y = (int) (r * ranf()) + m_option;
++	int p = (ranf() > 0.9) ? '*' : ' ';
+ 
+ 	move(y, x);
+ 	if (has_colors()) {
+-	    z = (int) (ranf() * COLORS);
++	    int z = (int) (ranf() * COLORS);
+ 	    if (ranf() > 0.01) {
+ 		set_colors(fg = z, bg);
+ 	    } else {
+Index: test/echochar.c
+Prereq:  1.18 
+--- ncurses-6.1-20190817+/test/echochar.c	2017-10-18 23:04:52.000000000 +0000
++++ ncurses-6.1-20190824/test/echochar.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2006-2014,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 2006-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: echochar.c,v 1.18 2017/10/18 23:04:52 tom Exp $
++ * $Id: echochar.c,v 1.19 2019/08/24 23:11:01 tom Exp $
+  *
+  * Demonstrate the echochar function (compare to dots.c).
+  * Thomas Dickey - 2006/11/4
+@@ -81,7 +81,7 @@
+ main(int argc GCC_UNUSED,
+      char *argv[]GCC_UNUSED)
+ {
+-    int ch, x, y, z, p;
++    int ch;
+     double r;
+     double c;
+     bool use_colors;
+@@ -121,13 +121,13 @@
+     started = time((time_t *) 0);
+ 
+     while (!interrupted) {
+-	x = (int) (c * ranf()) + 2;
+-	y = (int) (r * ranf()) + 2;
+-	p = (ranf() > 0.9) ? '*' : ' ';
++	int x = (int) (c * ranf()) + 2;
++	int y = (int) (r * ranf()) + 2;
++	int p = (ranf() > 0.9) ? '*' : ' ';
+ 
+ 	move(y, x);
+ 	if (use_colors > 0) {
+-	    z = (int) (ranf() * COLORS);
++	    int z = (int) (ranf() * COLORS);
+ 	    if (ranf() > 0.01) {
+ 		set_color(my_pairs, z, last_bg);
+ 		last_fg = z;
+Index: test/extended_color.c
+Prereq:  1.13 
+--- ncurses-6.1-20190817+/test/extended_color.c	2019-01-21 14:59:34.000000000 +0000
++++ ncurses-6.1-20190824/test/extended_color.c	2019-08-24 23:09:18.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: extended_color.c,v 1.13 2019/01/21 14:59:34 tom Exp $
++ * $Id: extended_color.c,v 1.14 2019/08/24 23:09:18 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -209,8 +209,8 @@
+ 
+     printw("Drawing soft-key tabs with pair 2\n");
+     slk_attrset(A_BOLD);	/* reverse-video is hard to see */
+-    i = if_opt_s(extended_slk_color_sp(sp, 2),
+-		 extended_slk_color(2));
++    (void) if_opt_s(extended_slk_color_sp(sp, 2),
++		    extended_slk_color(2));
+     for (i = 1; i <= 8; ++i) {
+ 	char temp[80];
+ 	_nc_SPRINTF(temp, _nc_SLIMIT(sizeof(temp)) "(SLK-%d)", i);
+Index: test/filter.c
+Prereq:  1.32 
+--- ncurses-6.1-20190817+/test/filter.c	2017-09-28 23:40:39.000000000 +0000
++++ ncurses-6.1-20190824/test/filter.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2016,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -29,7 +29,7 @@
+ /*
+  * Author:  Thomas E. Dickey 1998
+  *
+- * $Id: filter.c,v 1.32 2017/09/28 23:40:39 tom Exp $
++ * $Id: filter.c,v 1.33 2019/08/24 23:11:01 tom Exp $
+  *
+  * An example of the 'filter()' function in ncurses, this program prompts
+  * for commands and executes them (like a command shell).  It illustrates
+@@ -100,7 +100,6 @@
+ new_command(char *buffer, int length, int underline, bool clocked, bool polled)
+ {
+     int code = OK;
+-    int limit;
+ 
+     if (polled) {
+ 	bool done = FALSE;
+@@ -113,6 +112,7 @@
+ 
+ 	timeout(20);		/* no one types 50CPS... */
+ 	while (!done) {
++	    int limit;
+ 	    int ch = getch();
+ 
+ 	    buffer[used] = '\0';
+Index: test/foldkeys.c
+Prereq:  1.7 
+--- ncurses-6.1-20190817+/test/foldkeys.c	2018-12-29 17:53:03.000000000 +0000
++++ ncurses-6.1-20190824/test/foldkeys.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2006-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 2006-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey, 2006
+  *
+- * $Id: foldkeys.c,v 1.7 2018/12/29 17:53:03 tom Exp $
++ * $Id: foldkeys.c,v 1.8 2019/08/24 23:11:01 tom Exp $
+  *
+  * Demonstrate a method for altering key definitions at runtime.
+  *
+@@ -53,10 +53,10 @@
+ log_last_line(WINDOW *win)
+ {
+     FILE *fp;
+-    int y, x, n;
+-    char temp[256];
+ 
+     if ((fp = fopen(MY_LOGFILE, "a")) != 0) {
++	char temp[256];
++	int y, x, n;
+ 	int need = sizeof(temp) - 1;
+ 	if (need > COLS)
+ 	    need = COLS;
+@@ -195,8 +195,7 @@
+ {
+     int ch;
+ #if HAVE_GETTIMEOFDAY
+-    int secs, msecs;
+-    struct timeval current, previous;
++    struct timeval previous;
+ #endif
+ 
+     if (newterm(0, stdout, stdin) == 0) {
+@@ -224,6 +223,9 @@
+ 	const char *name = keyname(escaped ? (ch - MY_KEYS) : ch);
+ 
+ #if HAVE_GETTIMEOFDAY
++	int secs, msecs;
++	struct timeval current;
++
+ 	gettimeofday(&current, 0);
+ 	secs = (int) (current.tv_sec - previous.tv_sec);
+ 	msecs = (int) ((current.tv_usec - previous.tv_usec) / 1000);
+Index: test/gdc.c
+Prereq:  1.51 
+--- ncurses-6.1-20190817+/test/gdc.c	2017-09-30 18:10:05.000000000 +0000
++++ ncurses-6.1-20190824/test/gdc.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2016,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -33,7 +33,7 @@
+  * modified 10-18-89 for curses (jrl)
+  * 10-18-89 added signal handling
+  *
+- * $Id: gdc.c,v 1.51 2017/09/30 18:10:05 tom Exp $
++ * $Id: gdc.c,v 1.52 2019/08/24 23:11:01 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -86,7 +86,6 @@
+ drawbox(bool scrolling)
+ {
+     chtype bottom[XLENGTH + 1];
+-    int n;
+ 
+     if (hascolor)
+ 	(void) attrset(AttrArg(COLOR_PAIR(PAIR_FRAMES), 0));
+@@ -97,6 +96,7 @@
+ 
+     MvAddCh(YBASE + YDEPTH, XBASE - 1, ACS_LLCORNER);
+     if ((mvinchnstr(YBASE + YDEPTH, XBASE, bottom, XLENGTH)) != ERR) {
++	int n;
+ 	for (n = 0; n < XLENGTH; n++) {
+ 	    if (!scrolling)
+ 		bottom[n] &= ~A_COLOR;
+@@ -251,9 +251,9 @@
+     if (optind < argc) {
+ 	count = atoi(argv[optind++]);
+ 	assert(count >= 0);
++	if (optind < argc)
++	    usage();
+     }
+-    if (optind < argc)
+-	usage();
+ 
+     InitAndCatch({
+ 	if (redirected) {
+Index: test/inch_wide.c
+Prereq:  1.9 
+--- ncurses-6.1-20190817+/test/inch_wide.c	2017-04-29 22:03:21.000000000 +0000
++++ ncurses-6.1-20190824/test/inch_wide.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2007-2010,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 2007-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: inch_wide.c,v 1.9 2017/04/29 22:03:21 tom Exp $
++ * $Id: inch_wide.c,v 1.10 2019/08/24 23:11:01 tom Exp $
+  */
+ /*
+        int in_wch(cchar_t *wcval);
+@@ -78,7 +78,6 @@
+     int j;
+     int txt_x = 0, txt_y = 0;
+     int base_y;
+-    int limit;
+     cchar_t ch;
+     cchar_t text[MAX_COLS];
+ 
+@@ -122,6 +121,8 @@
+     }
+ 
+     while (!Quit(j = mvwgetch(txtwin, txt_y, txt_x))) {
++	int limit;
++
+ 	switch (j) {
+ 	case KEY_DOWN:
+ 	case 'j':
+Index: test/inchs.c
+Prereq:  1.16 
+--- ncurses-6.1-20190817+/test/inchs.c	2017-09-06 09:20:42.000000000 +0000
++++ ncurses-6.1-20190824/test/inchs.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2007-2012,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 2007-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: inchs.c,v 1.16 2017/09/06 09:20:42 tom Exp $
++ * $Id: inchs.c,v 1.17 2019/08/24 23:11:01 tom Exp $
+  *
+  * Author: Thomas E Dickey
+  */
+@@ -87,7 +87,6 @@
+     int ch, j;
+     int txt_x = 0, txt_y = 0;
+     int base_y;
+-    int limit;
+     chtype text[MAX_COLS];
+ 
+     if (argv[level] == 0) {
+@@ -132,6 +131,8 @@
+     }
+ 
+     while (!Quit(j = mvwgetch(txtwin, txt_y, txt_x))) {
++	int limit;
++
+ 	switch (j) {
+ 	case KEY_DOWN:
+ 	case 'j':
+Index: test/insdelln.c
+Prereq:  1.12 
+--- ncurses-6.1-20190817+/test/insdelln.c	2017-09-07 08:24:24.000000000 +0000
++++ ncurses-6.1-20190824/test/insdelln.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2008-2014,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 2008-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: insdelln.c,v 1.12 2017/09/07 08:24:24 tom Exp $
++ * $Id: insdelln.c,v 1.13 2019/08/24 23:11:01 tom Exp $
+  *
+  * test-driver for deleteln, wdeleteln, insdelln, winsdelln, insertln, winsertln
+  */
+@@ -70,10 +70,10 @@
+     };
+     /* *INDENT-ON* */
+ 
+-    static bool first = TRUE;
+     const char *result = 0;
+ 
+     if (has_colors()) {
++	static bool first = TRUE;
+ 	if (first) {
+ 	    unsigned n;
+ 
+Index: test/knight.c
+Prereq:  1.45 
+--- ncurses-6.1-20190817+/test/knight.c	2019-04-20 20:34:55.000000000 +0000
++++ ncurses-6.1-20190824/test/knight.c	2019-08-24 22:40:52.000000000 +0000
+@@ -33,7 +33,7 @@
+  * Eric S. Raymond <esr@snark.thyrsus.com> July 22 1995.  Mouse support
+  * added September 20th 1995.
+  *
+- * $Id: knight.c,v 1.45 2019/04/20 20:34:55 tom Exp $
++ * $Id: knight.c,v 1.46 2019/08/24 22:40:52 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -328,21 +328,20 @@
+ static bool
+ find_next_move(SQUARES squares, HISTORY * doneData, int doneSize, int *y, int *x)
+ {
+-    unsigned j, k;
+-    int found = -1;
+-    int first = -1;
+-    int next = -1;
+-    int oldy, oldx;
+-    int newy, newx;
+     bool result = FALSE;
+ 
+     if (doneSize > 1) {
+-	oldy = doneData[doneSize - 1].y;
+-	oldx = doneData[doneSize - 1].x;
++	unsigned j;
++	int oldy = doneData[doneSize - 1].y;
++	int oldx = doneData[doneSize - 1].x;
++	int found = -1;
++	int first = -1;
++	int next = -1;
++
+ 	for (j = 0; j < MAX_OFFSET * 2; j++) {
+-	    k = j % MAX_OFFSET;
+-	    newy = oldy + offsets[k].y;
+-	    newx = oldx + offsets[k].x;
++	    unsigned k = j % MAX_OFFSET;
++	    int newy = oldy + offsets[k].y;
++	    int newx = oldx + offsets[k].x;
+ 	    if (isUnusedYX(squares, newy, newx)) {
+ 		if (first < 0)
+ 		    first = (int) k;
+@@ -502,12 +501,11 @@
+     int result;
+ 
+     if (total < maxmoves) {
+-	int try_x, try_y;
+ 	unsigned k;
+ 
+ 	for (k = 0; k < MAX_OFFSET; k++) {
+-	    try_x = x + offsets[k].x;
+-	    try_y = y + offsets[k].y;
++	    int try_x = x + offsets[k].x;
++	    int try_y = y + offsets[k].y;
+ 	    if (isUnusedYX(squares, try_y, try_x)) {
+ 		++test_test;
+ 		squares[try_y][try_x] = total + 1;
+Index: test/list_keys.c
+Prereq:  1.24 
+--- ncurses-6.1-20190817+/test/list_keys.c	2018-05-20 18:56:56.000000000 +0000
++++ ncurses-6.1-20190824/test/list_keys.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2016-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 2016-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: list_keys.c,v 1.24 2018/05/20 18:56:56 tom Exp $
++ * $Id: list_keys.c,v 1.25 2019/08/24 23:11:01 tom Exp $
+  *
+  * Author: Thomas E Dickey
+  *
+@@ -88,7 +88,6 @@
+ show_key(const char *name, bool show)
+ {
+     int width = 0;
+-    char buffer[10];
+     NCURSES_CONST char *value = tigetstr((NCURSES_CONST char *) name);
+ 
+     if (show && t_opt)
+@@ -96,6 +95,7 @@
+ 
+     if (value != 0 && value != (char *) -1) {
+ 	while (*value != 0) {
++	    char buffer[10];
+ 	    int ch = UChar(*value++);
+ 	    switch (ch) {
+ 	    case '\177':
+@@ -197,8 +197,8 @@
+ static void
+ draw_line(int width)
+ {
+-    int j;
+     if (!t_opt) {
++	int j;
+ 	for (j = 0; j < width; ++j) {
+ 	    printf("-");
+ 	}
+@@ -285,8 +285,8 @@
+     }
+ #if NCURSES_XNAMES
+     if (x_opt) {
+-	TERMTYPE *term;
+ 	for (k = 0; k < count; ++k) {
++	    TERMTYPE *term;
+ 	    set_curterm(terms[k]);
+ 	    term = (TERMTYPE *) cur_term;
+ 	    total += (size_t) (NUM_STRINGS(term) - STRCOUNT);
+@@ -305,9 +305,11 @@
+     }
+ #if NCURSES_XNAMES
+     if (x_opt) {
+-	TERMTYPE *term;
+ 	int m, n;
++
+ 	for (k = 0; k < count; ++k) {
++	    TERMTYPE *term;
++
+ 	    set_curterm(terms[k]);
+ 	    term = (TERMTYPE *) cur_term;
+ 	    for (n = STRCOUNT; n < NUM_STRINGS(term); ++n) {
+Index: test/ncurses.c
+Prereq:  1.516 
+--- ncurses-6.1-20190817+/test/ncurses.c	2019-08-10 19:38:41.000000000 +0000
++++ ncurses-6.1-20190824/test/ncurses.c	2019-08-24 23:09:03.000000000 +0000
+@@ -40,7 +40,7 @@
+    Author: Eric S. Raymond <esr@snark.thyrsus.com> 1993
+            Thomas E. Dickey (beginning revision 1.27 in 1996).
+ 
+-$Id: ncurses.c,v 1.516 2019/08/10 19:38:41 tom Exp $
++$Id: ncurses.c,v 1.517 2019/08/24 23:09:03 tom Exp $
+ 
+ ***************************************************************************/
+ 
+@@ -226,7 +226,7 @@
+ static void
+ wGetstring(WINDOW *win, char *buffer, int limit)
+ {
+-    int y0, x0, x, ch;
++    int y0, x0, x;
+     bool done = FALSE;
+ 
+     echo();
+@@ -235,6 +235,7 @@
+ 
+     x = (int) strlen(buffer);
+     while (!done) {
++	int ch;
+ 	if (x > (int) strlen(buffer))
+ 	    x = (int) strlen(buffer);
+ 	wmove(win, y0, x0);
+@@ -579,7 +580,6 @@
+ static void
+ show_mouse(WINDOW *win)
+ {
+-    int y, x;
+     MEVENT event;
+     bool outside;
+     bool show_loc;
+@@ -602,6 +602,7 @@
+     show_loc = wmouse_trafo(win, &event.y, &event.x, FALSE);
+ 
+     if (show_loc) {
++	int y, x;
+ 	getyx(win, y, x);
+ 	wmove(win, event.y, event.x);
+ 	waddch(win, '*');
+@@ -818,7 +819,6 @@
+ {
+     char buf[BUFSIZ];
+     int first_y, first_x;
+-    int c;
+     int incount = 0;
+     GetchFlags flags;
+ 
+@@ -832,6 +832,8 @@
+     scrollok(win, TRUE);
+ 
+     for (;;) {
++	int c;
++
+ 	while ((c = wGetchar(win)) == ERR) {
+ 	    incount++;
+ 	    if (blocking_getch(flags, delay)) {
+@@ -1076,7 +1078,6 @@
+     wint_t c;
+     int incount = 0;
+     GetchFlags flags;
+-    int code;
+     char *temp;
+ 
+     init_getch(win, flags, delay);
+@@ -1089,6 +1090,8 @@
+     scrollok(win, TRUE);
+ 
+     for (;;) {
++	int code;
++
+ 	while ((code = wGet_wchar(win, &c)) == ERR) {
+ 	    incount++;
+ 	    if (blocking_getch(flags, delay)) {
+@@ -1385,9 +1388,10 @@
+ {
+     char save = attr_test_string[0];
+     int first = ((int) UChar(save)) + adjust;
+-    int j, k;
+ 
+     if (first >= ATTRSTRING_1ST) {
++	int j, k;
++
+ 	for (j = 0, k = first; j < MAX_ATTRSTRING; ++j, ++k) {
+ 	    if (k > ATTRSTRING_END)
+ 		break;
+@@ -1451,10 +1455,9 @@
+     werase(win);
+     if (attr & A_ALTCHARSET) {
+ 	const char *s;
+-	chtype ch;
+ 
+ 	for (s = attr_test_string; *s != '\0'; ++s) {
+-	    ch = UChar(*s);
++	    chtype ch = UChar(*s);
+ 	    (void) waddch(win, ch | attr);
+ 	}
+     } else {
+@@ -1662,12 +1665,13 @@
+     NCURSES_COLOR_T bg = COLOR_BLACK;
+     NCURSES_COLOR_T tx = -1;
+     int ac = 0;
+-    unsigned j, k;
+     WINDOW *my_wins[SIZEOF(attrs_to_test)];
+     ATTR_TBL my_list[SIZEOF(attrs_to_test)];
+     unsigned my_size = init_attr_list(my_list, termattrs());
+ 
+     if (my_size > 1) {
++	unsigned j, k;
++
+ 	for (j = 0; j < my_size; ++j) {
+ 	    my_wins[j] = subwin(stdscr,
+ 				1, LEN_ATTRSTRING,
+@@ -1791,9 +1795,10 @@
+ {
+     wchar_t save = wide_attr_test_string[0];
+     int first = ((int) normal_wchar(save)) + adjust;
+-    int j, k;
+ 
+     if (first >= ATTRSTRING_1ST) {
++	int j, k;
++
+ 	for (j = 0, k = first; j < MAX_ATTRSTRING; ++j, ++k) {
+ 	    if (k > ATTRSTRING_END)
+ 		break;
+@@ -1843,10 +1848,11 @@
+     attr_t attr;
+     cchar_t ch;
+     NCURSES_PAIRS_T pair;
+-    wchar_t wch[CCHARW_MAX];
+ 
+     memset(&ch, 0, sizeof(ch));
+     if (getbkgrnd(&ch) != ERR) {
++	wchar_t wch[CCHARW_MAX];
++
+ 	if (getcchar(&ch, wch, &attr, &pair, 0) != ERR) {
+ 	    result = attr;
+ 	}
+@@ -2022,12 +2028,13 @@
+     NCURSES_COLOR_T bg = COLOR_BLACK;
+     NCURSES_COLOR_T tx = -1;
+     int ac = 0;
+-    unsigned j, k;
+     W_ATTR_TBL my_list[SIZEOF(w_attrs_to_test)];
+     WINDOW *my_wins[SIZEOF(w_attrs_to_test)];
+     unsigned my_size = init_w_attr_list(my_list, term_attrs());
+ 
+     if (my_size > 1) {
++	unsigned j, k;
++
+ 	for (j = 0; j < my_size; ++j) {
+ 	    my_wins[j] = subwin(stdscr,
+ 				1, LEN_ATTRSTRING,
+@@ -2133,13 +2140,11 @@
+ 	int width = 8;
+ 
+ 	if (wide || zoom) {
+-	    int have;
+-
+ 	    _nc_SPRINTF(temp, _nc_SLIMIT(sizeof(temp))
+ 			"%02d", color);
+ 	    if (wide)
+ 		width = 4;
+-	    if ((have = (int) strlen(temp)) >= width) {
++	    if ((int) strlen(temp) >= width) {
+ 		int pwr2 = 0;
+ 		while ((1 << pwr2) < color)
+ 		    ++pwr2;
+@@ -2516,7 +2521,7 @@
+     int base_row = 0;
+     int grid_top = top + 3;
+     int page_size = (LINES - grid_top);
+-    int pairs_max = (unsigned short) (-1);
++    int pairs_max;
+     int colors_max = COLORS;
+     int col_limit;
+     int row_limit;
+@@ -2839,14 +2844,16 @@
+      */
+     if (xterm_colors) {
+ 	int n;
+-	int got;
+ 	char result[BUFSIZ];
+ 	int check_n;
+ 	unsigned check_r, check_g, check_b;
+ 
+ 	raw();
+ 	noecho();
++
+ 	for (n = 0; n < MaxColors; ++n) {
++	    int got;
++
+ 	    fprintf(stderr, "\033]4;%d;?\007", n);
+ 	    got = (int) read(0, result, sizeof(result) - 1);
+ 	    if (got < 0)
+@@ -3500,14 +3507,15 @@
+ 		char *temp = strdup(s);
+ 		size_t used = strlen(temp);
+ 		size_t want = SLKLEN;
+-		size_t test;
+ #ifndef state_unused
+ 		mbstate_t state;
+ #endif
+ 
+ 		buf[0] = L'\0';
+ 		while (want > 0 && used != 0) {
++		    size_t test;
+ 		    const char *base = s;
++
+ 		    reset_mbytes(state);
+ 		    test = count_mbytes(base, 0, &state);
+ 		    if (test == (size_t) -1) {
+@@ -3923,15 +3931,14 @@
+ static cchar_t *
+ merge_wide_attr(cchar_t *dst, const cchar_t *src, attr_t attr, NCURSES_PAIRS_T pair)
+ {
+-    int count;
+ 
+     *dst = *src;
+     do {
++	int count;
+ 	TEST_CCHAR(src, count, {
+ 	    attr |= (test_attrs & A_ALTCHARSET);
+ 	    setcchar(dst, test_wch, attr, pair, NULL);
+-	}
+-	, {
++	}, {
+ 	    ;
+ 	});
+     } while (0);
+@@ -4003,7 +4010,6 @@
+ 	wchar_t codes[10];
+ 	char tmp[80];
+ 	int count = repeat;
+-	int y, x;
+ 
+ 	_nc_SPRINTF(tmp, _nc_SLIMIT(sizeof(tmp))
+ 		    "%3ld (0x%lx)", (long) code, (long) code);
+@@ -4014,6 +4020,8 @@
+ 	setcchar(&temp, codes, attr, pair, 0);
+ 
+ 	do {
++	    int y, x;
++
+ 	    /*
+ 	     * Give non-spacing characters something to combine with.  If we
+ 	     * don't, they'll bunch up in a heap on the space after the ":".
+@@ -4653,13 +4661,15 @@
+     };
+ #undef DATA
+     size_t n;
+-    int x;
+     bool do_keypad = HaveKeypad(curp);
+     bool do_scroll = HaveScroll(curp);
+     char buf[BUFSIZ];
+ 
+     move(LINES - 4, 0);
++
+     for (n = 0; n < SIZEOF(legend); n++) {
++	int x;
++
+ 	switch (legend[n].code) {
+ 	default:
+ 	    _nc_STRCPY(buf, legend[n].msg, sizeof(buf));
+@@ -5003,7 +5013,7 @@
+ 	case CTRL('X'):	/* resize window */
+ 	    if (current) {
+ 		pair *tmp, ul, lr;
+-		int i, mx, my;
++		int mx, my;
+ 
+ 		move(0, 0);
+ 		clrtoeol();
+@@ -5032,11 +5042,13 @@
+ 		    wclrtobot(current->wind);
+ 		    wmove(current->wind, lr.y, lr.x);
+ 		}
+-		if (mx > tmp->x - ul.x)
++		if (mx > tmp->x - ul.x) {
++		    int i;
+ 		    for (i = 0; i < my; i++) {
+ 			wmove(current->wind, i, tmp->x - ul.x + 1);
+ 			wclrtoeol(current->wind);
+ 		    }
++		}
+ 		wnoutrefresh(current->wind);
+ 
+ 		memcpy(&lr, tmp, sizeof(pair));
+@@ -5850,13 +5862,13 @@
+ {
+     static int count;
+     static int last;
+-    int c;
+ 
+     if ((pending_pan = (count > 0)) != FALSE) {
+ 	count--;
+ 	pending_pan = (count != 0);
+     } else {
+ 	for (;;) {
++	    int c;
+ 	    switch (c = wGetchar(win)) {
+ 	    case '!':
+ 		ShellOut(FALSE);
+@@ -6210,10 +6222,10 @@
+ tracetrace(unsigned tlevel)
+ {
+     static char *buf;
+-    static size_t need = 12;
+     int n;
+ 
+     if (buf == 0) {
++	static size_t need = 12;
+ 	for (n = 0; t_tbl[n].name != 0; n++)
+ 	    need += strlen(t_tbl[n].name) + 2;
+ 	buf = typeMalloc(char, need);
+@@ -6425,9 +6437,9 @@
+ 	size_t have = (source ? strlen(source) : 0) + 1;
+ 	size_t need = 80 + have;
+ 	char *temp = malloc(need);
+-	size_t len;
+ 
+ 	if (temp != 0) {
++	    size_t len;
+ 	    _nc_STRNCPY(temp, source ? source : "", have + 1);
+ 	    len = (size_t) (char *) field_userptr(me);
+ 	    if (c <= KEY_MAX) {
+@@ -6530,7 +6542,6 @@
+ 
+     static int mode = REQ_INS_MODE;
+     int c = wGetchar(w);
+-    unsigned n;
+     FIELD *me = current_field(f);
+     bool current = TRUE;
+ 
+@@ -6542,6 +6553,7 @@
+ 	}
+ 	c = mode;
+     } else {
++	unsigned n;
+ 	for (n = 0; n < SIZEOF(lookup); n++) {
+ 	    if (lookup[n].code == c) {
+ 		c = lookup[n].result;
+@@ -6676,12 +6688,11 @@
+ static int
+ form_test(bool recur GCC_UNUSED)
+ {
+-    WINDOW *w;
+     FORM *form;
+     FIELD *f[12], *secure;
+     FIELDTYPE *fty_middle = new_fieldtype(mi_field_check, mi_char_check);
+     FIELDTYPE *fty_passwd = new_fieldtype(pw_field_check, pw_char_check);
+-    int finished = 0, c;
++    int c;
+     unsigned n = 0;
+ 
+ #ifdef NCURSES_MOUSE_VERSION
+@@ -6731,6 +6742,8 @@
+     f[n] = (FIELD *) 0;
+ 
+     if ((form = new_form(f)) != 0) {
++	WINDOW *w;
++	int finished = 0;
+ 
+ 	display_form(form);
+ 
+@@ -7024,11 +7037,8 @@
+ static int
+ overlap_help(int state, int flavors[OVERLAP_FLAVORS])
+ {
+-    int row;
+-    int col;
+     int item;
+     int limit[OVERLAP_FLAVORS];
+-    const char *ths, *tht;
+     char msg[80];
+ 
+     if (state < 0)
+@@ -7037,10 +7047,10 @@
+     assert(state >= 0 && state < OVERLAP_FLAVORS);
+ 
+     for (item = 0; item < (2 * OVERLAP_FLAVORS); ++item) {
+-	row = item / 2;
+-	col = item % 2;
+-	ths = col ? "B" : "A";
+-	tht = col ? "A" : "B";
++	int row = item / 2;
++	int col = item % 2;
++	const char *ths = col ? "B" : "A";
++	const char *tht = col ? "A" : "B";
+ 
+ 	switch ((otBASE) row) {
+ 	case otBASE_refresh:
+Index: test/newdemo.c
+Prereq:  1.45 
+--- ncurses-6.1-20190817+/test/newdemo.c	2017-09-30 15:43:08.000000000 +0000
++++ ncurses-6.1-20190824/test/newdemo.c	2019-08-24 23:02:49.000000000 +0000
+@@ -2,7 +2,7 @@
+  *  newdemo.c	-	A demo program using PDCurses. The program illustrate
+  *  	 		the use of colours for text output.
+  *
+- * $Id: newdemo.c,v 1.45 2017/09/30 15:43:08 tom Exp $
++ * $Id: newdemo.c,v 1.46 2019/08/24 23:02:49 tom Exp $
+  */
+ 
+ #include <test.priv.h>
+@@ -61,11 +61,12 @@
+ WaitForUser(WINDOW *win)
+ {
+     time_t t;
+-    chtype key;
+ 
+     nodelay(win, TRUE);
+     t = time((time_t *) 0);
++
+     while (1) {
++	chtype key;
+ 	if ((int) (key = (chtype) wgetch(win)) != ERR) {
+ 	    if (key == 'q' || key == 'Q')
+ 		return 1;
+@@ -221,12 +222,10 @@
+ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
+ {
+     WINDOW *win;
+-    int w, x, y, i, j, k;
++    int x, y, i, k;
+     char buffer[SIZEOF(messages) * 80];
+-    const char *message;
+     int width, height;
+     chtype save[80];
+-    chtype c;
+ 
+     setlocale(LC_ALL, "");
+ 
+@@ -244,6 +243,11 @@
+     }
+ 
+     while (1) {
++	int w;
++	int j;
++	chtype c;
++	const char *message;
++
+ 	set_colors(win, 1, COLOR_WHITE, COLOR_BLUE);
+ 	werase(win);
+ 
+Index: test/pair_content.c
+Prereq:  1.12 
+--- ncurses-6.1-20190817+/test/pair_content.c	2019-01-21 01:05:22.000000000 +0000
++++ ncurses-6.1-20190824/test/pair_content.c	2019-08-24 23:02:49.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: pair_content.c,v 1.12 2019/01/21 01:05:22 tom Exp $
++ * $Id: pair_content.c,v 1.13 2019/08/24 23:02:49 tom Exp $
+  */
+ 
+ #define NEED_TIME_H
+@@ -237,7 +237,6 @@
+ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
+ {
+     int i;
+-    int repeat;
+ 
+     while ((i = getopt(argc, argv, "f:il:npr:sx")) != -1) {
+ 	switch (i) {
+@@ -291,6 +290,7 @@
+ 	    }
+ 	}
+     } else {
++	int repeat;
+ 
+ 	for (repeat = 0; repeat < r_opt; ++repeat) {
+ 	    run_test();
+Index: test/picsmap.c
+Prereq:  1.129 
+--- ncurses-6.1-20190817+/test/picsmap.c	2019-04-20 20:33:51.000000000 +0000
++++ ncurses-6.1-20190824/test/picsmap.c	2019-08-24 23:07:34.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: picsmap.c,v 1.129 2019/04/20 20:33:51 tom Exp $
++ * $Id: picsmap.c,v 1.130 2019/08/24 23:07:34 tom Exp $
+  *
+  * Author: Thomas E. Dickey
+  *
+@@ -430,9 +430,7 @@
+     if (is_file(filename, &sb)) {
+ 	size_t size = (size_t) sb.st_size;
+ 	char *blob = typeCalloc(char, size + 1);
+-	bool had_line = TRUE;
+ 	bool binary = FALSE;
+-	unsigned j;
+ 	unsigned k = 0;
+ 
+ 	result = typeCalloc(char *, size + 1);
+@@ -442,7 +440,11 @@
+ 	    FILE *fp = fopen(filename, "r");
+ 	    if (fp != 0) {
+ 		logmsg("opened %s", filename);
++
+ 		if (fread(blob, sizeof(char), size, fp) == size) {
++		    bool had_line = TRUE;
++		    unsigned j;
++
+ 		    for (j = 0; (size_t) j < size; ++j) {
+ 			if (blob[j] == '\0' ||
+ 			    (UChar(blob[j]) < 32 &&
+@@ -683,9 +685,9 @@
+ 	if ((power2 != COLORS) || ((shift % 3) != 0)) {
+ 	    if (all_colors == 0) {
+ 		init_palette(getenv("TERM"));
+-	    }
+-	    if (all_colors == 0) {
+-		giveup("With %d colors, you need a palette-file", COLORS);
++		if (all_colors == 0) {
++		    giveup("With %d colors, you need a palette-file", COLORS);
++		}
+ 	    }
+ 	}
+     }
+@@ -876,7 +878,6 @@
+ 	arg1[cpp] = '\0';
+ 	result = 1;
+     } else {
+-	char *t;
+ 	const char *s = skip_cs(source);
+ 	size_t have = strlen(source);
+ 
+@@ -884,6 +885,7 @@
+ 	    memcpy(arg1, s, (size_t) cpp);
+ 	    s += cpp;
+ 	    while (*s++ == '\t') {
++		char *t;
+ 		for (t = arg2; (*s != '\0') && strchr("\t\"", *s) == 0;) {
+ 		    if (*s == ' ') {
+ 			s = skip_cs(s);
+@@ -1333,9 +1335,9 @@
+ 		/* subsequent lines begin "col,row: (r,g,b,a) #RGB" */
+ 		int r, g, b, nocolor;
+ 		unsigned check;
+-		int which, c;
+ 		char *t;
+ 		char *s = t = strchr(buffer, '#');
++
+ 		if (s != 0) {
+ 		    /* after the "#RGB", there are differences - just ignore */
+ 		    while (*s != '\0' && !isspace(UChar(*s)))
+@@ -1347,6 +1349,8 @@
+ 			    &col, &row,
+ 			    &r, &g, &b, &nocolor,
+ 			    &check)) {
++		    int which, c;
++
+ 		    if ((s - t) > 8)	/* 6 hex digits vs 8 */
+ 			check /= 256;
+ 		    if (r > MaxRGB ||
+@@ -1474,7 +1478,6 @@
+ {
+     int y, x;
+     int n;
+-    int my_pair, my_color;
+ 
+     debugmsg("called show_picture");
+     logmsg("...using %dx%d screen", LINES, COLS);
+@@ -1487,8 +1490,8 @@
+     if (has_colors()) {
+ 	logmsg("...using %d colors", pics->colors);
+ 	for (n = 0; n < pics->colors; ++n) {
+-	    my_pair = (n + 1);
+-	    my_color = map_color(fg_color(pics, n));
++	    int my_pair = (n + 1);
++	    int my_color = map_color(fg_color(pics, n));
+ #if USE_EXTENDED_COLORS
+ 	    if (use_extended_pairs) {
+ 		init_extended_pair(my_pair, my_color, my_color);
+@@ -1507,7 +1510,10 @@
+ 	if (y >= LINES)
+ 	    break;
+ 	move(y, 0);
++
+ 	for (x = 0; x < pics->wide; ++x) {
++	    int my_pair;
++
+ 	    if (x >= COLS)
+ 		break;
+ 	    n = (y * pics->wide + x);
+@@ -1557,11 +1563,9 @@
+ static void
+ report_colors(PICS_HEAD * pics)
+ {
+-    int j, k;
+-    int high;
+-    int wide = 4;
+     int accum;
+     double level;
++    int j;
+     int shift;
+     int total;
+     char buffer[256];
+@@ -1575,6 +1579,8 @@
+      */
+     if (debugging && (pics->colors < 1000)) {
+ 	int digits = 0;
++	int high;
++	int wide = 4;
+ 	for (j = pics->colors; j != 0; j /= 10) {
+ 	    ++digits;
+ 	    if (j < 10)
+@@ -1585,6 +1591,7 @@
+ 	logmsg("These colors were used:");
+ 	high = (pics->colors + wide - 1) / wide;
+ 	for (j = 0; j < high && j < pics->colors; ++j) {
++	    int k;
+ 	    char *s = buffer;
+ 	    *s = '\0';
+ 	    for (k = 0; k < wide; ++k) {
+Index: test/railroad.c
+Prereq:  1.22 
+--- ncurses-6.1-20190817+/test/railroad.c	2017-09-30 17:55:22.000000000 +0000
++++ ncurses-6.1-20190824/test/railroad.c	2019-08-24 23:11:01.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2000-2013,2017 Free Software Foundation, Inc.              *
++ * Copyright (c) 2000-2017,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -29,7 +29,7 @@
+ /*
+  * Author: Thomas E. Dickey - 2000
+  *
+- * $Id: railroad.c,v 1.22 2017/09/30 17:55:22 tom Exp $
++ * $Id: railroad.c,v 1.23 2019/08/24 23:11:01 tom Exp $
+  *
+  * A simple demo of the termcap interface.
+  */
+@@ -113,7 +113,7 @@
+ ShowSign(char *string)
+ {
+     char *base = string;
+-    int ch, first, last;
++    int first, last;
+ 
+     if (moveit != 0) {
+ 	tputs(tgoto(moveit, 0, height - 1), 1, outc);
+@@ -121,7 +121,7 @@
+     }
+ 
+     while (*string != 0) {
+-	ch = *string;
++	int ch = *string;
+ 	if (ch != ' ') {
+ 	    if (moveit != 0) {
+ 		for (first = length - 2; first >= (string - base); first--) {

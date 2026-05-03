@@ -1,0 +1,120 @@
+diff --git a/u-boot/arch/arm/lib/bootm.c b/u-boot/arch/arm/lib/bootm.c
+index fe24c3e..eee9280 100755
+--- a/u-boot/arch/arm/lib/bootm.c
++++ b/u-boot/arch/arm/lib/bootm.c
+@@ -356,6 +356,15 @@ static void boot_prep_linux(bootm_headers_t *images)
+ 		snprintf(commandline2, 1000, "mem=%dM bootver=%08x:%08x", 
+ 				kern_size, readl(XC_SOC_PROC_MMREG_BASE + MC_MEM_INIT_INFO2), HGVER);
+ 
++#ifdef CONFIG_XCODE6_CUST3_CUSTOMIZE
++#if (defined(CONFIG_SECURE_BOOT) && !defined(CONFIG_SECURE_TEST)) || defined(CONFIG_SECURE_DEBUG)
++        strncat(commandline2, " secure_boot=1", 14);
++#endif
++        strncat(commandline2, " boot_ver=\"", 11);
++        strncat(commandline2, CONFIG_IDENT_STRING+1, strlen(CONFIG_IDENT_STRING)-1);
++        strncat(commandline2, "\"", 1);
++#endif
++
+ 		snprintf(commandline_final, 1023, "%s %s %s", commandline, commandline2, (gd->bootfw_param & PARAM_CON_TX_NONE)?"superquiet":"");
+ 		setup_commandline_tag(gd->bd, commandline_final);
+ #endif
+diff --git a/u-boot/common/cmd_bootm.c b/u-boot/common/cmd_bootm.c
+index c6d479e..5f6147a 100644
+--- a/u-boot/common/cmd_bootm.c
++++ b/u-boot/common/cmd_bootm.c
+@@ -72,7 +72,7 @@
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+ #ifndef CONFIG_SYS_BOOTM_LEN
+-#define CONFIG_SYS_BOOTM_LEN	0x800000	/* use 8MByte as default max gunzip size */
++#define CONFIG_SYS_BOOTM_LEN	0x8000000	/* use 128MByte as default max gunzip size */
+ #endif
+ 
+ #ifdef CONFIG_BZIP2
+diff --git a/u-boot/common/main.c b/u-boot/common/main.c
+index 20e70ed..eac6f22 100644
+--- a/u-boot/common/main.c
++++ b/u-boot/common/main.c
+@@ -209,15 +209,11 @@ int abortboot(int bootdelay)
+ 	if (abort)
+ 		gd->flags &= ~GD_FLG_SILENT;
+ #endif
+-/* The following modification is for stopping console in u-boot.
+-   Currently, this code is comment out for not stopping console. */
+-#if 0
+ #ifdef CONFIG_SECURE_BOOT
+ 	if (!abort) {
+ 		gd->bootfw_param |= PARAM_CON_RX_NONE;
+ 		gd->bootfw_param |= PARAM_CON_TX_NONE;
+ 	}
+-#endif
+ #endif
+ 
+ 	return abort;
+diff --git a/u-boot/include/configs/xc6_customer3.h b/u-boot/include/configs/xc6_customer3.h
+index 70c4aa0..9a14474 100644
+--- a/u-boot/include/configs/xc6_customer3.h
++++ b/u-boot/include/configs/xc6_customer3.h
+@@ -180,14 +180,14 @@
+ 	"bootfile=uImage_gz_xc6\0" \
+ 	"ipaddr=203.0.113.245\0" \
+ 	"serverip=203.0.113.246\0" \
+-	"Board_ID=0x1601\0" \
++	"Board_ID=0x1602\0" \
+ 	"prog_boot=dcache off;sf probe;sf erase $flash_boot_ofs +$flash_boot_sz;sf write $loadaddr $flash_boot_ofs $flash_boot_sz;sf read $verifyaddr $flash_boot_ofs $flash_boot_sz;dcache on;cmp.b $loadaddr $verifyaddr $flash_boot_sz\0" \
+ 	"boottftp=tftp 10000000 $bootfile; bootm 10000000\0" \
+ 	"ethaddr=02:08:18:58:43:36\0" \
+ 	"netmask=255.255.255.252\0"\
+ 	"watchdog=off\0" \
+ 	"memtest=dcache off; mtest; dcache on\0" \
+-	"memsize=0x28000000\0" \
++	"memsize=0x20000000\0" \
+ 	"video-mode=xcfb:1280x720-24@60\0"\
+ 	""
+ #endif
+@@ -210,6 +210,8 @@
+ #define CONFIG_SYS_PROMPT		"XC6SDK # "
+ #define CONFIG_XCODE6_BOARDID	(0x0030)
+ 
++//#define CONFIG_SECURE_DEBUG
+ #define CONFIG_XCODE6_CUST3_CUSTOMIZE
++#define CONFIG_IDENT_STRING  ""
+ 
+ #endif /* __CONFIG_XC6_SDK_H */
+diff --git a/u-boot/include/configs/xc6_secu_customer3.h b/u-boot/include/configs/xc6_secu_customer3.h
+index fbd6101..e4d5b45 100644
+--- a/u-boot/include/configs/xc6_secu_customer3.h
++++ b/u-boot/include/configs/xc6_secu_customer3.h
+@@ -171,7 +171,7 @@
+ 	"sata_clkfreq=100\0" \
+ 	"sata_clktype=1\0" \
+ 	"sata_ssmode=1\0" \
+-	"set_bootargs=setenv bootargs ethaddr=$ethaddr init=linuxrc loglevel=0 secure_boot=1\0" \
++	"set_bootargs=setenv bootargs ethaddr=$ethaddr init=linuxrc loglevel=0\0" \
+ 	"loadaddr=0x10000000\0" \
+ 	"verifyaddr=0x20000000\0" \
+ 	"flash_boot_ofs=0x0\0" \
+@@ -180,14 +180,14 @@
+ 	"bootfile=uImage_gz_xc6\0" \
+ 	"ipaddr=203.0.113.245\0" \
+ 	"serverip=203.0.113.246\0" \
+-	"Board_ID=0x1601\0" \
++	"Board_ID=0x1602\0" \
+ 	"prog_boot=dcache off;sf probe;sf erase $flash_boot_ofs +$flash_boot_sz;sf write $loadaddr $flash_boot_ofs $flash_boot_sz;sf read $verifyaddr $flash_boot_ofs $flash_boot_sz;dcache on;cmp.b $loadaddr $verifyaddr $flash_boot_sz\0" \
+ 	"boottftp=tftp 10000000 $bootfile; bootm 10000000\0" \
+ 	"ethaddr=02:08:18:58:43:36\0" \
+ 	"netmask=255.255.255.252\0"\
+ 	"watchdog=off\0" \
+ 	"memtest=dcache off; mtest; dcache on\0" \
+-	"memsize=0x28000000\0" \
++	"memsize=0x20000000\0" \
+ 	"video-mode=xcfb:1280x720-24@60\0"\
+ 	""
+ 
+@@ -219,5 +219,6 @@
+ #define CONFIG_SECURE_PASSWAIT  10
+ //#define CONFIG_SECURE_TEST
+ #define CONFIG_XCODE6_CUST3_CUSTOMIZE
++#define CONFIG_IDENT_STRING  ""
+ 
+ #endif /* __CONFIG_XC6_SDK_H */

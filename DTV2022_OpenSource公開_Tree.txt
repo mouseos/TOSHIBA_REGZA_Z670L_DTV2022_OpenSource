@@ -1,0 +1,243 @@
+
+„   
+„¥„Ÿkali
+„       FreeRTOS.zip
+„       
+„¥„Ÿlibwebsockets
+„       libwebsockets-support-chrome-20-firefox-12.zip
+„       
+„¥„Ÿt30
+„   „¥„Ÿbusybox-1.33.2
+„   „       0001-add-memlog.patch
+„   „       0001-microcom-change-exit-code-from-X-to.patch
+„   „       0001-networking-libiproute-use-linux-if_packet.h-instead-.patch
+„   „       0002-Makefile.flags-strip-non-l-arguments-returned-by-pkg.patch
+„   „       0002-tail-change-the-default-sleep-period-of-follow-from-.patch
+„   „       busybox-1.33.2.tar.bz2
+„   „       series
+„   „       
+„   „¥„Ÿcjson-1.7.15
+„   „       cjson-1.7.15.tar.gz
+„   „       
+„   „¥„Ÿe2fsprogs-1.45.6
+„   „       0001-create_inode-set-xattrs-to-the-root-directory-as-wel.patch
+„   „       e2fsprogs-1.45.6.tar.xz
+„   „       series
+„   „       
+„   „¥„Ÿfdk-aac-2.0.1
+„   „       fdk-aac-2.0.1.tar.gz
+„   „       
+„   „¥„Ÿgptfdisk-1.0.8
+„   „       0001-gptcurses-partially-revert-Tweaks-for-building-on-th.patch
+„   „       gptfdisk-1.0.8.tar.gz
+„   „       series
+„   „       
+„   „¥„Ÿinih-52
+„   „       0001-meson-optionally-depend-on-c.patch
+„   „       inih-52.tar.gz
+„   „       series
+„   „       
+„   „¥„Ÿlibevent-2.1.12
+„   „       libevent-2.1.12-stable.tar.gz
+„   „       
+„   „¥„Ÿlibfuse-2.9.9
+„   „       0001-fix-aarch64-build.patch
+„   „       fuse-2.9.9.tar.gz
+„   „       series
+„   „       
+„   „¥„Ÿlibmd5-1.0
+„   „       md5.tar.gz
+„   „       
+„   „¥„Ÿlibmnl-1.0.4
+„   „       libmnl-1.0.4.tar.bz2
+„   „       
+„   „¥„Ÿlibnftnl-1.1.7
+„   „       libnftnl-1.1.7.tar.bz2
+„   „       
+„   „¥„Ÿlibnl-3.5.0
+„   „       0001-build-add-Libs.private-field-in-libnl-pkg-config-fil.patch
+„   „       0002-Add-musl-workaround-to-the-libc-compat.h-copy.patch
+„   „       libnl-3.5.0.tar.gz
+„   „       series
+„   „       
+„   „¥„Ÿlibopenssl-1.1.1l
+„   „       0001-Dont-waste-time-building-manpages-if-we-re-not-going.patch
+„   „       0002-Reproducible-build-do-not-leak-compiler-path.patch
+„   „       0003-Introduce-the-OPENSSL_NO_MADVISE-to-disable-call-to-.patch
+„   „       0004-Configure-use-ELFv2-ABI-on-some-ppc64-big-endian-sys.patch
+„   „       0005-crypto-perlasm-ppc-xlate.pl-add-linux64v2-flavour.patch
+„   „       openssl-1.1.1l.tar.gz
+„   „       series
+„   „       
+„   „¥„Ÿlibpcap-1.10.1
+„   „       libpcap-1.10.1.tar.gz
+„   „       
+„   „¥„Ÿlibusb-1.0.24
+„   „       0001-linux_usbfs-Fix-parsing-of-descriptors-for-multi-con.patch
+„   „       libusb-1.0.24.tar.bz2
+„   „       series
+„   „       
+„   „¥„Ÿlibzlib-1.2.11
+„   „       zlib-1.2.11.tar.xz
+„   „       
+„   „¥„Ÿlsqlite3-0.9.5-1
+„   „       lsqlite3-0.9.5-1.src.rock
+„   „       
+„   „¥„Ÿlua-5.3.6
+„   „       0001-root-path.patch
+„   „       0002-shared-libs-for-lua.patch
+„   „       0003-linenoise.patch
+„   „       lua-5.3.6.tar.gz
+„   „       series
+„   „       
+„   „¥„Ÿmpg123-1.25.15
+„   „       mpg123-1.25.15.tar.bz2
+„   „       
+„   „¥„Ÿpopt-1.18
+„   „       0001-add-libiconv-to-popt.pc.patch
+„   „       0002-Detect-glob_pattern_p.patch
+„   „       0003-configure-replace-deprecated-macros.patch
+„   „       0004-fix-build-without-wchar.patch
+„   „       0005-fix-build-without-mbstate_t.patch
+„   „       popt-1.18.tar.gz
+„   „       series
+„   „       
+„   „¥„Ÿsqlite-3.34.1
+„   „       sqlite-autoconf-3340100.tar.gz
+„   „       
+„   „¥„Ÿsysstat-12.4.2
+„   „       sysstat-12.4.2.tar.xz
+„   „       
+„   „¥„Ÿtftpd-b2b34cecc8cbc18ff6f1fc00bda6ae6e9011e6c7
+„   „       0001-Use-extern-qualifier-to-fix-gcc-10.x-build.patch
+„   „       series
+„   „       tftpd-b2b34cecc8cbc18ff6f1fc00bda6ae6e9011e6c7-br1.tar.gz
+„   „       tftpd_prohibit_unsecure_syscalls.patch
+„   „       
+„   „¥„Ÿtinyxml-2.6.2_2
+„   „       tinyxml-2.6.2_2.tar.gz
+„   „       
+„   „¥„Ÿtoolchain-external-custom
+„   „       gcc-linaro-10.2.1-20210419-x86_64_arm-none-linux-gnueabihf.tar.gz
+„   „       
+„   „¥„Ÿutil-linux-2.36.2
+„   „       util-linux-2.36.2.tar.xz
+„   „       
+„   „¤„Ÿxfsprogs-5.10.0
+„           0001-mdrestore-do-not-do-dynamic-linking-of-libtool-libra.patch
+„           0002-libxfs-do-not-try-to-run-the-crc32selftest.patch
+„           series
+„           xfsprogs-5.10.0.tar.xz
+„           
+„¤„Ÿxc6
+    „¥„Ÿgptfdisk-1.0.8
+    „       0001-gptcurses-partially-revert-Tweaks-for-building-on-th.patch
+    „       gptfdisk-1.0.8.tar.gz
+    „       series
+    „       
+    „¥„Ÿinih-52
+    „       0001-meson-optionally-depend-on-c.patch
+    „       inih-52.tar.gz
+    „       series
+    „       
+    „¥„Ÿlibjpeg-9d
+    „       jpegsrc.v9d.tar.gz
+    „       
+    „¥„Ÿlibopenssl-1.1.1q
+    „       0001-Dont-waste-time-building-manpages-if-we-re-not-going.patch
+    „       0002-Reproducible-build-do-not-leak-compiler-path.patch
+    „       0003-Introduce-the-OPENSSL_NO_MADVISE-to-disable-call-to-.patch
+    „       0004-Configure-use-ELFv2-ABI-on-some-ppc64-big-endian-sys.patch
+    „       0005-crypto-perlasm-ppc-xlate.pl-add-linux64v2-flavour.patch
+    „       openssl-1.1.1q.tar.gz
+    „       series
+    „       
+    „¥„Ÿlibzlib-1.2.11
+    „       zlib-1.2.11.tar.xz
+    „       
+    „¥„Ÿncurses-6.1
+    „       0001-gcc-5.x-MKlib_gen.patch
+    „       ncurses-6.1-20190609-patch.sh.bz2
+    „       ncurses-6.1-20190615.patch.gz
+    „       ncurses-6.1-20190623.patch.gz
+    „       ncurses-6.1-20190630.patch.gz
+    „       ncurses-6.1-20190706.patch.gz
+    „       ncurses-6.1-20190713.patch.gz
+    „       ncurses-6.1-20190720.patch.gz
+    „       ncurses-6.1-20190727.patch.gz
+    „       ncurses-6.1-20190728.patch.gz
+    „       ncurses-6.1-20190803.patch.gz
+    „       ncurses-6.1-20190810.patch.gz
+    „       ncurses-6.1-20190817.patch.gz
+    „       ncurses-6.1-20190824.patch.gz
+    „       ncurses-6.1-20190831.patch.gz
+    „       ncurses-6.1-20190907.patch.gz
+    „       ncurses-6.1-20190914.patch.gz
+    „       ncurses-6.1-20190921.patch.gz
+    „       ncurses-6.1-20190928.patch.gz
+    „       ncurses-6.1-20191005.patch.gz
+    „       ncurses-6.1-20191012.patch.gz
+    „       ncurses-6.1-20191015.patch.gz
+    „       ncurses-6.1-20191019.patch.gz
+    „       ncurses-6.1-20191026.patch.gz
+    „       ncurses-6.1-20191102.patch.gz
+    „       ncurses-6.1-20191109.patch.gz
+    „       ncurses-6.1-20191116.patch.gz
+    „       ncurses-6.1-20191123.patch.gz
+    „       ncurses-6.1-20191130.patch.gz
+    „       ncurses-6.1-20191207.patch.gz
+    „       ncurses-6.1-20191214.patch.gz
+    „       ncurses-6.1-20191221.patch.gz
+    „       ncurses-6.1-20191228.patch.gz
+    „       ncurses-6.1-20200104.patch.gz
+    „       ncurses-6.1-20200111.patch.gz
+    „       ncurses-6.1-20200118.patch.gz
+    „       ncurses-6.1.tar.gz
+    „       series
+    „       
+    „¥„ŸPixelWorks
+    „   „¥„ŸLinuxKernel
+    „   „       kernel_patch_file_linux
+    „   „       linux-linaro-3.x-20220202.tar.bz2
+    „   „       
+    „   „¥„ŸUboot
+    „   „       patch_file_uboot
+    „   „       u-boot_src_20230414.tar.bz2
+    „   „       
+    „   „¤„ŸXcodeAVDeviceDriver
+    „           irda_src.tar.bz2
+    „           xcdrv_ppc_src.tar.gz
+    „           
+    „¥„Ÿpopt-1.18
+    „       0001-add-libiconv-to-popt.pc.patch
+    „       0002-Detect-glob_pattern_p.patch
+    „       0003-configure-replace-deprecated-macros.patch
+    „       0004-fix-build-without-wchar.patch
+    „       0005-fix-build-without-mbstate_t.patch
+    „       popt-1.18.tar.gz
+    „       series
+    „       
+    „¥„Ÿprocps-ng-3.3.15
+    „       procps-ng-3.3.15.tar.xz
+    „       
+    „¥„Ÿsqlite-3.34.1
+    „       sqlite-autoconf-3340100.tar.gz
+    „       
+    „¥„Ÿsysstat-12.4.2
+    „       0001-add-__builtin_bswap16-to-fix-a-bug-in-gcc-ver-4.7.patch
+    „       series
+    „       sysstat-12.4.2.tar.xz
+    „       
+    „¥„Ÿtoolchain-external-custom
+    „       gcc-linaro-arm-linux-gnueabihf-4.7-2012.11-20121123_linux.tar.gz
+    „       
+    „¥„Ÿutil-linux-2.36.2
+    „       util-linux-2.36.2.tar.xz
+    „       
+    „¤„Ÿxfsprogs-5.10.0
+            0001-add-typedef-of-__kernel_long_t.patch
+            0001-mdrestore-do-not-do-dynamic-linking-of-libtool-libra.patch
+            0002-libxfs-do-not-try-to-run-the-crc32selftest.patch
+            series
+            xfsprogs-5.10.0.tar.xz
+            

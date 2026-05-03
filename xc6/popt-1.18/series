@@ -1,0 +1,5 @@
+0001-add-libiconv-to-popt.pc.patch
+0002-Detect-glob_pattern_p.patch
+0003-configure-replace-deprecated-macros.patch
+0004-fix-build-without-wchar.patch
+0005-fix-build-without-mbstate_t.patch

@@ -1,0 +1,9 @@
+#ifndef DRIVERS_MTD_DEVICES_XCNRFC_P33_H
+#define DRIVERS_MTD_DEVICES_XCNRFC_P33_H
+
+#define MANUFACTURER_ID_INTEL           0x2
+#define DEVICE_ID_INTEL_P33             0xffffff
+
+extern FLASHTIMING IntelP33_30MHz;
+
+#endif

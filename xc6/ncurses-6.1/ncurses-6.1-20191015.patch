@@ -1,0 +1,304 @@
+# ncurses 6.1 - patch 20191015 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191015.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Wed Oct 16 00:42:21 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |   10 +++++++++-
+# VERSION                          |    2 +-
+# dist.mk                          |    4 ++--
+# ncurses/tinfo/captoinfo.c        |   34 ++++++++++++++++++++--------------
+# package/debian-mingw/changelog   |    4 ++--
+# package/debian-mingw64/changelog |    4 ++--
+# package/debian/changelog         |    4 ++--
+# package/mingw-ncurses.nsi        |    4 ++--
+# package/mingw-ncurses.spec       |    2 +-
+# package/ncurses.spec             |    2 +-
+# package/ncursest.spec            |    2 +-
+# progs/tic.c                      |    5 +++--
+# 12 files changed, 46 insertions(+), 31 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3389 
+--- ncurses-6.1-20191012+/NEWS	2019-10-12 21:17:50.000000000 +0000
++++ ncurses-6.1-20191015/NEWS	2019-10-16 00:04:31.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3389 2019/10/12 21:17:50 tom Exp $
++-- $Id: NEWS,v 1.3393 2019/10/16 00:04:31 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,14 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191015
++	+ improve buffer-checks in captoinfo.c, for some cases when the
++	  input string is shorter than expected.
++	> fix two errata in tic (report/testcases by Hongxu Chen):
++	+ check for missing character after backslash in write_it
++	+ check for missing characters after "%>" when converting from termcap
++	  syntax (cf: 980530).
++
+ 20191012
+ 	+ amend recent changes to ncurses*-config and pc-files to filter out
+ 	  Debian linker-flags (report by Sven Joachim, cf: 20150516).
+Index: VERSION
+--- ncurses-6.1-20191012+/VERSION	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/VERSION	2019-10-15 21:46:57.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20191012
++5:0:10	6.1	20191015
+Index: dist.mk
+Prereq:  1.1309 
+--- ncurses-6.1-20191012+/dist.mk	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/dist.mk	2019-10-15 21:46:57.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1309 2019/10/12 15:30:55 tom Exp $
++# $Id: dist.mk,v 1.1310 2019/10/15 21:46:57 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20191012
++NCURSES_PATCH = 20191015
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: ncurses/tinfo/captoinfo.c
+Prereq:  1.96 
+--- ncurses-6.1-20191012+/ncurses/tinfo/captoinfo.c	2018-05-12 16:46:55.000000000 +0000
++++ ncurses-6.1-20191015/ncurses/tinfo/captoinfo.c	2019-10-15 23:13:35.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -97,7 +97,7 @@
+ #include <ctype.h>
+ #include <tic.h>
+ 
+-MODULE_ID("$Id: captoinfo.c,v 1.96 2018/05/12 16:46:55 tom Exp $")
++MODULE_ID("$Id: captoinfo.c,v 1.97 2019/10/15 23:13:35 tom Exp $")
+ 
+ #if 0
+ #define DEBUG_THIS(p) DEBUG(9, p)
+@@ -210,7 +210,7 @@
+ 	    break;
+ 	default:
+ 	    c = UChar(*sp);
+-	    len = 2;
++	    len = (c != '\0') ? 2 : 1;
+ 	    break;
+ 	}
+ 	break;
+@@ -224,13 +224,13 @@
+ 	break;
+     default:
+ 	c = UChar(*sp);
+-	len = 1;
++	len = (c != '\0') ? 1 : 0;
+     }
+     if (isgraph(c) && c != ',' && c != '\'' && c != '\\' && c != ':') {
+ 	dp = save_string(dp, "%\'");
+ 	dp = save_char(dp, c);
+ 	dp = save_char(dp, '\'');
+-    } else {
++    } else if (c != '\0') {
+ 	dp = save_string(dp, "%{");
+ 	if (c > 99)
+ 	    dp = save_char(dp, c / 100 + '0');
+@@ -313,7 +313,7 @@
+     if (s == 0)
+ 	s = "";
+     if (parameterized >= 0 && isdigit(UChar(*s)))
+-	for (capstart = s;; s++)
++	for (capstart = s; *s != '\0'; s++)
+ 	    if (!(isdigit(UChar(*s)) || *s == '*' || *s == '.'))
+ 		break;
+ 
+@@ -360,13 +360,18 @@
+ 		dp = save_string(dp, "%{2}%*%-");
+ 		break;
+ 	    case '>':
+-		getparm(param, 2);
+ 		/* %?%{x}%>%t%{y}%+%; */
+-		dp = save_string(dp, "%?");
+-		s += cvtchar(s);
+-		dp = save_string(dp, "%>%t");
+-		s += cvtchar(s);
+-		dp = save_string(dp, "%+%;");
++		if (s[0] && s[1]) {
++		    getparm(param, 2);
++		    dp = save_string(dp, "%?");
++		    s += cvtchar(s);
++		    dp = save_string(dp, "%>%t");
++		    s += cvtchar(s);
++		    dp = save_string(dp, "%+%;");
++		} else {
++		    _nc_warning("expected two characters after %%>");
++		    dp = save_string(dp, "%>");
++		}
+ 		break;
+ 	    case 'a':
+ 		if ((*s == '=' || *s == '+' || *s == '-'
+@@ -492,7 +497,8 @@
+ 	    }
+ 	    break;
+ 	default:
+-	    dp = save_char(dp, *s++);
++	    if (*s != '\0')
++		dp = save_char(dp, *s++);
+ 	    break;
+ 	}
+     }
+@@ -503,7 +509,7 @@
+      */
+     if (capstart) {
+ 	dp = save_string(dp, "$<");
+-	for (s = capstart;; s++)
++	for (s = capstart; *s != '\0'; s++)
+ 	    if (isdigit(UChar(*s)) || *s == '*' || *s == '.')
+ 		dp = save_char(dp, *s);
+ 	    else
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20191012+/package/debian-mingw/changelog	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/package/debian-mingw/changelog	2019-10-15 21:46:57.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191012) unstable; urgency=low
++ncurses6 (6.1+20191015) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 11 Oct 2019 19:37:45 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Tue, 15 Oct 2019 17:46:57 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20191012+/package/debian-mingw64/changelog	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/package/debian-mingw64/changelog	2019-10-15 21:46:57.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191012) unstable; urgency=low
++ncurses6 (6.1+20191015) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 11 Oct 2019 19:37:45 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Tue, 15 Oct 2019 17:46:57 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20191012+/package/debian/changelog	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/package/debian/changelog	2019-10-15 21:46:57.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191012) unstable; urgency=low
++ncurses6 (6.1+20191015) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 11 Oct 2019 19:37:45 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Tue, 15 Oct 2019 17:46:57 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.355 
+--- ncurses-6.1-20191012+/package/mingw-ncurses.nsi	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/package/mingw-ncurses.nsi	2019-10-15 21:46:57.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.355 2019/10/12 15:30:55 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.356 2019/10/15 21:46:57 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "1012"
++!define VERSION_MMDD  "1015"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20191012+/package/mingw-ncurses.spec	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/package/mingw-ncurses.spec	2019-10-15 21:46:57.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20191012
++Release: 20191015
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20191012+/package/ncurses.spec	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/package/ncurses.spec	2019-10-15 21:46:57.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20191012
++Release: 20191015
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20191012+/package/ncursest.spec	2019-10-12 15:30:55.000000000 +0000
++++ ncurses-6.1-20191015/package/ncursest.spec	2019-10-15 21:46:57.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20191012
++Release: 20191015
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: progs/tic.c
+Prereq:  1.278 
+--- ncurses-6.1-20191012+/progs/tic.c	2019-07-27 22:44:21.000000000 +0000
++++ ncurses-6.1-20191015/progs/tic.c	2019-10-15 22:18:29.000000000 +0000
+@@ -48,7 +48,7 @@
+ #include <parametrized.h>
+ #include <transform.h>
+ 
+-MODULE_ID("$Id: tic.c,v 1.278 2019/07/27 22:44:21 tom Exp $")
++MODULE_ID("$Id: tic.c,v 1.279 2019/10/15 22:18:29 tom Exp $")
+ 
+ #define STDIN_NAME "<stdin>"
+ 
+@@ -218,7 +218,8 @@
+ 	    while ((ch = *t++) != 0) {
+ 		*d++ = (char) ch;
+ 		if (ch == '\\') {
+-		    *d++ = *t++;
++		    if ((*d++ = *t++) == '\0')
++			break;
+ 		} else if ((ch == '%')
+ 			   && (*t == L_BRACE)) {
+ 		    char *v = 0;

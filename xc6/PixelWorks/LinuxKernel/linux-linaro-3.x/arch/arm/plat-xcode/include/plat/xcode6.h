@@ -1,0 +1,10 @@
+#ifndef __ASM_ARCH_XCODE6_H
+#define __ASM_ARCH_XCODE6_H
+
+#define CORE_PERIPH_BASE                0xfff00000UL
+
+#define XCODE6_GIC_DIST_BASE		(CORE_PERIPH_BASE+0x1000UL)
+#define XCODE6_GIC_CPU_BASE			(CORE_PERIPH_BASE+0x100UL)
+
+#endif /* __ASM_ARCH_XCODE6_H */
+

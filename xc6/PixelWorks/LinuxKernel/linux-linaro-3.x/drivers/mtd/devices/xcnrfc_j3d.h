@@ -1,0 +1,9 @@
+#ifndef DRIVERS_MTD_DEVICES_XCNRFC_J3D_H
+#define DRIVERS_MTD_DEVICES_XCNRFC_J3D_H
+
+#define MANUFACTURER_ID_INTEL           0x89
+#define DEVICE_ID_INTEL_J3D             0x1d
+
+extern FLASHTIMING IntelJ3d_30MHz;
+
+#endif

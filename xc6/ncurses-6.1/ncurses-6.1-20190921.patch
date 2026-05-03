@@ -1,0 +1,2677 @@
+# ncurses 6.1 - patch 20190921 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190921.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Sep 22 01:25:51 UTC 2019
+# ------------------------------------------------------------------------------
+# Ada95/aclocal.m4                      |   90 +++++--
+# Ada95/configure                       |  256 +++++++++++-----------
+# Ada95/gen/adacurses-config.in         |    4 
+# NEWS                                  |    8 
+# VERSION                               |    2 
+# aclocal.m4                            |  145 +++++++-----
+# configure                             |  372 ++++++++++++++++----------------
+# dist.mk                               |    4 
+# doc/html/man/adacurses6-config.1.html |    6 
+# doc/html/man/captoinfo.1m.html        |    2 
+# doc/html/man/clear.1.html             |    2 
+# doc/html/man/form.3x.html             |    2 
+# doc/html/man/infocmp.1m.html          |    2 
+# doc/html/man/infotocap.1m.html        |    2 
+# doc/html/man/menu.3x.html             |    2 
+# doc/html/man/ncurses.3x.html          |    2 
+# doc/html/man/ncurses6-config.1.html   |    2 
+# doc/html/man/panel.3x.html            |    2 
+# doc/html/man/resizeterm.3x.html       |   53 ++--
+# doc/html/man/tabs.1.html              |    2 
+# doc/html/man/terminfo.5.html          |    2 
+# doc/html/man/tic.1m.html              |    2 
+# doc/html/man/toe.1m.html              |    2 
+# doc/html/man/tput.1.html              |    2 
+# doc/html/man/tset.1.html              |    2 
+# man/resizeterm.3x                     |   16 +
+# package/debian-mingw/changelog        |    4 
+# package/debian-mingw64/changelog      |    4 
+# package/debian/changelog              |    4 
+# package/mingw-ncurses.nsi             |    4 
+# package/mingw-ncurses.spec            |    2 
+# package/ncurses.spec                  |    2 
+# package/ncursest.spec                 |    2 
+# 33 files changed, 561 insertions(+), 447 deletions(-)
+# ------------------------------------------------------------------------------
+Index: Ada95/aclocal.m4
+Prereq:  1.145 
+--- ncurses-6.1-20190914+/Ada95/aclocal.m4	2019-09-07 23:37:09.000000000 +0000
++++ ncurses-6.1-20190921/Ada95/aclocal.m4	2019-09-21 22:12:40.000000000 +0000
+@@ -28,7 +28,7 @@
+ dnl
+ dnl Author: Thomas E. Dickey
+ dnl
+-dnl $Id: aclocal.m4,v 1.145 2019/09/07 23:37:09 tom Exp $
++dnl $Id: aclocal.m4,v 1.146 2019/09/21 22:12:40 tom Exp $
+ dnl Macros used in NCURSES Ada95 auto-configuration script.
+ dnl
+ dnl These macros are maintained separately from NCURSES.  The copyright on
+@@ -677,6 +677,22 @@
+ fi
+ ])dnl
+ dnl ---------------------------------------------------------------------------
++dnl CF_CHECK_GNAT_VERSION version: 1 updated: 2019/09/21 18:08:42
++dnl ---------------------
++AC_DEFUN([CF_CHECK_GNAT_VERSION],
++[
++AC_REQUIRE([CF_GNAT_VERSION])
++case $cf_gnat_version in
++(3.1[[1-9]]*|3.[[2-9]]*|[[4-9]].*|20[[0-9]][[0-9]])
++	cf_cv_prog_gnat_correct=yes
++	;;
++(*)
++	AC_MSG_WARN(Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding.)
++	cf_cv_prog_gnat_correct=no
++	;;
++esac
++])
++dnl ---------------------------------------------------------------------------
+ dnl CF_CLANG_COMPILER version: 2 updated: 2013/11/19 19:23:35
+ dnl -----------------
+ dnl Check if the given compiler is really clang.  clang's C driver defines
+@@ -1536,27 +1552,21 @@
+ rm -rf conftest* *~conftest*
+ ])dnl
+ dnl ---------------------------------------------------------------------------
+-dnl CF_GNAT_VERSION version: 20 updated: 2015/04/18 08:56:57
++dnl CF_GNAT_VERSION version: 21 updated: 2019/09/21 18:08:42
+ dnl ---------------
+-dnl Verify version of GNAT.
++dnl $1 = cache variable to update
++dnl $2 = program name
++dnl Verify version of GNAT or related tool
+ AC_DEFUN([CF_GNAT_VERSION],
+ [
+-AC_MSG_CHECKING(for gnat version)
+-cf_gnat_version=`${cf_ada_make:-gnatmake} -v 2>&1 | \
++AC_CACHE_CHECK(for ifelse($2,,gnat,$2) version, cf_gnat_version,[
++cf_gnat_version=`ifelse($2,,${cf_ada_make:-gnatmake},$2) --version 2>&1 | \
+ 	grep '[[0-9]].[[0-9]][[0-9]]*' |\
+ 	sed -e '2,$d' -e 's/[[^0-9 \.]]//g' -e 's/^[[ ]]*//' -e 's/ .*//'`
+-AC_MSG_RESULT($cf_gnat_version)
+-
+-case $cf_gnat_version in
+-(3.1[[1-9]]*|3.[[2-9]]*|[[4-9]].*|20[[0-9]][[0-9]])
+-	cf_cv_prog_gnat_correct=yes
+-	;;
+-(*)
+-	AC_MSG_WARN(Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding.)
+-	cf_cv_prog_gnat_correct=no
+-	;;
+-esac
+ ])
++test -z "$cf_gnat_version" && cf_gnat_version=no
++ifelse($1,,,[eval $1=$cf_gnat_version; unset cf_gnat_version])
++])dnl
+ dnl ---------------------------------------------------------------------------
+ dnl CF_GNU_SOURCE version: 10 updated: 2018/12/10 20:09:41
+ dnl -------------
+@@ -3138,20 +3148,40 @@
+ test -n "$PROG_EXT" && AC_DEFINE_UNQUOTED(PROG_EXT,"$PROG_EXT",[Define to the program extension (normally blank)])
+ ])dnl
+ dnl ---------------------------------------------------------------------------
+-dnl CF_PROG_GNAT version: 8 updated: 2018/11/10 19:47:04
++dnl CF_PROG_GNAT version: 9 updated: 2019/09/21 18:08:42
+ dnl ------------
+-dnl Check for gnatmake, ensure that it is complete.
++dnl Check for gnat/gnatmake/etc, ensure that the toolset is complete.
+ AC_DEFUN([CF_PROG_GNAT],[
+-cf_ada_make=gnatmake
+-cf_ada_config="#"
+-AC_CHECK_PROG(gnatmake_exists, $cf_ada_make, yes, no)
+-if test "$ac_cv_prog_gnatmake_exists" = no; then
++for cf_prog_gnat in gnat gnatmake gprconfig gprbuild
++do
++	CF_UPPER(cf_upper_prog_gnat,${cf_prog_gnat})
++
++	unset ac_cv_path_cf_TEMP_gnat
++	unset cf_TEMP_gnat
++	AC_PATH_PROG(cf_TEMP_gnat,$cf_prog_gnat,no)
++	eval cf_cv_PATH_$cf_upper_prog_gnat=[$]ac_cv_path_cf_TEMP_gnat
++
++	if test "x$cf_TEMP_gnat" != xno; then
++		unset cf_gnat_version
++		unset cf_TEMP_gnat
++		CF_GNAT_VERSION(cf_TEMP_gnat,$cf_prog_gnat)
++	fi
++	eval cf_cv_VERSION_$cf_upper_prog_gnat=[$]cf_TEMP_gnat
++
++	unset cf_TEMP_gnat
++	unset cf_gnat_version
++	unset ac_cv_path_cf_TEMP_gnat
++done
++
++if test "x$cf_cv_VERSION_GNATMAKE" = "xno"; then
+ 	cf_ada_make=
+ 	cf_cv_prog_gnat_correct=no
+ else
+-	AC_CHECK_PROG(gprconfig_exists, gprconfig, yes, no)
+-	if test "$ac_cv_prog_gprconfig_exists" = yes
+-	then
++	cf_ada_make=gnatmake
++	if test "x$cf_cv_VERSION_GPRCONFIG" = "xno"; then
++		# gprconfig is newer than gnatmake; we can continue...
++		cf_ada_config="##"
++	else
+ 		rm -rf conftest* *~conftest*
+ 		if mkdir conftest.src
+ 		then
+@@ -3187,17 +3217,15 @@
+ 			cd ..
+ 			rm -rf conftest* *~conftest*
+ 		fi
+-	else
+-		# gprconfig is newer than gnatmake; we can continue...
+-		cf_ada_config="##"
+ 	fi
+ 	if test "x$cf_ada_config" != "x#"
+ 	then
+ 		CF_GNAT_VERSION
++		CF_CHECK_GNAT_VERSION
+ 		AC_CHECK_PROG(M4_exists, m4, yes, no)
+ 		if test "$ac_cv_prog_M4_exists" = no; then
+ 			cf_cv_prog_gnat_correct=no
+-			echo Ada95 binding required program m4 not found. Ada95 binding disabled.
++			AC_MSG_WARN(Ada95 binding required program m4 not found. Ada95 binding disabled)
+ 		fi
+ 		if test "$cf_cv_prog_gnat_correct" = yes; then
+ 			AC_MSG_CHECKING(if GNAT works)
+@@ -3209,7 +3237,9 @@
+    Text_IO.Put ("Hello World");
+    Text_IO.New_Line;
+    GNAT.OS_Lib.OS_Exit (0);
+-end conftest;],[cf_cv_prog_gnat_correct=yes],[cf_cv_prog_gnat_correct=no])
++end conftest;],
++[cf_cv_prog_gnat_correct=yes],
++[cf_cv_prog_gnat_correct=no])
+ 			AC_MSG_RESULT($cf_cv_prog_gnat_correct)
+ 		fi
+ 	else
+Index: Ada95/configure
+--- ncurses-6.1-20190914+/Ada95/configure	2019-09-14 19:53:04.000000000 +0000
++++ ncurses-6.1-20190921/Ada95/configure	2019-09-21 22:12:48.000000000 +0000
+@@ -15676,80 +15676,90 @@
+ cf_with_ada=yes
+ if test "$cf_with_ada" != "no" ; then
+ 
+-cf_ada_make=gnatmake
+-cf_ada_config="#"
+-# Extract the first word of "$cf_ada_make", so it can be a program name with args.
+-set dummy $cf_ada_make; ac_word=$2
+-echo "$as_me:15683: checking for $ac_word" >&5
++for cf_prog_gnat in gnat gnatmake gprconfig gprbuild
++do
++
++cf_upper_prog_gnat=`echo "${cf_prog_gnat}" | sed y%abcdefghijklmnopqrstuvwxyz./-%ABCDEFGHIJKLMNOPQRSTUVWXYZ___%`
++
++	unset ac_cv_path_cf_TEMP_gnat
++	unset cf_TEMP_gnat
++	# Extract the first word of "$cf_prog_gnat", so it can be a program name with args.
++set dummy $cf_prog_gnat; ac_word=$2
++echo "$as_me:15688: checking for $ac_word" >&5
+ echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+-if test "${ac_cv_prog_gnatmake_exists+set}" = set; then
++if test "${ac_cv_path_cf_TEMP_gnat+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+-  if test -n "$gnatmake_exists"; then
+-  ac_cv_prog_gnatmake_exists="$gnatmake_exists" # Let the user override the test.
+-else
++  case $cf_TEMP_gnat in
++  [\\/]* | ?:[\\/]*)
++  ac_cv_path_cf_TEMP_gnat="$cf_TEMP_gnat" # Let the user override the test with a path.
++  ;;
++  *)
+   ac_save_IFS=$IFS; IFS=$ac_path_separator
+ ac_dummy="$PATH"
+ for ac_dir in $ac_dummy; do
+   IFS=$ac_save_IFS
+   test -z "$ac_dir" && ac_dir=.
+-  $as_executable_p "$ac_dir/$ac_word" || continue
+-ac_cv_prog_gnatmake_exists="yes"
+-echo "$as_me:15698: found $ac_dir/$ac_word" >&5
+-break
++  if $as_executable_p "$ac_dir/$ac_word"; then
++   ac_cv_path_cf_TEMP_gnat="$ac_dir/$ac_word"
++   echo "$as_me:15705: found $ac_dir/$ac_word" >&5
++   break
++fi
+ done
+ 
+-  test -z "$ac_cv_prog_gnatmake_exists" && ac_cv_prog_gnatmake_exists="no"
+-fi
++  test -z "$ac_cv_path_cf_TEMP_gnat" && ac_cv_path_cf_TEMP_gnat="no"
++  ;;
++esac
+ fi
+-gnatmake_exists=$ac_cv_prog_gnatmake_exists
+-if test -n "$gnatmake_exists"; then
+-  echo "$as_me:15707: result: $gnatmake_exists" >&5
+-echo "${ECHO_T}$gnatmake_exists" >&6
++cf_TEMP_gnat=$ac_cv_path_cf_TEMP_gnat
++
++if test -n "$cf_TEMP_gnat"; then
++  echo "$as_me:15717: result: $cf_TEMP_gnat" >&5
++echo "${ECHO_T}$cf_TEMP_gnat" >&6
+ else
+-  echo "$as_me:15710: result: no" >&5
++  echo "$as_me:15720: result: no" >&5
+ echo "${ECHO_T}no" >&6
+ fi
+ 
+-if test "$ac_cv_prog_gnatmake_exists" = no; then
+-	cf_ada_make=
+-	cf_cv_prog_gnat_correct=no
+-else
+-	# Extract the first word of "gprconfig", so it can be a program name with args.
+-set dummy gprconfig; ac_word=$2
+-echo "$as_me:15720: checking for $ac_word" >&5
+-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+-if test "${ac_cv_prog_gprconfig_exists+set}" = set; then
++	eval cf_cv_PATH_$cf_upper_prog_gnat=$ac_cv_path_cf_TEMP_gnat
++
++	if test "x$cf_TEMP_gnat" != xno; then
++		unset cf_gnat_version
++		unset cf_TEMP_gnat
++
++echo "$as_me:15730: checking for $cf_prog_gnat version" >&5
++echo $ECHO_N "checking for $cf_prog_gnat version... $ECHO_C" >&6
++if test "${cf_gnat_version+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+-  if test -n "$gprconfig_exists"; then
+-  ac_cv_prog_gprconfig_exists="$gprconfig_exists" # Let the user override the test.
+-else
+-  ac_save_IFS=$IFS; IFS=$ac_path_separator
+-ac_dummy="$PATH"
+-for ac_dir in $ac_dummy; do
+-  IFS=$ac_save_IFS
+-  test -z "$ac_dir" && ac_dir=.
+-  $as_executable_p "$ac_dir/$ac_word" || continue
+-ac_cv_prog_gprconfig_exists="yes"
+-echo "$as_me:15735: found $ac_dir/$ac_word" >&5
+-break
+-done
+ 
+-  test -z "$ac_cv_prog_gprconfig_exists" && ac_cv_prog_gprconfig_exists="no"
+-fi
+-fi
+-gprconfig_exists=$ac_cv_prog_gprconfig_exists
+-if test -n "$gprconfig_exists"; then
+-  echo "$as_me:15744: result: $gprconfig_exists" >&5
+-echo "${ECHO_T}$gprconfig_exists" >&6
+-else
+-  echo "$as_me:15747: result: no" >&5
+-echo "${ECHO_T}no" >&6
++cf_gnat_version=`$cf_prog_gnat --version 2>&1 | \
++	grep '[0-9].[0-9][0-9]*' |\
++	sed -e '2,$d' -e 's/[^0-9 \.]//g' -e 's/^[ ]*//' -e 's/ .*//'`
++
+ fi
++echo "$as_me:15741: result: $cf_gnat_version" >&5
++echo "${ECHO_T}$cf_gnat_version" >&6
++test -z "$cf_gnat_version" && cf_gnat_version=no
++eval cf_TEMP_gnat=$cf_gnat_version; unset cf_gnat_version
+ 
+-	if test "$ac_cv_prog_gprconfig_exists" = yes
+-	then
++	fi
++	eval cf_cv_VERSION_$cf_upper_prog_gnat=$cf_TEMP_gnat
++
++	unset cf_TEMP_gnat
++	unset cf_gnat_version
++	unset ac_cv_path_cf_TEMP_gnat
++done
++
++if test "x$cf_cv_VERSION_GNATMAKE" = "xno"; then
++	cf_ada_make=
++	cf_cv_prog_gnat_correct=no
++else
++	cf_ada_make=gnatmake
++	if test "x$cf_cv_VERSION_GPRCONFIG" = "xno"; then
++		# gprconfig is newer than gnatmake; we can continue...
++		cf_ada_config="##"
++	else
+ 		rm -rf conftest* *~conftest*
+ 		if mkdir conftest.src
+ 		then
+@@ -15757,7 +15767,7 @@
+ 			cd conftest.src
+ 			for cf_gprconfig in Ada C
+ 			do
+-				echo "$as_me:15760: checking for gprconfig name for $cf_gprconfig" >&5
++				echo "$as_me:15770: checking for gprconfig name for $cf_gprconfig" >&5
+ echo $ECHO_N "checking for gprconfig name for $cf_gprconfig... $ECHO_C" >&6
+ 				if test $cf_gprconfig = C
+ 				then
+@@ -15776,10 +15786,10 @@
+ 				if test -n "$cf_gprconfig_value"
+ 				then
+ 					eval cf_ada_config_$cf_gprconfig=$cf_gprconfig_value
+-					echo "$as_me:15779: result: $cf_gprconfig_value" >&5
++					echo "$as_me:15789: result: $cf_gprconfig_value" >&5
+ echo "${ECHO_T}$cf_gprconfig_value" >&6
+ 				else
+-					echo "$as_me:15782: result: missing" >&5
++					echo "$as_me:15792: result: missing" >&5
+ echo "${ECHO_T}missing" >&6
+ 					cf_ada_config="#"
+ 					break
+@@ -15788,27 +15798,31 @@
+ 			cd ..
+ 			rm -rf conftest* *~conftest*
+ 		fi
+-	else
+-		# gprconfig is newer than gnatmake; we can continue...
+-		cf_ada_config="##"
+ 	fi
+ 	if test "x$cf_ada_config" != "x#"
+ 	then
+ 
+-echo "$as_me:15798: checking for gnat version" >&5
++echo "$as_me:15805: checking for gnat version" >&5
+ echo $ECHO_N "checking for gnat version... $ECHO_C" >&6
+-cf_gnat_version=`${cf_ada_make:-gnatmake} -v 2>&1 | \
++if test "${cf_gnat_version+set}" = set; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++
++cf_gnat_version=`${cf_ada_make:-gnatmake} --version 2>&1 | \
+ 	grep '[0-9].[0-9][0-9]*' |\
+ 	sed -e '2,$d' -e 's/[^0-9 \.]//g' -e 's/^[ ]*//' -e 's/ .*//'`
+-echo "$as_me:15803: result: $cf_gnat_version" >&5
++
++fi
++echo "$as_me:15816: result: $cf_gnat_version" >&5
+ echo "${ECHO_T}$cf_gnat_version" >&6
++test -z "$cf_gnat_version" && cf_gnat_version=no
+ 
+ case $cf_gnat_version in
+ (3.1[1-9]*|3.[2-9]*|[4-9].*|20[0-9][0-9])
+ 	cf_cv_prog_gnat_correct=yes
+ 	;;
+ (*)
+-	{ echo "$as_me:15811: WARNING: Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding." >&5
++	{ echo "$as_me:15825: WARNING: Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding." >&5
+ echo "$as_me: WARNING: Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding." >&2;}
+ 	cf_cv_prog_gnat_correct=no
+ 	;;
+@@ -15816,7 +15830,7 @@
+ 
+ 		# Extract the first word of "m4", so it can be a program name with args.
+ set dummy m4; ac_word=$2
+-echo "$as_me:15819: checking for $ac_word" >&5
++echo "$as_me:15833: checking for $ac_word" >&5
+ echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+ if test "${ac_cv_prog_M4_exists+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+@@ -15831,7 +15845,7 @@
+   test -z "$ac_dir" && ac_dir=.
+   $as_executable_p "$ac_dir/$ac_word" || continue
+ ac_cv_prog_M4_exists="yes"
+-echo "$as_me:15834: found $ac_dir/$ac_word" >&5
++echo "$as_me:15848: found $ac_dir/$ac_word" >&5
+ break
+ done
+ 
+@@ -15840,19 +15854,20 @@
+ fi
+ M4_exists=$ac_cv_prog_M4_exists
+ if test -n "$M4_exists"; then
+-  echo "$as_me:15843: result: $M4_exists" >&5
++  echo "$as_me:15857: result: $M4_exists" >&5
+ echo "${ECHO_T}$M4_exists" >&6
+ else
+-  echo "$as_me:15846: result: no" >&5
++  echo "$as_me:15860: result: no" >&5
+ echo "${ECHO_T}no" >&6
+ fi
+ 
+ 		if test "$ac_cv_prog_M4_exists" = no; then
+ 			cf_cv_prog_gnat_correct=no
+-			echo Ada95 binding required program m4 not found. Ada95 binding disabled.
++			{ echo "$as_me:15866: WARNING: Ada95 binding required program m4 not found. Ada95 binding disabled" >&5
++echo "$as_me: WARNING: Ada95 binding required program m4 not found. Ada95 binding disabled" >&2;}
+ 		fi
+ 		if test "$cf_cv_prog_gnat_correct" = yes; then
+-			echo "$as_me:15855: checking if GNAT works" >&5
++			echo "$as_me:15870: checking if GNAT works" >&5
+ echo $ECHO_N "checking if GNAT works... $ECHO_C" >&6
+ 
+ rm -rf conftest* *~conftest*
+@@ -15880,7 +15895,7 @@
+ fi
+ rm -rf conftest* *~conftest*
+ 
+-			echo "$as_me:15883: result: $cf_cv_prog_gnat_correct" >&5
++			echo "$as_me:15898: result: $cf_cv_prog_gnat_correct" >&5
+ echo "${ECHO_T}$cf_cv_prog_gnat_correct" >&6
+ 		fi
+ 	else
+@@ -15890,7 +15905,7 @@
+ 
+ 	if test	"$cf_cv_prog_gnat_correct" = yes; then
+ 
+-	echo "$as_me:15893: checking optimization options for ADAFLAGS" >&5
++	echo "$as_me:15908: checking optimization options for ADAFLAGS" >&5
+ echo $ECHO_N "checking optimization options for ADAFLAGS... $ECHO_C" >&6
+ 	case "$CFLAGS" in
+ 	(*-g*)
+@@ -15907,10 +15922,10 @@
+ 
+ 		;;
+ 	esac
+-	echo "$as_me:15910: result: $ADAFLAGS" >&5
++	echo "$as_me:15925: result: $ADAFLAGS" >&5
+ echo "${ECHO_T}$ADAFLAGS" >&6
+ 
+-echo "$as_me:15913: checking if GNATPREP supports -T option" >&5
++echo "$as_me:15928: checking if GNATPREP supports -T option" >&5
+ echo $ECHO_N "checking if GNATPREP supports -T option... $ECHO_C" >&6
+ if test "${cf_cv_gnatprep_opt_t+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+@@ -15920,11 +15935,11 @@
+ gnatprep -T 2>/dev/null >/dev/null && cf_cv_gnatprep_opt_t=yes
+ 
+ fi
+-echo "$as_me:15923: result: $cf_cv_gnatprep_opt_t" >&5
++echo "$as_me:15938: result: $cf_cv_gnatprep_opt_t" >&5
+ echo "${ECHO_T}$cf_cv_gnatprep_opt_t" >&6
+ test "$cf_cv_gnatprep_opt_t" = yes && GNATPREP_OPTS="-T $GNATPREP_OPTS"
+ 
+-echo "$as_me:15927: checking if GNAT supports generics" >&5
++echo "$as_me:15942: checking if GNAT supports generics" >&5
+ echo $ECHO_N "checking if GNAT supports generics... $ECHO_C" >&6
+ case $cf_gnat_version in
+ (3.[1-9]*|[4-9].*)
+@@ -15934,7 +15949,7 @@
+ 	cf_gnat_generics=no
+ 	;;
+ esac
+-echo "$as_me:15937: result: $cf_gnat_generics" >&5
++echo "$as_me:15952: result: $cf_gnat_generics" >&5
+ echo "${ECHO_T}$cf_gnat_generics" >&6
+ 
+ if test "$cf_gnat_generics" = yes
+@@ -15946,7 +15961,7 @@
+ 	cf_generic_objects=
+ fi
+ 
+-echo "$as_me:15949: checking if GNAT supports SIGINT" >&5
++echo "$as_me:15964: checking if GNAT supports SIGINT" >&5
+ echo $ECHO_N "checking if GNAT supports SIGINT... $ECHO_C" >&6
+ if test "${cf_cv_gnat_sigint+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+@@ -15994,7 +16009,7 @@
+ rm -rf conftest* *~conftest*
+ 
+ fi
+-echo "$as_me:15997: result: $cf_cv_gnat_sigint" >&5
++echo "$as_me:16012: result: $cf_cv_gnat_sigint" >&5
+ echo "${ECHO_T}$cf_cv_gnat_sigint" >&6
+ 
+ if test $cf_cv_gnat_sigint = yes ; then
+@@ -16007,7 +16022,7 @@
+ cf_gnat_projects=no
+ 
+ if test "$enable_gnat_projects" != no ; then
+-echo "$as_me:16010: checking if GNAT supports project files" >&5
++echo "$as_me:16025: checking if GNAT supports project files" >&5
+ echo $ECHO_N "checking if GNAT supports project files... $ECHO_C" >&6
+ case $cf_gnat_version in
+ (3.[0-9]*)
+@@ -16070,15 +16085,15 @@
+ 	esac
+ 	;;
+ esac
+-echo "$as_me:16073: result: $cf_gnat_projects" >&5
++echo "$as_me:16088: result: $cf_gnat_projects" >&5
+ echo "${ECHO_T}$cf_gnat_projects" >&6
+ fi # enable_gnat_projects
+ 
+ if test $cf_gnat_projects = yes
+ then
+-	echo "$as_me:16079: checking if GNAT supports libraries" >&5
++	echo "$as_me:16094: checking if GNAT supports libraries" >&5
+ echo $ECHO_N "checking if GNAT supports libraries... $ECHO_C" >&6
+-	echo "$as_me:16081: result: $cf_gnat_libraries" >&5
++	echo "$as_me:16096: result: $cf_gnat_libraries" >&5
+ echo "${ECHO_T}$cf_gnat_libraries" >&6
+ fi
+ 
+@@ -16098,7 +16113,7 @@
+ 	USE_GNAT_LIBRARIES="#"
+ fi
+ 
+-echo "$as_me:16101: checking for ada-compiler" >&5
++echo "$as_me:16116: checking for ada-compiler" >&5
+ echo $ECHO_N "checking for ada-compiler... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-compiler or --without-ada-compiler was given.
+@@ -16109,12 +16124,12 @@
+   cf_ada_compiler=gnatmake
+ fi;
+ 
+-echo "$as_me:16112: result: $cf_ada_compiler" >&5
++echo "$as_me:16127: result: $cf_ada_compiler" >&5
+ echo "${ECHO_T}$cf_ada_compiler" >&6
+ 
+ 		cf_ada_package=terminal_interface
+ 
+-echo "$as_me:16117: checking for ada-include" >&5
++echo "$as_me:16132: checking for ada-include" >&5
+ echo $ECHO_N "checking for ada-include... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-include or --without-ada-include was given.
+@@ -16150,7 +16165,7 @@
+ 	withval=`echo $withval | sed -e s%NONE%$cf_path_syntax%`
+ 	;;
+ (*)
+-	{ { echo "$as_me:16153: error: expected a pathname, not \"$withval\"" >&5
++	{ { echo "$as_me:16168: error: expected a pathname, not \"$withval\"" >&5
+ echo "$as_me: error: expected a pathname, not \"$withval\"" >&2;}
+    { (exit 1); exit 1; }; }
+ 	;;
+@@ -16159,10 +16174,10 @@
+ fi
+ eval ADA_INCLUDE="$withval"
+ 
+-echo "$as_me:16162: result: $ADA_INCLUDE" >&5
++echo "$as_me:16177: result: $ADA_INCLUDE" >&5
+ echo "${ECHO_T}$ADA_INCLUDE" >&6
+ 
+-echo "$as_me:16165: checking for ada-objects" >&5
++echo "$as_me:16180: checking for ada-objects" >&5
+ echo $ECHO_N "checking for ada-objects... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-objects or --without-ada-objects was given.
+@@ -16198,7 +16213,7 @@
+ 	withval=`echo $withval | sed -e s%NONE%$cf_path_syntax%`
+ 	;;
+ (*)
+-	{ { echo "$as_me:16201: error: expected a pathname, not \"$withval\"" >&5
++	{ { echo "$as_me:16216: error: expected a pathname, not \"$withval\"" >&5
+ echo "$as_me: error: expected a pathname, not \"$withval\"" >&2;}
+    { (exit 1); exit 1; }; }
+ 	;;
+@@ -16207,10 +16222,10 @@
+ fi
+ eval ADA_OBJECTS="$withval"
+ 
+-echo "$as_me:16210: result: $ADA_OBJECTS" >&5
++echo "$as_me:16225: result: $ADA_OBJECTS" >&5
+ echo "${ECHO_T}$ADA_OBJECTS" >&6
+ 
+-echo "$as_me:16213: checking if an Ada95 shared-library should be built" >&5
++echo "$as_me:16228: checking if an Ada95 shared-library should be built" >&5
+ echo $ECHO_N "checking if an Ada95 shared-library should be built... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-sharedlib or --without-ada-sharedlib was given.
+@@ -16220,14 +16235,14 @@
+ else
+   with_ada_sharedlib=no
+ fi;
+-echo "$as_me:16223: result: $with_ada_sharedlib" >&5
++echo "$as_me:16238: result: $with_ada_sharedlib" >&5
+ echo "${ECHO_T}$with_ada_sharedlib" >&6
+ 
+ if test "x$with_ada_sharedlib" != xno
+ then
+ 	if test "x$cf_gnat_projects" != xyes
+ 	then
+-		{ echo "$as_me:16230: WARNING: disabling shared-library since GNAT projects are not supported" >&5
++		{ echo "$as_me:16245: WARNING: disabling shared-library since GNAT projects are not supported" >&5
+ echo "$as_me: WARNING: disabling shared-library since GNAT projects are not supported" >&2;}
+ 		with_ada_sharedlib=no
+ 	fi
+@@ -16247,7 +16262,7 @@
+ 
+ 		# allow the Ada binding to be renamed
+ 
+-echo "$as_me:16250: checking for ada-libname" >&5
++echo "$as_me:16265: checking for ada-libname" >&5
+ echo $ECHO_N "checking for ada-libname... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-libname or --without-ada-libname was given.
+@@ -16263,16 +16278,16 @@
+ 	;;
+ esac
+ 
+-echo "$as_me:16266: result: $ADA_LIBNAME" >&5
++echo "$as_me:16281: result: $ADA_LIBNAME" >&5
+ echo "${ECHO_T}$ADA_LIBNAME" >&6
+ 
+ 	else
+-		{ { echo "$as_me:16270: error: No usable Ada compiler found" >&5
++		{ { echo "$as_me:16285: error: No usable Ada compiler found" >&5
+ echo "$as_me: error: No usable Ada compiler found" >&2;}
+    { (exit 1); exit 1; }; }
+ 	fi
+ else
+-	{ { echo "$as_me:16275: error: The Ada compiler is needed for this package" >&5
++	{ { echo "$as_me:16290: error: The Ada compiler is needed for this package" >&5
+ echo "$as_me: error: The Ada compiler is needed for this package" >&2;}
+    { (exit 1); exit 1; }; }
+ fi
+@@ -16312,7 +16327,7 @@
+ fi
+ 
+ ### Build up pieces for makefile rules
+-echo "$as_me:16315: checking default library suffix" >&5
++echo "$as_me:16330: checking default library suffix" >&5
+ echo $ECHO_N "checking default library suffix... $ECHO_C" >&6
+ 
+ 	case $DFT_LWR_MODEL in
+@@ -16323,10 +16338,10 @@
+ 	(shared)  DFT_ARG_SUFFIX=''   ;;
+ 	esac
+ 	test -n "$LIB_SUFFIX" && DFT_ARG_SUFFIX="${LIB_SUFFIX}${DFT_ARG_SUFFIX}"
+-echo "$as_me:16326: result: $DFT_ARG_SUFFIX" >&5
++echo "$as_me:16341: result: $DFT_ARG_SUFFIX" >&5
+ echo "${ECHO_T}$DFT_ARG_SUFFIX" >&6
+ 
+-echo "$as_me:16329: checking default library-dependency suffix" >&5
++echo "$as_me:16344: checking default library-dependency suffix" >&5
+ echo $ECHO_N "checking default library-dependency suffix... $ECHO_C" >&6
+ 
+ 	case X$DFT_LWR_MODEL in
+@@ -16384,10 +16399,10 @@
+ 		DFT_LIB_SUFFIX="${LIB_SUFFIX}${EXTRA_SUFFIX}${DFT_LIB_SUFFIX}"
+ 		DFT_DEP_SUFFIX="${LIB_SUFFIX}${EXTRA_SUFFIX}${DFT_DEP_SUFFIX}"
+ 	fi
+-echo "$as_me:16387: result: $DFT_DEP_SUFFIX" >&5
++echo "$as_me:16402: result: $DFT_DEP_SUFFIX" >&5
+ echo "${ECHO_T}$DFT_DEP_SUFFIX" >&6
+ 
+-echo "$as_me:16390: checking default object directory" >&5
++echo "$as_me:16405: checking default object directory" >&5
+ echo $ECHO_N "checking default object directory... $ECHO_C" >&6
+ 
+ 	case $DFT_LWR_MODEL in
+@@ -16403,7 +16418,7 @@
+ 			DFT_OBJ_SUBDIR='obj_s' ;;
+ 		esac
+ 	esac
+-echo "$as_me:16406: result: $DFT_OBJ_SUBDIR" >&5
++echo "$as_me:16421: result: $DFT_OBJ_SUBDIR" >&5
+ echo "${ECHO_T}$DFT_OBJ_SUBDIR" >&6
+ 
+ ### Set up low-level terminfo dependencies for makefiles.
+@@ -16645,7 +16660,7 @@
+ : ${CONFIG_STATUS=./config.status}
+ ac_clean_files_save=$ac_clean_files
+ ac_clean_files="$ac_clean_files $CONFIG_STATUS"
+-{ echo "$as_me:16648: creating $CONFIG_STATUS" >&5
++{ echo "$as_me:16663: creating $CONFIG_STATUS" >&5
+ echo "$as_me: creating $CONFIG_STATUS" >&6;}
+ cat >$CONFIG_STATUS <<_ACEOF
+ #! $SHELL
+@@ -16821,7 +16836,7 @@
+     echo "$ac_cs_version"; exit 0 ;;
+   --he | --h)
+     # Conflict between --help and --header
+-    { { echo "$as_me:16824: error: ambiguous option: $1
++    { { echo "$as_me:16839: error: ambiguous option: $1
+ Try \`$0 --help' for more information." >&5
+ echo "$as_me: error: ambiguous option: $1
+ Try \`$0 --help' for more information." >&2;}
+@@ -16840,7 +16855,7 @@
+     ac_need_defaults=false;;
+ 
+   # This is an error.
+-  -*) { { echo "$as_me:16843: error: unrecognized option: $1
++  -*) { { echo "$as_me:16858: error: unrecognized option: $1
+ Try \`$0 --help' for more information." >&5
+ echo "$as_me: error: unrecognized option: $1
+ Try \`$0 --help' for more information." >&2;}
+@@ -16912,7 +16927,7 @@
+   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+   "default" ) CONFIG_COMMANDS="$CONFIG_COMMANDS default" ;;
+   "include/ncurses_cfg.h" ) CONFIG_HEADERS="$CONFIG_HEADERS include/ncurses_cfg.h:include/ncurses_cfg.hin" ;;
+-  *) { { echo "$as_me:16915: error: invalid argument: $ac_config_target" >&5
++  *) { { echo "$as_me:16930: error: invalid argument: $ac_config_target" >&5
+ echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
+    { (exit 1); exit 1; }; };;
+   esac
+@@ -17095,8 +17110,7 @@
+ s,@ADAFLAGS@,$ADAFLAGS,;t t
+ s,@EXTRA_CFLAGS@,$EXTRA_CFLAGS,;t t
+ s,@ADA_TRACE@,$ADA_TRACE,;t t
+-s,@gnatmake_exists@,$gnatmake_exists,;t t
+-s,@gprconfig_exists@,$gprconfig_exists,;t t
++s,@cf_TEMP_gnat@,$cf_TEMP_gnat,;t t
+ s,@M4_exists@,$M4_exists,;t t
+ s,@cf_ada_make@,$cf_ada_make,;t t
+ s,@cf_ada_config@,$cf_ada_config,;t t
+@@ -17265,7 +17279,7 @@
+   esac
+ 
+   if test x"$ac_file" != x-; then
+-    { echo "$as_me:17268: creating $ac_file" >&5
++    { echo "$as_me:17282: creating $ac_file" >&5
+ echo "$as_me: creating $ac_file" >&6;}
+     rm -f "$ac_file"
+   fi
+@@ -17283,7 +17297,7 @@
+       -) echo $tmp/stdin ;;
+       [\\/$]*)
+          # Absolute (can't be DOS-style, as IFS=:)
+-         test -f "$f" || { { echo "$as_me:17286: error: cannot find input file: $f" >&5
++         test -f "$f" || { { echo "$as_me:17300: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          echo $f;;
+@@ -17296,7 +17310,7 @@
+            echo $srcdir/$f
+          else
+            # /dev/null tree
+-           { { echo "$as_me:17299: error: cannot find input file: $f" >&5
++           { { echo "$as_me:17313: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          fi;;
+@@ -17312,7 +17326,7 @@
+       if test -n "$ac_seen"; then
+         ac_used=`grep '@datarootdir@' $ac_item`
+         if test -z "$ac_used"; then
+-          { echo "$as_me:17315: WARNING: datarootdir was used implicitly but not set:
++          { echo "$as_me:17329: WARNING: datarootdir was used implicitly but not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: datarootdir was used implicitly but not set:
+ $ac_seen" >&2;}
+@@ -17321,7 +17335,7 @@
+       fi
+       ac_seen=`grep '${datarootdir}' $ac_item`
+       if test -n "$ac_seen"; then
+-        { echo "$as_me:17324: WARNING: datarootdir was used explicitly but not set:
++        { echo "$as_me:17338: WARNING: datarootdir was used explicitly but not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: datarootdir was used explicitly but not set:
+ $ac_seen" >&2;}
+@@ -17358,7 +17372,7 @@
+             ac_init=`egrep '[ 	]*'$ac_name'[ 	]*=' $ac_file`
+             if test -z "$ac_init"; then
+               ac_seen=`echo "$ac_seen" |sed -e 's,^,'$ac_file':,'`
+-              { echo "$as_me:17361: WARNING: Variable $ac_name is used but was not set:
++              { echo "$as_me:17375: WARNING: Variable $ac_name is used but was not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: Variable $ac_name is used but was not set:
+ $ac_seen" >&2;}
+@@ -17369,7 +17383,7 @@
+     egrep -n '@[A-Z_][A-Z_0-9]+@' $ac_file >>$tmp/out
+     if test -s $tmp/out; then
+       ac_seen=`sed -e 's,^,'$ac_file':,' < $tmp/out`
+-      { echo "$as_me:17372: WARNING: Some variables may not be substituted:
++      { echo "$as_me:17386: WARNING: Some variables may not be substituted:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: Some variables may not be substituted:
+ $ac_seen" >&2;}
+@@ -17418,7 +17432,7 @@
+   * )   ac_file_in=$ac_file.in ;;
+   esac
+ 
+-  test x"$ac_file" != x- && { echo "$as_me:17421: creating $ac_file" >&5
++  test x"$ac_file" != x- && { echo "$as_me:17435: creating $ac_file" >&5
+ echo "$as_me: creating $ac_file" >&6;}
+ 
+   # First look for the input files in the build tree, otherwise in the
+@@ -17429,7 +17443,7 @@
+       -) echo $tmp/stdin ;;
+       [\\/$]*)
+          # Absolute (can't be DOS-style, as IFS=:)
+-         test -f "$f" || { { echo "$as_me:17432: error: cannot find input file: $f" >&5
++         test -f "$f" || { { echo "$as_me:17446: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          echo $f;;
+@@ -17442,7 +17456,7 @@
+            echo $srcdir/$f
+          else
+            # /dev/null tree
+-           { { echo "$as_me:17445: error: cannot find input file: $f" >&5
++           { { echo "$as_me:17459: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          fi;;
+@@ -17500,7 +17514,7 @@
+   rm -f $tmp/in
+   if test x"$ac_file" != x-; then
+     if cmp -s $ac_file $tmp/config.h 2>/dev/null; then
+-      { echo "$as_me:17503: $ac_file is unchanged" >&5
++      { echo "$as_me:17517: $ac_file is unchanged" >&5
+ echo "$as_me: $ac_file is unchanged" >&6;}
+     else
+       ac_dir=`$as_expr X"$ac_file" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
+Index: Ada95/gen/adacurses-config.in
+Prereq:  1.12 
+--- ncurses-6.1-20190914+/Ada95/gen/adacurses-config.in	2019-09-07 20:20:52.000000000 +0000
++++ ncurses-6.1-20190921/Ada95/gen/adacurses-config.in	2019-09-07 20:20:52.000000000 +0000
+@@ -1,7 +1,7 @@
+ #! /bin/sh
+-# $Id: adacurses-config.in,v 1.12 2019/09/07 20:20:52 tom Exp $
++# $Id: adacurses-config.in,v 1.13 2019/09/07 20:20:52 tom Exp $
+ ##############################################################################
+-# Copyright (c) 2007-2012,2016 Free Software Foundation, Inc.                #
++# Copyright (c) 2007-2016,2019 Free Software Foundation, Inc.                #
+ #                                                                            #
+ # Permission is hereby granted, free of charge, to any person obtaining a    #
+ # copy of this software and associated documentation files (the "Software"), #
+Index: NEWS
+Prereq:  1.3373 
+--- ncurses-6.1-20190914+/NEWS	2019-09-14 23:18:21.000000000 +0000
++++ ncurses-6.1-20190921/NEWS	2019-09-21 23:47:04.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3373 2019/09/14 23:18:21 tom Exp $
++-- $Id: NEWS,v 1.3376 2019/09/21 23:47:04 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,12 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190921
++	+ add a note in resizeterm manpage about top-level windows which touch
++	  the screen's borders.
++	+ modify configure-checks for gnat to identify each of the tools path
++	  and version.
++
+ 20190914
+ 	+ build-fixes for Ada95 configure-script and corresponding test package
+ 
+Index: VERSION
+--- ncurses-6.1-20190914+/VERSION	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/VERSION	2019-09-21 14:56:20.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190914
++5:0:10	6.1	20190921
+Index: aclocal.m4
+Prereq:  1.880 
+--- ncurses-6.1-20190914+/aclocal.m4	2019-09-07 23:00:39.000000000 +0000
++++ ncurses-6.1-20190921/aclocal.m4	2019-09-21 22:11:35.000000000 +0000
+@@ -28,7 +28,7 @@
+ dnl
+ dnl Author: Thomas E. Dickey 1995-on
+ dnl
+-dnl $Id: aclocal.m4,v 1.880 2019/09/07 23:00:39 tom Exp $
++dnl $Id: aclocal.m4,v 1.883 2019/09/21 22:11:35 tom Exp $
+ dnl Macros used in NCURSES auto-configuration script.
+ dnl
+ dnl These macros are maintained separately from NCURSES.  The copyright on
+@@ -1137,6 +1137,22 @@
+ fi
+ ])dnl
+ dnl ---------------------------------------------------------------------------
++dnl CF_CHECK_GNAT_VERSION version: 1 updated: 2019/09/21 18:08:42
++dnl ---------------------
++AC_DEFUN([CF_CHECK_GNAT_VERSION],
++[
++AC_REQUIRE([CF_GNAT_VERSION])
++case $cf_gnat_version in
++(3.1[[1-9]]*|3.[[2-9]]*|[[4-9]].*|20[[0-9]][[0-9]])
++	cf_cv_prog_gnat_correct=yes
++	;;
++(*)
++	AC_MSG_WARN(Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding.)
++	cf_cv_prog_gnat_correct=no
++	;;
++esac
++])
++dnl ---------------------------------------------------------------------------
+ dnl CF_CHECK_GPM_WGETCH version: 3 updated: 2017/01/21 11:06:25
+ dnl -------------------
+ dnl Check if GPM is already linked with curses.  If so - and if the linkage
+@@ -2947,27 +2963,21 @@
+ rm -rf conftest* *~conftest*
+ ])dnl
+ dnl ---------------------------------------------------------------------------
+-dnl CF_GNAT_VERSION version: 20 updated: 2015/04/18 08:56:57
++dnl CF_GNAT_VERSION version: 21 updated: 2019/09/21 18:08:42
+ dnl ---------------
+-dnl Verify version of GNAT.
++dnl $1 = cache variable to update
++dnl $2 = program name
++dnl Verify version of GNAT or related tool
+ AC_DEFUN([CF_GNAT_VERSION],
+ [
+-AC_MSG_CHECKING(for gnat version)
+-cf_gnat_version=`${cf_ada_make:-gnatmake} -v 2>&1 | \
++AC_CACHE_CHECK(for ifelse($2,,gnat,$2) version, cf_gnat_version,[
++cf_gnat_version=`ifelse($2,,${cf_ada_make:-gnatmake},$2) --version 2>&1 | \
+ 	grep '[[0-9]].[[0-9]][[0-9]]*' |\
+ 	sed -e '2,$d' -e 's/[[^0-9 \.]]//g' -e 's/^[[ ]]*//' -e 's/ .*//'`
+-AC_MSG_RESULT($cf_gnat_version)
+-
+-case $cf_gnat_version in
+-(3.1[[1-9]]*|3.[[2-9]]*|[[4-9]].*|20[[0-9]][[0-9]])
+-	cf_cv_prog_gnat_correct=yes
+-	;;
+-(*)
+-	AC_MSG_WARN(Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding.)
+-	cf_cv_prog_gnat_correct=no
+-	;;
+-esac
+ ])
++test -z "$cf_gnat_version" && cf_gnat_version=no
++ifelse($1,,,[eval $1=$cf_gnat_version; unset cf_gnat_version])
++])dnl
+ dnl ---------------------------------------------------------------------------
+ dnl CF_GNU_SOURCE version: 10 updated: 2018/12/10 20:09:41
+ dnl -------------
+@@ -5974,20 +5984,40 @@
+ 	test -z "$EGREP" && AC_MSG_ERROR(No egrep program found)
+ ])dnl
+ dnl ---------------------------------------------------------------------------
+-dnl CF_PROG_GNAT version: 8 updated: 2018/11/10 19:47:04
++dnl CF_PROG_GNAT version: 9 updated: 2019/09/21 18:08:42
+ dnl ------------
+-dnl Check for gnatmake, ensure that it is complete.
++dnl Check for gnat/gnatmake/etc, ensure that the toolset is complete.
+ AC_DEFUN([CF_PROG_GNAT],[
+-cf_ada_make=gnatmake
+-cf_ada_config="#"
+-AC_CHECK_PROG(gnatmake_exists, $cf_ada_make, yes, no)
+-if test "$ac_cv_prog_gnatmake_exists" = no; then
++for cf_prog_gnat in gnat gnatmake gprconfig gprbuild
++do
++	CF_UPPER(cf_upper_prog_gnat,${cf_prog_gnat})
++
++	unset ac_cv_path_cf_TEMP_gnat
++	unset cf_TEMP_gnat
++	AC_PATH_PROG(cf_TEMP_gnat,$cf_prog_gnat,no)
++	eval cf_cv_PATH_$cf_upper_prog_gnat=[$]ac_cv_path_cf_TEMP_gnat
++
++	if test "x$cf_TEMP_gnat" != xno; then
++		unset cf_gnat_version
++		unset cf_TEMP_gnat
++		CF_GNAT_VERSION(cf_TEMP_gnat,$cf_prog_gnat)
++	fi
++	eval cf_cv_VERSION_$cf_upper_prog_gnat=[$]cf_TEMP_gnat
++
++	unset cf_TEMP_gnat
++	unset cf_gnat_version
++	unset ac_cv_path_cf_TEMP_gnat
++done
++
++if test "x$cf_cv_VERSION_GNATMAKE" = "xno"; then
+ 	cf_ada_make=
+ 	cf_cv_prog_gnat_correct=no
+ else
+-	AC_CHECK_PROG(gprconfig_exists, gprconfig, yes, no)
+-	if test "$ac_cv_prog_gprconfig_exists" = yes
+-	then
++	cf_ada_make=gnatmake
++	if test "x$cf_cv_VERSION_GPRCONFIG" = "xno"; then
++		# gprconfig is newer than gnatmake; we can continue...
++		cf_ada_config="##"
++	else
+ 		rm -rf conftest* *~conftest*
+ 		if mkdir conftest.src
+ 		then
+@@ -6023,17 +6053,15 @@
+ 			cd ..
+ 			rm -rf conftest* *~conftest*
+ 		fi
+-	else
+-		# gprconfig is newer than gnatmake; we can continue...
+-		cf_ada_config="##"
+ 	fi
+ 	if test "x$cf_ada_config" != "x#"
+ 	then
+ 		CF_GNAT_VERSION
++		CF_CHECK_GNAT_VERSION
+ 		AC_CHECK_PROG(M4_exists, m4, yes, no)
+ 		if test "$ac_cv_prog_M4_exists" = no; then
+ 			cf_cv_prog_gnat_correct=no
+-			echo Ada95 binding required program m4 not found. Ada95 binding disabled.
++			AC_MSG_WARN(Ada95 binding required program m4 not found. Ada95 binding disabled)
+ 		fi
+ 		if test "$cf_cv_prog_gnat_correct" = yes; then
+ 			AC_MSG_CHECKING(if GNAT works)
+@@ -6045,7 +6073,9 @@
+    Text_IO.Put ("Hello World");
+    Text_IO.New_Line;
+    GNAT.OS_Lib.OS_Exit (0);
+-end conftest;],[cf_cv_prog_gnat_correct=yes],[cf_cv_prog_gnat_correct=no])
++end conftest;],
++[cf_cv_prog_gnat_correct=yes],
++[cf_cv_prog_gnat_correct=no])
+ 			AC_MSG_RESULT($cf_cv_prog_gnat_correct)
+ 		fi
+ 	else
+@@ -6985,7 +7015,7 @@
+ fi
+ ])dnl
+ dnl ---------------------------------------------------------------------------
+-dnl CF_SRC_MODULES version: 30 updated: 2017/07/26 17:08:35
++dnl CF_SRC_MODULES version: 31 updated: 2019/09/21 18:08:42
+ dnl --------------
+ dnl For each parameter, test if the source-directory exists, and if it contains
+ dnl a 'modules' file.  If so, add to the list $cf_cv_src_modules which we'll
+@@ -6995,6 +7025,7 @@
+ dnl SUB_MAKEFILES which are used in the makefile-generation scheme.
+ AC_DEFUN([CF_SRC_MODULES],
+ [
++AC_REQUIRE([CF_CHECK_GNAT_VERSION])
+ AC_MSG_CHECKING(for src modules)
+ 
+ # dependencies and linker-arguments for test-programs
+@@ -8262,6 +8293,32 @@
+ 
+ ])dnl
+ dnl ---------------------------------------------------------------------------
++dnl CF_WITH_PATH_PROG version: 1 updated: 2019/06/30 19:44:43
++dnl -----------------
++dnl Check for a given program, like CF_PATH_PROG, but allow override using a
++dnl "--with-xxx" option.
++dnl
++dnl Parameters:
++dnl		$1 = environment variable to set/update
++dnl		$2 = program name
++dnl		$3 = help-text
++dnl		$4 = $PATH
++AC_DEFUN([CF_WITH_PATH_PROG],[
++AC_ARG_WITH($2-path,
++	[  --with-$2-path=XXX     specify path of $2 ifelse($3,,,$3)],
++	[AC_MSG_CHECKING(for $2 program ifelse($3,,,$3))
++		$1=$withval
++		AC_MSG_RESULT([$]$1)
++		CF_PATH_SYNTAX($1)
++	],
++	[CF_PATH_PROG($1,$2,,ifelse($4,,,$4))
++		if test -z "[$]$1"
++		then
++			AC_MSG_WARN(no $2 program found ifelse($3,,,$3))
++		fi
++	])
++])
++dnl ---------------------------------------------------------------------------
+ dnl CF_WITH_PCRE2 version: 2 updated: 2018/07/14 16:47:56
+ dnl -------------
+ dnl Add PCRE2 (Perl-compatible regular expressions v2) to the build if it is
+@@ -8385,32 +8442,6 @@
+ AC_SUBST(PKG_CONFIG_LIBDIR)
+ ])dnl
+ dnl ---------------------------------------------------------------------------
+-dnl CF_WITH_PATH_PROG version: 1 updated: 2019/06/30 19:44:43
+-dnl -----------------
+-dnl Check for a given program, like CF_PATH_PROG, but allow override using a
+-dnl "--with-xxx" option.
+-dnl
+-dnl Parameters:
+-dnl		$1 = environment variable to set/update
+-dnl		$2 = program name
+-dnl		$3 = help-text
+-dnl		$4 = $PATH
+-AC_DEFUN([CF_WITH_PATH_PROG],[
+-AC_ARG_WITH($2-path,
+-	[  --with-$2-path=XXX     specify path of $2 ifelse($3,,,$3)],
+-	[AC_MSG_CHECKING(for $2 program ifelse($3,,,$3))
+-		$1=$withval
+-		AC_MSG_RESULT([$]$1)
+-		CF_PATH_SYNTAX($1)
+-	],
+-	[CF_PATH_PROG($1,$2,,ifelse($4,,,$4))
+-		if test -z "[$]$1"
+-		then
+-			AC_MSG_WARN(no $2 program found ifelse($3,,,$3))
+-		fi
+-	])
+-])
+-dnl ---------------------------------------------------------------------------
+ dnl CF_WITH_PTHREAD version: 7 updated: 2015/04/18 08:56:57
+ dnl ---------------
+ dnl Check for POSIX thread library.
+Index: configure
+--- ncurses-6.1-20190914+/configure	2019-09-07 20:35:43.000000000 +0000
++++ ncurses-6.1-20190921/configure	2019-09-21 19:49:24.000000000 +0000
+@@ -24176,80 +24176,90 @@
+ 
+ 	if test "$cf_with_ada" != "no" ; then
+ 
+-cf_ada_make=gnatmake
+-cf_ada_config="#"
+-# Extract the first word of "$cf_ada_make", so it can be a program name with args.
+-set dummy $cf_ada_make; ac_word=$2
+-echo "$as_me:24183: checking for $ac_word" >&5
++for cf_prog_gnat in gnat gnatmake gprconfig gprbuild
++do
++
++cf_upper_prog_gnat=`echo "${cf_prog_gnat}" | sed y%abcdefghijklmnopqrstuvwxyz./-%ABCDEFGHIJKLMNOPQRSTUVWXYZ___%`
++
++	unset ac_cv_path_cf_TEMP_gnat
++	unset cf_TEMP_gnat
++	# Extract the first word of "$cf_prog_gnat", so it can be a program name with args.
++set dummy $cf_prog_gnat; ac_word=$2
++echo "$as_me:24188: checking for $ac_word" >&5
+ echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+-if test "${ac_cv_prog_gnatmake_exists+set}" = set; then
++if test "${ac_cv_path_cf_TEMP_gnat+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+-  if test -n "$gnatmake_exists"; then
+-  ac_cv_prog_gnatmake_exists="$gnatmake_exists" # Let the user override the test.
+-else
++  case $cf_TEMP_gnat in
++  [\\/]* | ?:[\\/]*)
++  ac_cv_path_cf_TEMP_gnat="$cf_TEMP_gnat" # Let the user override the test with a path.
++  ;;
++  *)
+   ac_save_IFS=$IFS; IFS=$ac_path_separator
+ ac_dummy="$PATH"
+ for ac_dir in $ac_dummy; do
+   IFS=$ac_save_IFS
+   test -z "$ac_dir" && ac_dir=.
+-  $as_executable_p "$ac_dir/$ac_word" || continue
+-ac_cv_prog_gnatmake_exists="yes"
+-echo "$as_me:24198: found $ac_dir/$ac_word" >&5
+-break
++  if $as_executable_p "$ac_dir/$ac_word"; then
++   ac_cv_path_cf_TEMP_gnat="$ac_dir/$ac_word"
++   echo "$as_me:24205: found $ac_dir/$ac_word" >&5
++   break
++fi
+ done
+ 
+-  test -z "$ac_cv_prog_gnatmake_exists" && ac_cv_prog_gnatmake_exists="no"
+-fi
++  test -z "$ac_cv_path_cf_TEMP_gnat" && ac_cv_path_cf_TEMP_gnat="no"
++  ;;
++esac
+ fi
+-gnatmake_exists=$ac_cv_prog_gnatmake_exists
+-if test -n "$gnatmake_exists"; then
+-  echo "$as_me:24207: result: $gnatmake_exists" >&5
+-echo "${ECHO_T}$gnatmake_exists" >&6
++cf_TEMP_gnat=$ac_cv_path_cf_TEMP_gnat
++
++if test -n "$cf_TEMP_gnat"; then
++  echo "$as_me:24217: result: $cf_TEMP_gnat" >&5
++echo "${ECHO_T}$cf_TEMP_gnat" >&6
+ else
+-  echo "$as_me:24210: result: no" >&5
++  echo "$as_me:24220: result: no" >&5
+ echo "${ECHO_T}no" >&6
+ fi
+ 
+-if test "$ac_cv_prog_gnatmake_exists" = no; then
+-	cf_ada_make=
+-	cf_cv_prog_gnat_correct=no
+-else
+-	# Extract the first word of "gprconfig", so it can be a program name with args.
+-set dummy gprconfig; ac_word=$2
+-echo "$as_me:24220: checking for $ac_word" >&5
+-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+-if test "${ac_cv_prog_gprconfig_exists+set}" = set; then
++	eval cf_cv_PATH_$cf_upper_prog_gnat=$ac_cv_path_cf_TEMP_gnat
++
++	if test "x$cf_TEMP_gnat" != xno; then
++		unset cf_gnat_version
++		unset cf_TEMP_gnat
++
++echo "$as_me:24230: checking for $cf_prog_gnat version" >&5
++echo $ECHO_N "checking for $cf_prog_gnat version... $ECHO_C" >&6
++if test "${cf_gnat_version+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+-  if test -n "$gprconfig_exists"; then
+-  ac_cv_prog_gprconfig_exists="$gprconfig_exists" # Let the user override the test.
+-else
+-  ac_save_IFS=$IFS; IFS=$ac_path_separator
+-ac_dummy="$PATH"
+-for ac_dir in $ac_dummy; do
+-  IFS=$ac_save_IFS
+-  test -z "$ac_dir" && ac_dir=.
+-  $as_executable_p "$ac_dir/$ac_word" || continue
+-ac_cv_prog_gprconfig_exists="yes"
+-echo "$as_me:24235: found $ac_dir/$ac_word" >&5
+-break
+-done
+ 
+-  test -z "$ac_cv_prog_gprconfig_exists" && ac_cv_prog_gprconfig_exists="no"
+-fi
+-fi
+-gprconfig_exists=$ac_cv_prog_gprconfig_exists
+-if test -n "$gprconfig_exists"; then
+-  echo "$as_me:24244: result: $gprconfig_exists" >&5
+-echo "${ECHO_T}$gprconfig_exists" >&6
+-else
+-  echo "$as_me:24247: result: no" >&5
+-echo "${ECHO_T}no" >&6
++cf_gnat_version=`$cf_prog_gnat --version 2>&1 | \
++	grep '[0-9].[0-9][0-9]*' |\
++	sed -e '2,$d' -e 's/[^0-9 \.]//g' -e 's/^[ ]*//' -e 's/ .*//'`
++
+ fi
++echo "$as_me:24241: result: $cf_gnat_version" >&5
++echo "${ECHO_T}$cf_gnat_version" >&6
++test -z "$cf_gnat_version" && cf_gnat_version=no
++eval cf_TEMP_gnat=$cf_gnat_version; unset cf_gnat_version
+ 
+-	if test "$ac_cv_prog_gprconfig_exists" = yes
+-	then
++	fi
++	eval cf_cv_VERSION_$cf_upper_prog_gnat=$cf_TEMP_gnat
++
++	unset cf_TEMP_gnat
++	unset cf_gnat_version
++	unset ac_cv_path_cf_TEMP_gnat
++done
++
++if test "x$cf_cv_VERSION_GNATMAKE" = "xno"; then
++	cf_ada_make=
++	cf_cv_prog_gnat_correct=no
++else
++	cf_ada_make=gnatmake
++	if test "x$cf_cv_VERSION_GPRCONFIG" = "xno"; then
++		# gprconfig is newer than gnatmake; we can continue...
++		cf_ada_config="##"
++	else
+ 		rm -rf conftest* *~conftest*
+ 		if mkdir conftest.src
+ 		then
+@@ -24257,7 +24267,7 @@
+ 			cd conftest.src
+ 			for cf_gprconfig in Ada C
+ 			do
+-				echo "$as_me:24260: checking for gprconfig name for $cf_gprconfig" >&5
++				echo "$as_me:24270: checking for gprconfig name for $cf_gprconfig" >&5
+ echo $ECHO_N "checking for gprconfig name for $cf_gprconfig... $ECHO_C" >&6
+ 				if test $cf_gprconfig = C
+ 				then
+@@ -24276,10 +24286,10 @@
+ 				if test -n "$cf_gprconfig_value"
+ 				then
+ 					eval cf_ada_config_$cf_gprconfig=$cf_gprconfig_value
+-					echo "$as_me:24279: result: $cf_gprconfig_value" >&5
++					echo "$as_me:24289: result: $cf_gprconfig_value" >&5
+ echo "${ECHO_T}$cf_gprconfig_value" >&6
+ 				else
+-					echo "$as_me:24282: result: missing" >&5
++					echo "$as_me:24292: result: missing" >&5
+ echo "${ECHO_T}missing" >&6
+ 					cf_ada_config="#"
+ 					break
+@@ -24288,27 +24298,31 @@
+ 			cd ..
+ 			rm -rf conftest* *~conftest*
+ 		fi
+-	else
+-		# gprconfig is newer than gnatmake; we can continue...
+-		cf_ada_config="##"
+ 	fi
+ 	if test "x$cf_ada_config" != "x#"
+ 	then
+ 
+-echo "$as_me:24298: checking for gnat version" >&5
++echo "$as_me:24305: checking for gnat version" >&5
+ echo $ECHO_N "checking for gnat version... $ECHO_C" >&6
+-cf_gnat_version=`${cf_ada_make:-gnatmake} -v 2>&1 | \
++if test "${cf_gnat_version+set}" = set; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++
++cf_gnat_version=`${cf_ada_make:-gnatmake} --version 2>&1 | \
+ 	grep '[0-9].[0-9][0-9]*' |\
+ 	sed -e '2,$d' -e 's/[^0-9 \.]//g' -e 's/^[ ]*//' -e 's/ .*//'`
+-echo "$as_me:24303: result: $cf_gnat_version" >&5
++
++fi
++echo "$as_me:24316: result: $cf_gnat_version" >&5
+ echo "${ECHO_T}$cf_gnat_version" >&6
++test -z "$cf_gnat_version" && cf_gnat_version=no
+ 
+ case $cf_gnat_version in
+ (3.1[1-9]*|3.[2-9]*|[4-9].*|20[0-9][0-9])
+ 	cf_cv_prog_gnat_correct=yes
+ 	;;
+ (*)
+-	{ echo "$as_me:24311: WARNING: Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding." >&5
++	{ echo "$as_me:24325: WARNING: Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding." >&5
+ echo "$as_me: WARNING: Unsupported GNAT version $cf_gnat_version. We require 3.11 or better. Disabling Ada95 binding." >&2;}
+ 	cf_cv_prog_gnat_correct=no
+ 	;;
+@@ -24316,7 +24330,7 @@
+ 
+ 		# Extract the first word of "m4", so it can be a program name with args.
+ set dummy m4; ac_word=$2
+-echo "$as_me:24319: checking for $ac_word" >&5
++echo "$as_me:24333: checking for $ac_word" >&5
+ echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+ if test "${ac_cv_prog_M4_exists+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+@@ -24331,7 +24345,7 @@
+   test -z "$ac_dir" && ac_dir=.
+   $as_executable_p "$ac_dir/$ac_word" || continue
+ ac_cv_prog_M4_exists="yes"
+-echo "$as_me:24334: found $ac_dir/$ac_word" >&5
++echo "$as_me:24348: found $ac_dir/$ac_word" >&5
+ break
+ done
+ 
+@@ -24340,19 +24354,20 @@
+ fi
+ M4_exists=$ac_cv_prog_M4_exists
+ if test -n "$M4_exists"; then
+-  echo "$as_me:24343: result: $M4_exists" >&5
++  echo "$as_me:24357: result: $M4_exists" >&5
+ echo "${ECHO_T}$M4_exists" >&6
+ else
+-  echo "$as_me:24346: result: no" >&5
++  echo "$as_me:24360: result: no" >&5
+ echo "${ECHO_T}no" >&6
+ fi
+ 
+ 		if test "$ac_cv_prog_M4_exists" = no; then
+ 			cf_cv_prog_gnat_correct=no
+-			echo Ada95 binding required program m4 not found. Ada95 binding disabled.
++			{ echo "$as_me:24366: WARNING: Ada95 binding required program m4 not found. Ada95 binding disabled" >&5
++echo "$as_me: WARNING: Ada95 binding required program m4 not found. Ada95 binding disabled" >&2;}
+ 		fi
+ 		if test "$cf_cv_prog_gnat_correct" = yes; then
+-			echo "$as_me:24355: checking if GNAT works" >&5
++			echo "$as_me:24370: checking if GNAT works" >&5
+ echo $ECHO_N "checking if GNAT works... $ECHO_C" >&6
+ 
+ rm -rf conftest* *~conftest*
+@@ -24380,7 +24395,7 @@
+ fi
+ rm -rf conftest* *~conftest*
+ 
+-			echo "$as_me:24383: result: $cf_cv_prog_gnat_correct" >&5
++			echo "$as_me:24398: result: $cf_cv_prog_gnat_correct" >&5
+ echo "${ECHO_T}$cf_cv_prog_gnat_correct" >&6
+ 		fi
+ 	else
+@@ -24392,7 +24407,7 @@
+ 
+  	ADAFLAGS="$ADAFLAGS -gnatpn"
+ 
+-	echo "$as_me:24395: checking optimization options for ADAFLAGS" >&5
++	echo "$as_me:24410: checking optimization options for ADAFLAGS" >&5
+ echo $ECHO_N "checking optimization options for ADAFLAGS... $ECHO_C" >&6
+ 	case "$CFLAGS" in
+ 	(*-g*)
+@@ -24409,10 +24424,10 @@
+ 
+ 		;;
+ 	esac
+-	echo "$as_me:24412: result: $ADAFLAGS" >&5
++	echo "$as_me:24427: result: $ADAFLAGS" >&5
+ echo "${ECHO_T}$ADAFLAGS" >&6
+ 
+-echo "$as_me:24415: checking if GNATPREP supports -T option" >&5
++echo "$as_me:24430: checking if GNATPREP supports -T option" >&5
+ echo $ECHO_N "checking if GNATPREP supports -T option... $ECHO_C" >&6
+ if test "${cf_cv_gnatprep_opt_t+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+@@ -24422,11 +24437,11 @@
+ gnatprep -T 2>/dev/null >/dev/null && cf_cv_gnatprep_opt_t=yes
+ 
+ fi
+-echo "$as_me:24425: result: $cf_cv_gnatprep_opt_t" >&5
++echo "$as_me:24440: result: $cf_cv_gnatprep_opt_t" >&5
+ echo "${ECHO_T}$cf_cv_gnatprep_opt_t" >&6
+ test "$cf_cv_gnatprep_opt_t" = yes && GNATPREP_OPTS="-T $GNATPREP_OPTS"
+ 
+-echo "$as_me:24429: checking if GNAT supports generics" >&5
++echo "$as_me:24444: checking if GNAT supports generics" >&5
+ echo $ECHO_N "checking if GNAT supports generics... $ECHO_C" >&6
+ case $cf_gnat_version in
+ (3.[1-9]*|[4-9].*)
+@@ -24436,7 +24451,7 @@
+ 	cf_gnat_generics=no
+ 	;;
+ esac
+-echo "$as_me:24439: result: $cf_gnat_generics" >&5
++echo "$as_me:24454: result: $cf_gnat_generics" >&5
+ echo "${ECHO_T}$cf_gnat_generics" >&6
+ 
+ if test "$cf_gnat_generics" = yes
+@@ -24448,7 +24463,7 @@
+ 	cf_generic_objects=
+ fi
+ 
+-echo "$as_me:24451: checking if GNAT supports SIGINT" >&5
++echo "$as_me:24466: checking if GNAT supports SIGINT" >&5
+ echo $ECHO_N "checking if GNAT supports SIGINT... $ECHO_C" >&6
+ if test "${cf_cv_gnat_sigint+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+@@ -24496,7 +24511,7 @@
+ rm -rf conftest* *~conftest*
+ 
+ fi
+-echo "$as_me:24499: result: $cf_cv_gnat_sigint" >&5
++echo "$as_me:24514: result: $cf_cv_gnat_sigint" >&5
+ echo "${ECHO_T}$cf_cv_gnat_sigint" >&6
+ 
+ if test $cf_cv_gnat_sigint = yes ; then
+@@ -24509,7 +24524,7 @@
+ cf_gnat_projects=no
+ 
+ if test "$enable_gnat_projects" != no ; then
+-echo "$as_me:24512: checking if GNAT supports project files" >&5
++echo "$as_me:24527: checking if GNAT supports project files" >&5
+ echo $ECHO_N "checking if GNAT supports project files... $ECHO_C" >&6
+ case $cf_gnat_version in
+ (3.[0-9]*)
+@@ -24572,15 +24587,15 @@
+ 	esac
+ 	;;
+ esac
+-echo "$as_me:24575: result: $cf_gnat_projects" >&5
++echo "$as_me:24590: result: $cf_gnat_projects" >&5
+ echo "${ECHO_T}$cf_gnat_projects" >&6
+ fi # enable_gnat_projects
+ 
+ if test $cf_gnat_projects = yes
+ then
+-	echo "$as_me:24581: checking if GNAT supports libraries" >&5
++	echo "$as_me:24596: checking if GNAT supports libraries" >&5
+ echo $ECHO_N "checking if GNAT supports libraries... $ECHO_C" >&6
+-	echo "$as_me:24583: result: $cf_gnat_libraries" >&5
++	echo "$as_me:24598: result: $cf_gnat_libraries" >&5
+ echo "${ECHO_T}$cf_gnat_libraries" >&6
+ fi
+ 
+@@ -24600,7 +24615,7 @@
+ 	USE_GNAT_LIBRARIES="#"
+ fi
+ 
+-echo "$as_me:24603: checking for ada-compiler" >&5
++echo "$as_me:24618: checking for ada-compiler" >&5
+ echo $ECHO_N "checking for ada-compiler... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-compiler or --without-ada-compiler was given.
+@@ -24611,12 +24626,12 @@
+   cf_ada_compiler=gnatmake
+ fi;
+ 
+-echo "$as_me:24614: result: $cf_ada_compiler" >&5
++echo "$as_me:24629: result: $cf_ada_compiler" >&5
+ echo "${ECHO_T}$cf_ada_compiler" >&6
+ 
+ 			cf_ada_package=terminal_interface
+ 
+-echo "$as_me:24619: checking for ada-include" >&5
++echo "$as_me:24634: checking for ada-include" >&5
+ echo $ECHO_N "checking for ada-include... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-include or --without-ada-include was given.
+@@ -24652,7 +24667,7 @@
+ 	withval=`echo $withval | sed -e s%NONE%$cf_path_syntax%`
+ 	;;
+ (*)
+-	{ { echo "$as_me:24655: error: expected a pathname, not \"$withval\"" >&5
++	{ { echo "$as_me:24670: error: expected a pathname, not \"$withval\"" >&5
+ echo "$as_me: error: expected a pathname, not \"$withval\"" >&2;}
+    { (exit 1); exit 1; }; }
+ 	;;
+@@ -24661,10 +24676,10 @@
+ fi
+ eval ADA_INCLUDE="$withval"
+ 
+-echo "$as_me:24664: result: $ADA_INCLUDE" >&5
++echo "$as_me:24679: result: $ADA_INCLUDE" >&5
+ echo "${ECHO_T}$ADA_INCLUDE" >&6
+ 
+-echo "$as_me:24667: checking for ada-objects" >&5
++echo "$as_me:24682: checking for ada-objects" >&5
+ echo $ECHO_N "checking for ada-objects... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-objects or --without-ada-objects was given.
+@@ -24700,7 +24715,7 @@
+ 	withval=`echo $withval | sed -e s%NONE%$cf_path_syntax%`
+ 	;;
+ (*)
+-	{ { echo "$as_me:24703: error: expected a pathname, not \"$withval\"" >&5
++	{ { echo "$as_me:24718: error: expected a pathname, not \"$withval\"" >&5
+ echo "$as_me: error: expected a pathname, not \"$withval\"" >&2;}
+    { (exit 1); exit 1; }; }
+ 	;;
+@@ -24709,10 +24724,10 @@
+ fi
+ eval ADA_OBJECTS="$withval"
+ 
+-echo "$as_me:24712: result: $ADA_OBJECTS" >&5
++echo "$as_me:24727: result: $ADA_OBJECTS" >&5
+ echo "${ECHO_T}$ADA_OBJECTS" >&6
+ 
+-echo "$as_me:24715: checking if an Ada95 shared-library should be built" >&5
++echo "$as_me:24730: checking if an Ada95 shared-library should be built" >&5
+ echo $ECHO_N "checking if an Ada95 shared-library should be built... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-sharedlib or --without-ada-sharedlib was given.
+@@ -24722,14 +24737,14 @@
+ else
+   with_ada_sharedlib=no
+ fi;
+-echo "$as_me:24725: result: $with_ada_sharedlib" >&5
++echo "$as_me:24740: result: $with_ada_sharedlib" >&5
+ echo "${ECHO_T}$with_ada_sharedlib" >&6
+ 
+ if test "x$with_ada_sharedlib" != xno
+ then
+ 	if test "x$cf_gnat_projects" != xyes
+ 	then
+-		{ echo "$as_me:24732: WARNING: disabling shared-library since GNAT projects are not supported" >&5
++		{ echo "$as_me:24747: WARNING: disabling shared-library since GNAT projects are not supported" >&5
+ echo "$as_me: WARNING: disabling shared-library since GNAT projects are not supported" >&2;}
+ 		with_ada_sharedlib=no
+ 	fi
+@@ -24749,7 +24764,7 @@
+ 
+ 			# allow the Ada binding to be renamed
+ 
+-echo "$as_me:24752: checking for ada-libname" >&5
++echo "$as_me:24767: checking for ada-libname" >&5
+ echo $ECHO_N "checking for ada-libname... $ECHO_C" >&6
+ 
+ # Check whether --with-ada-libname or --without-ada-libname was given.
+@@ -24765,7 +24780,7 @@
+ 	;;
+ esac
+ 
+-echo "$as_me:24768: result: $ADA_LIBNAME" >&5
++echo "$as_me:24783: result: $ADA_LIBNAME" >&5
+ echo "${ECHO_T}$ADA_LIBNAME" >&6
+ 
+ 		fi
+@@ -24776,13 +24791,13 @@
+ 
+ # do this "late" to avoid conflict with header-checks
+ if test "x$with_widec" = xyes ; then
+-	echo "$as_me:24779: checking for wchar_t" >&5
++	echo "$as_me:24794: checking for wchar_t" >&5
+ echo $ECHO_N "checking for wchar_t... $ECHO_C" >&6
+ if test "${ac_cv_type_wchar_t+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+   cat >conftest.$ac_ext <<_ACEOF
+-#line 24785 "configure"
++#line 24800 "configure"
+ #include "confdefs.h"
+ $ac_includes_default
+ int
+@@ -24797,16 +24812,16 @@
+ }
+ _ACEOF
+ rm -f conftest.$ac_objext
+-if { (eval echo "$as_me:24800: \"$ac_compile\"") >&5
++if { (eval echo "$as_me:24815: \"$ac_compile\"") >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+-  echo "$as_me:24803: \$? = $ac_status" >&5
++  echo "$as_me:24818: \$? = $ac_status" >&5
+   (exit $ac_status); } &&
+          { ac_try='test -s conftest.$ac_objext'
+-  { (eval echo "$as_me:24806: \"$ac_try\"") >&5
++  { (eval echo "$as_me:24821: \"$ac_try\"") >&5
+   (eval $ac_try) 2>&5
+   ac_status=$?
+-  echo "$as_me:24809: \$? = $ac_status" >&5
++  echo "$as_me:24824: \$? = $ac_status" >&5
+   (exit $ac_status); }; }; then
+   ac_cv_type_wchar_t=yes
+ else
+@@ -24816,10 +24831,10 @@
+ fi
+ rm -f conftest.$ac_objext conftest.$ac_ext
+ fi
+-echo "$as_me:24819: result: $ac_cv_type_wchar_t" >&5
++echo "$as_me:24834: result: $ac_cv_type_wchar_t" >&5
+ echo "${ECHO_T}$ac_cv_type_wchar_t" >&6
+ 
+-echo "$as_me:24822: checking size of wchar_t" >&5
++echo "$as_me:24837: checking size of wchar_t" >&5
+ echo $ECHO_N "checking size of wchar_t... $ECHO_C" >&6
+ if test "${ac_cv_sizeof_wchar_t+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+@@ -24828,7 +24843,7 @@
+   if test "$cross_compiling" = yes; then
+   # Depending upon the size, compute the lo and hi bounds.
+ cat >conftest.$ac_ext <<_ACEOF
+-#line 24831 "configure"
++#line 24846 "configure"
+ #include "confdefs.h"
+ $ac_includes_default
+ int
+@@ -24840,21 +24855,21 @@
+ }
+ _ACEOF
+ rm -f conftest.$ac_objext
+-if { (eval echo "$as_me:24843: \"$ac_compile\"") >&5
++if { (eval echo "$as_me:24858: \"$ac_compile\"") >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+-  echo "$as_me:24846: \$? = $ac_status" >&5
++  echo "$as_me:24861: \$? = $ac_status" >&5
+   (exit $ac_status); } &&
+          { ac_try='test -s conftest.$ac_objext'
+-  { (eval echo "$as_me:24849: \"$ac_try\"") >&5
++  { (eval echo "$as_me:24864: \"$ac_try\"") >&5
+   (eval $ac_try) 2>&5
+   ac_status=$?
+-  echo "$as_me:24852: \$? = $ac_status" >&5
++  echo "$as_me:24867: \$? = $ac_status" >&5
+   (exit $ac_status); }; }; then
+   ac_lo=0 ac_mid=0
+   while :; do
+     cat >conftest.$ac_ext <<_ACEOF
+-#line 24857 "configure"
++#line 24872 "configure"
+ #include "confdefs.h"
+ $ac_includes_default
+ int
+@@ -24866,16 +24881,16 @@
+ }
+ _ACEOF
+ rm -f conftest.$ac_objext
+-if { (eval echo "$as_me:24869: \"$ac_compile\"") >&5
++if { (eval echo "$as_me:24884: \"$ac_compile\"") >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+-  echo "$as_me:24872: \$? = $ac_status" >&5
++  echo "$as_me:24887: \$? = $ac_status" >&5
+   (exit $ac_status); } &&
+          { ac_try='test -s conftest.$ac_objext'
+-  { (eval echo "$as_me:24875: \"$ac_try\"") >&5
++  { (eval echo "$as_me:24890: \"$ac_try\"") >&5
+   (eval $ac_try) 2>&5
+   ac_status=$?
+-  echo "$as_me:24878: \$? = $ac_status" >&5
++  echo "$as_me:24893: \$? = $ac_status" >&5
+   (exit $ac_status); }; }; then
+   ac_hi=$ac_mid; break
+ else
+@@ -24891,7 +24906,7 @@
+ ac_hi=-1 ac_mid=-1
+   while :; do
+     cat >conftest.$ac_ext <<_ACEOF
+-#line 24894 "configure"
++#line 24909 "configure"
+ #include "confdefs.h"
+ $ac_includes_default
+ int
+@@ -24903,16 +24918,16 @@
+ }
+ _ACEOF
+ rm -f conftest.$ac_objext
+-if { (eval echo "$as_me:24906: \"$ac_compile\"") >&5
++if { (eval echo "$as_me:24921: \"$ac_compile\"") >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+-  echo "$as_me:24909: \$? = $ac_status" >&5
++  echo "$as_me:24924: \$? = $ac_status" >&5
+   (exit $ac_status); } &&
+          { ac_try='test -s conftest.$ac_objext'
+-  { (eval echo "$as_me:24912: \"$ac_try\"") >&5
++  { (eval echo "$as_me:24927: \"$ac_try\"") >&5
+   (eval $ac_try) 2>&5
+   ac_status=$?
+-  echo "$as_me:24915: \$? = $ac_status" >&5
++  echo "$as_me:24930: \$? = $ac_status" >&5
+   (exit $ac_status); }; }; then
+   ac_lo=$ac_mid; break
+ else
+@@ -24928,7 +24943,7 @@
+ while test "x$ac_lo" != "x$ac_hi"; do
+   ac_mid=`expr '(' $ac_hi - $ac_lo ')' / 2 + $ac_lo`
+   cat >conftest.$ac_ext <<_ACEOF
+-#line 24931 "configure"
++#line 24946 "configure"
+ #include "confdefs.h"
+ $ac_includes_default
+ int
+@@ -24940,16 +24955,16 @@
+ }
+ _ACEOF
+ rm -f conftest.$ac_objext
+-if { (eval echo "$as_me:24943: \"$ac_compile\"") >&5
++if { (eval echo "$as_me:24958: \"$ac_compile\"") >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+-  echo "$as_me:24946: \$? = $ac_status" >&5
++  echo "$as_me:24961: \$? = $ac_status" >&5
+   (exit $ac_status); } &&
+          { ac_try='test -s conftest.$ac_objext'
+-  { (eval echo "$as_me:24949: \"$ac_try\"") >&5
++  { (eval echo "$as_me:24964: \"$ac_try\"") >&5
+   (eval $ac_try) 2>&5
+   ac_status=$?
+-  echo "$as_me:24952: \$? = $ac_status" >&5
++  echo "$as_me:24967: \$? = $ac_status" >&5
+   (exit $ac_status); }; }; then
+   ac_hi=$ac_mid
+ else
+@@ -24962,12 +24977,12 @@
+ ac_cv_sizeof_wchar_t=$ac_lo
+ else
+   if test "$cross_compiling" = yes; then
+-  { { echo "$as_me:24965: error: cannot run test program while cross compiling" >&5
++  { { echo "$as_me:24980: error: cannot run test program while cross compiling" >&5
+ echo "$as_me: error: cannot run test program while cross compiling" >&2;}
+    { (exit 1); exit 1; }; }
+ else
+   cat >conftest.$ac_ext <<_ACEOF
+-#line 24970 "configure"
++#line 24985 "configure"
+ #include "confdefs.h"
+ $ac_includes_default
+ int
+@@ -24983,15 +24998,15 @@
+ }
+ _ACEOF
+ rm -f conftest$ac_exeext
+-if { (eval echo "$as_me:24986: \"$ac_link\"") >&5
++if { (eval echo "$as_me:25001: \"$ac_link\"") >&5
+   (eval $ac_link) 2>&5
+   ac_status=$?
+-  echo "$as_me:24989: \$? = $ac_status" >&5
++  echo "$as_me:25004: \$? = $ac_status" >&5
+   (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+-  { (eval echo "$as_me:24991: \"$ac_try\"") >&5
++  { (eval echo "$as_me:25006: \"$ac_try\"") >&5
+   (eval $ac_try) 2>&5
+   ac_status=$?
+-  echo "$as_me:24994: \$? = $ac_status" >&5
++  echo "$as_me:25009: \$? = $ac_status" >&5
+   (exit $ac_status); }; }; then
+   ac_cv_sizeof_wchar_t=`cat conftest.val`
+ else
+@@ -25007,7 +25022,7 @@
+   ac_cv_sizeof_wchar_t=0
+ fi
+ fi
+-echo "$as_me:25010: result: $ac_cv_sizeof_wchar_t" >&5
++echo "$as_me:25025: result: $ac_cv_sizeof_wchar_t" >&5
+ echo "${ECHO_T}$ac_cv_sizeof_wchar_t" >&6
+ cat >>confdefs.h <<EOF
+ #define SIZEOF_WCHAR_T $ac_cv_sizeof_wchar_t
+@@ -25025,7 +25040,7 @@
+ ### chooses to split module lists into libraries.
+ ###
+ ### (see CF_LIB_RULES).
+-echo "$as_me:25028: checking for library subsets" >&5
++echo "$as_me:25043: checking for library subsets" >&5
+ echo $ECHO_N "checking for library subsets... $ECHO_C" >&6
+ LIB_SUBSETS=
+ 
+@@ -25067,7 +25082,7 @@
+ test "x$with_widec"     = xyes && LIB_SUBSETS="${LIB_SUBSETS}+widechar"
+ test "x$with_ext_funcs" = xyes && LIB_SUBSETS="${LIB_SUBSETS}+ext_funcs"
+ 
+-echo "$as_me:25070: result: $LIB_SUBSETS" >&5
++echo "$as_me:25085: result: $LIB_SUBSETS" >&5
+ echo "${ECHO_T}$LIB_SUBSETS" >&6
+ 
+ ### Construct the list of include-directories to be generated
+@@ -25098,7 +25113,7 @@
+ fi
+ 
+ ### Build up pieces for makefile rules
+-echo "$as_me:25101: checking default library suffix" >&5
++echo "$as_me:25116: checking default library suffix" >&5
+ echo $ECHO_N "checking default library suffix... $ECHO_C" >&6
+ 
+ 	case $DFT_LWR_MODEL in
+@@ -25109,10 +25124,10 @@
+ 	(shared)  DFT_ARG_SUFFIX=''   ;;
+ 	esac
+ 	test -n "$LIB_SUFFIX" && DFT_ARG_SUFFIX="${LIB_SUFFIX}${DFT_ARG_SUFFIX}"
+-echo "$as_me:25112: result: $DFT_ARG_SUFFIX" >&5
++echo "$as_me:25127: result: $DFT_ARG_SUFFIX" >&5
+ echo "${ECHO_T}$DFT_ARG_SUFFIX" >&6
+ 
+-echo "$as_me:25115: checking default library-dependency suffix" >&5
++echo "$as_me:25130: checking default library-dependency suffix" >&5
+ echo $ECHO_N "checking default library-dependency suffix... $ECHO_C" >&6
+ 
+ 	case X$DFT_LWR_MODEL in
+@@ -25170,10 +25185,10 @@
+ 		DFT_LIB_SUFFIX="${LIB_SUFFIX}${EXTRA_SUFFIX}${DFT_LIB_SUFFIX}"
+ 		DFT_DEP_SUFFIX="${LIB_SUFFIX}${EXTRA_SUFFIX}${DFT_DEP_SUFFIX}"
+ 	fi
+-echo "$as_me:25173: result: $DFT_DEP_SUFFIX" >&5
++echo "$as_me:25188: result: $DFT_DEP_SUFFIX" >&5
+ echo "${ECHO_T}$DFT_DEP_SUFFIX" >&6
+ 
+-echo "$as_me:25176: checking default object directory" >&5
++echo "$as_me:25191: checking default object directory" >&5
+ echo $ECHO_N "checking default object directory... $ECHO_C" >&6
+ 
+ 	case $DFT_LWR_MODEL in
+@@ -25189,11 +25204,11 @@
+ 			DFT_OBJ_SUBDIR='obj_s' ;;
+ 		esac
+ 	esac
+-echo "$as_me:25192: result: $DFT_OBJ_SUBDIR" >&5
++echo "$as_me:25207: result: $DFT_OBJ_SUBDIR" >&5
+ echo "${ECHO_T}$DFT_OBJ_SUBDIR" >&6
+ 
+ if test "x$cf_with_cxx" = xyes ; then
+-echo "$as_me:25196: checking c++ library-dependency suffix" >&5
++echo "$as_me:25211: checking c++ library-dependency suffix" >&5
+ echo $ECHO_N "checking c++ library-dependency suffix... $ECHO_C" >&6
+ if test "$with_libtool" != "no"; then
+ 	# libtool thinks it can make c++ shared libraries (perhaps only g++)
+@@ -25261,7 +25276,7 @@
+ 	fi
+ 
+ fi
+-echo "$as_me:25264: result: $CXX_LIB_SUFFIX" >&5
++echo "$as_me:25279: result: $CXX_LIB_SUFFIX" >&5
+ echo "${ECHO_T}$CXX_LIB_SUFFIX" >&6
+ 
+ fi
+@@ -25437,19 +25452,19 @@
+ 
+ if test -n "$LDFLAGS_STATIC" && test -n "$LDFLAGS_SHARED"
+ then
+-	echo "$as_me:25440: checking if linker supports switching between static/dynamic" >&5
++	echo "$as_me:25455: checking if linker supports switching between static/dynamic" >&5
+ echo $ECHO_N "checking if linker supports switching between static/dynamic... $ECHO_C" >&6
+ 
+ 	rm -f libconftest.a
+ 	cat >conftest.$ac_ext <<EOF
+-#line 25445 "configure"
++#line 25460 "configure"
+ #include <stdio.h>
+ int cf_ldflags_static(FILE *fp) { return fflush(fp); }
+ EOF
+-	if { (eval echo "$as_me:25449: \"$ac_compile\"") >&5
++	if { (eval echo "$as_me:25464: \"$ac_compile\"") >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+-  echo "$as_me:25452: \$? = $ac_status" >&5
++  echo "$as_me:25467: \$? = $ac_status" >&5
+   (exit $ac_status); } ; then
+ 		( $AR $ARFLAGS libconftest.a conftest.o ) 2>&5 1>/dev/null
+ 		( eval $RANLIB libconftest.a ) 2>&5 >/dev/null
+@@ -25460,10 +25475,10 @@
+ 
+ 	LIBS="$LDFLAGS_STATIC -L`pwd` -lconftest $LDFLAGS_DYNAMIC $LIBS"
+ 	cat >conftest.$ac_ext <<_ACEOF
+-#line 25463 "configure"
++#line 25478 "configure"
+ #include "confdefs.h"
+ 
+-#line 25466 "configure"
++#line 25481 "configure"
+ #include <stdio.h>
+ int cf_ldflags_static(FILE *fp);
+ 
+@@ -25478,16 +25493,16 @@
+ }
+ _ACEOF
+ rm -f conftest.$ac_objext conftest$ac_exeext
+-if { (eval echo "$as_me:25481: \"$ac_link\"") >&5
++if { (eval echo "$as_me:25496: \"$ac_link\"") >&5
+   (eval $ac_link) 2>&5
+   ac_status=$?
+-  echo "$as_me:25484: \$? = $ac_status" >&5
++  echo "$as_me:25499: \$? = $ac_status" >&5
+   (exit $ac_status); } &&
+          { ac_try='test -s conftest$ac_exeext'
+-  { (eval echo "$as_me:25487: \"$ac_try\"") >&5
++  { (eval echo "$as_me:25502: \"$ac_try\"") >&5
+   (eval $ac_try) 2>&5
+   ac_status=$?
+-  echo "$as_me:25490: \$? = $ac_status" >&5
++  echo "$as_me:25505: \$? = $ac_status" >&5
+   (exit $ac_status); }; }; then
+ 
+ 	# some linkers simply ignore the -dynamic
+@@ -25510,7 +25525,7 @@
+ 	rm -f libconftest.*
+ 	LIBS="$cf_save_LIBS"
+ 
+-	echo "$as_me:25513: result: $cf_ldflags_static" >&5
++	echo "$as_me:25528: result: $cf_ldflags_static" >&5
+ echo "${ECHO_T}$cf_ldflags_static" >&6
+ 
+ 	if test $cf_ldflags_static != yes
+@@ -25526,7 +25541,7 @@
+ 	;;
+ esac
+ 
+-echo "$as_me:25529: checking where we will install curses.h" >&5
++echo "$as_me:25544: checking where we will install curses.h" >&5
+ echo $ECHO_N "checking where we will install curses.h... $ECHO_C" >&6
+ 
+ includesubdir=
+@@ -25536,7 +25551,7 @@
+ then
+ 	includesubdir="/ncurses${USE_LIB_SUFFIX}"
+ fi
+-echo "$as_me:25539: result: ${includedir}${includesubdir}" >&5
++echo "$as_me:25554: result: ${includedir}${includesubdir}" >&5
+ echo "${ECHO_T}${includedir}${includesubdir}" >&6
+ 
+ ### Resolve a conflict between normal and wide-curses by forcing applications
+@@ -25544,7 +25559,7 @@
+ if test "$with_overwrite" != no ; then
+ if test "$NCURSES_LIBUTF8" = 1 ; then
+ 	NCURSES_LIBUTF8='defined(HAVE_LIBUTF8_H)'
+-	{ echo "$as_me:25547: WARNING: Wide-character applications must define HAVE_LIBUTF8_H to include curses.h" >&5
++	{ echo "$as_me:25562: WARNING: Wide-character applications must define HAVE_LIBUTF8_H to include curses.h" >&5
+ echo "$as_me: WARNING: Wide-character applications must define HAVE_LIBUTF8_H to include curses.h" >&2;}
+ fi
+ fi
+@@ -25562,7 +25577,7 @@
+ ### Construct the list of subdirectories for which we'll customize makefiles
+ ### with the appropriate compile-rules.
+ 
+-echo "$as_me:25565: checking for src modules" >&5
++echo "$as_me:25580: checking for src modules" >&5
+ echo $ECHO_N "checking for src modules... $ECHO_C" >&6
+ 
+ # dependencies and linker-arguments for test-programs
+@@ -25627,7 +25642,7 @@
+ 		fi
+ 	fi
+ done
+-echo "$as_me:25630: result: $cf_cv_src_modules" >&5
++echo "$as_me:25645: result: $cf_cv_src_modules" >&5
+ echo "${ECHO_T}$cf_cv_src_modules" >&6
+ 
+ TEST_ARGS="-L${LIB_DIR} $TEST_ARGS"
+@@ -25894,7 +25909,7 @@
+ 	(*-D_XOPEN_SOURCE_EXTENDED*)
+ 		test -n "$verbose" && echo "	moving _XOPEN_SOURCE_EXTENDED to work around g++ problem" 1>&6
+ 
+-echo "${as_me:-configure}:25897: testing moving _XOPEN_SOURCE_EXTENDED to work around g++ problem ..." 1>&5
++echo "${as_me:-configure}:25912: testing moving _XOPEN_SOURCE_EXTENDED to work around g++ problem ..." 1>&5
+ 
+ 		CFLAGS="$CFLAGS -D_XOPEN_SOURCE_EXTENDED"
+ 		CPPFLAGS=`echo "x$CPPFLAGS" | sed -e  's/^.//' -e 's/-D_XOPEN_SOURCE_EXTENDED//'`
+@@ -25905,7 +25920,7 @@
+ 
+ # Help to automatically enable the extended curses features when using either
+ # the *-config or the ".pc" files by adding defines.
+-echo "$as_me:25908: checking for defines to add to ncurses${USE_CFG_SUFFIX}-config script" >&5
++echo "$as_me:25923: checking for defines to add to ncurses${USE_CFG_SUFFIX}-config script" >&5
+ echo $ECHO_N "checking for defines to add to ncurses${USE_CFG_SUFFIX}-config script... $ECHO_C" >&6
+ PKG_CFLAGS=
+ for cf_loop1 in $CPPFLAGS_after_XOPEN
+@@ -25921,7 +25936,7 @@
+ 	done
+ 	test "$cf_found" = no && PKG_CFLAGS="$PKG_CFLAGS $cf_loop1"
+ done
+-echo "$as_me:25924: result: $PKG_CFLAGS" >&5
++echo "$as_me:25939: result: $PKG_CFLAGS" >&5
+ echo "${ECHO_T}$PKG_CFLAGS" >&6
+ 
+ # AC_CHECK_SIZEOF demands a literal parameter, no variables.  So we do this.
+@@ -25982,7 +25997,7 @@
+ 	cf_filter_syms=$cf_dft_filter_syms
+ 	test -n "$verbose" && echo "	will map symbols to ABI=$cf_cv_abi_version" 1>&6
+ 
+-echo "${as_me:-configure}:25985: testing will map symbols to ABI=$cf_cv_abi_version ..." 1>&5
++echo "${as_me:-configure}:26000: testing will map symbols to ABI=$cf_cv_abi_version ..." 1>&5
+ 
+ fi
+ 
+@@ -26092,7 +26107,7 @@
+ : ${CONFIG_STATUS=./config.status}
+ ac_clean_files_save=$ac_clean_files
+ ac_clean_files="$ac_clean_files $CONFIG_STATUS"
+-{ echo "$as_me:26095: creating $CONFIG_STATUS" >&5
++{ echo "$as_me:26110: creating $CONFIG_STATUS" >&5
+ echo "$as_me: creating $CONFIG_STATUS" >&6;}
+ cat >$CONFIG_STATUS <<_ACEOF
+ #! $SHELL
+@@ -26268,7 +26283,7 @@
+     echo "$ac_cs_version"; exit 0 ;;
+   --he | --h)
+     # Conflict between --help and --header
+-    { { echo "$as_me:26271: error: ambiguous option: $1
++    { { echo "$as_me:26286: error: ambiguous option: $1
+ Try \`$0 --help' for more information." >&5
+ echo "$as_me: error: ambiguous option: $1
+ Try \`$0 --help' for more information." >&2;}
+@@ -26287,7 +26302,7 @@
+     ac_need_defaults=false;;
+ 
+   # This is an error.
+-  -*) { { echo "$as_me:26290: error: unrecognized option: $1
++  -*) { { echo "$as_me:26305: error: unrecognized option: $1
+ Try \`$0 --help' for more information." >&5
+ echo "$as_me: error: unrecognized option: $1
+ Try \`$0 --help' for more information." >&2;}
+@@ -26406,7 +26421,7 @@
+   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+   "default" ) CONFIG_COMMANDS="$CONFIG_COMMANDS default" ;;
+   "include/ncurses_cfg.h" ) CONFIG_HEADERS="$CONFIG_HEADERS include/ncurses_cfg.h:include/ncurses_cfg.hin" ;;
+-  *) { { echo "$as_me:26409: error: invalid argument: $ac_config_target" >&5
++  *) { { echo "$as_me:26424: error: invalid argument: $ac_config_target" >&5
+ echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
+    { (exit 1); exit 1; }; };;
+   esac
+@@ -26694,8 +26709,7 @@
+ s,@CXX_ARFLAGS@,$CXX_ARFLAGS,;t t
+ s,@CXXLIBS@,$CXXLIBS,;t t
+ s,@USE_CXX_BOOL@,$USE_CXX_BOOL,;t t
+-s,@gnatmake_exists@,$gnatmake_exists,;t t
+-s,@gprconfig_exists@,$gprconfig_exists,;t t
++s,@cf_TEMP_gnat@,$cf_TEMP_gnat,;t t
+ s,@M4_exists@,$M4_exists,;t t
+ s,@cf_ada_make@,$cf_ada_make,;t t
+ s,@cf_ada_config@,$cf_ada_config,;t t
+@@ -26902,7 +26916,7 @@
+   esac
+ 
+   if test x"$ac_file" != x-; then
+-    { echo "$as_me:26905: creating $ac_file" >&5
++    { echo "$as_me:26919: creating $ac_file" >&5
+ echo "$as_me: creating $ac_file" >&6;}
+     rm -f "$ac_file"
+   fi
+@@ -26920,7 +26934,7 @@
+       -) echo $tmp/stdin ;;
+       [\\/$]*)
+          # Absolute (can't be DOS-style, as IFS=:)
+-         test -f "$f" || { { echo "$as_me:26923: error: cannot find input file: $f" >&5
++         test -f "$f" || { { echo "$as_me:26937: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          echo $f;;
+@@ -26933,7 +26947,7 @@
+            echo $srcdir/$f
+          else
+            # /dev/null tree
+-           { { echo "$as_me:26936: error: cannot find input file: $f" >&5
++           { { echo "$as_me:26950: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          fi;;
+@@ -26949,7 +26963,7 @@
+       if test -n "$ac_seen"; then
+         ac_used=`grep '@datarootdir@' $ac_item`
+         if test -z "$ac_used"; then
+-          { echo "$as_me:26952: WARNING: datarootdir was used implicitly but not set:
++          { echo "$as_me:26966: WARNING: datarootdir was used implicitly but not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: datarootdir was used implicitly but not set:
+ $ac_seen" >&2;}
+@@ -26958,7 +26972,7 @@
+       fi
+       ac_seen=`grep '${datarootdir}' $ac_item`
+       if test -n "$ac_seen"; then
+-        { echo "$as_me:26961: WARNING: datarootdir was used explicitly but not set:
++        { echo "$as_me:26975: WARNING: datarootdir was used explicitly but not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: datarootdir was used explicitly but not set:
+ $ac_seen" >&2;}
+@@ -26995,7 +27009,7 @@
+             ac_init=`egrep '[ 	]*'$ac_name'[ 	]*=' $ac_file`
+             if test -z "$ac_init"; then
+               ac_seen=`echo "$ac_seen" |sed -e 's,^,'$ac_file':,'`
+-              { echo "$as_me:26998: WARNING: Variable $ac_name is used but was not set:
++              { echo "$as_me:27012: WARNING: Variable $ac_name is used but was not set:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: Variable $ac_name is used but was not set:
+ $ac_seen" >&2;}
+@@ -27006,7 +27020,7 @@
+     egrep -n '@[A-Z_][A-Z_0-9]+@' $ac_file >>$tmp/out
+     if test -s $tmp/out; then
+       ac_seen=`sed -e 's,^,'$ac_file':,' < $tmp/out`
+-      { echo "$as_me:27009: WARNING: Some variables may not be substituted:
++      { echo "$as_me:27023: WARNING: Some variables may not be substituted:
+ $ac_seen" >&5
+ echo "$as_me: WARNING: Some variables may not be substituted:
+ $ac_seen" >&2;}
+@@ -27055,7 +27069,7 @@
+   * )   ac_file_in=$ac_file.in ;;
+   esac
+ 
+-  test x"$ac_file" != x- && { echo "$as_me:27058: creating $ac_file" >&5
++  test x"$ac_file" != x- && { echo "$as_me:27072: creating $ac_file" >&5
+ echo "$as_me: creating $ac_file" >&6;}
+ 
+   # First look for the input files in the build tree, otherwise in the
+@@ -27066,7 +27080,7 @@
+       -) echo $tmp/stdin ;;
+       [\\/$]*)
+          # Absolute (can't be DOS-style, as IFS=:)
+-         test -f "$f" || { { echo "$as_me:27069: error: cannot find input file: $f" >&5
++         test -f "$f" || { { echo "$as_me:27083: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          echo $f;;
+@@ -27079,7 +27093,7 @@
+            echo $srcdir/$f
+          else
+            # /dev/null tree
+-           { { echo "$as_me:27082: error: cannot find input file: $f" >&5
++           { { echo "$as_me:27096: error: cannot find input file: $f" >&5
+ echo "$as_me: error: cannot find input file: $f" >&2;}
+    { (exit 1); exit 1; }; }
+          fi;;
+@@ -27137,7 +27151,7 @@
+   rm -f $tmp/in
+   if test x"$ac_file" != x-; then
+     if cmp -s $ac_file $tmp/config.h 2>/dev/null; then
+-      { echo "$as_me:27140: $ac_file is unchanged" >&5
++      { echo "$as_me:27154: $ac_file is unchanged" >&5
+ echo "$as_me: $ac_file is unchanged" >&6;}
+     else
+       ac_dir=`$as_expr X"$ac_file" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
+@@ -27482,7 +27496,7 @@
+ 				(cygdll|msysdll|mingw)
+ 					test "x$with_shared_cxx" = xno && test -n "$verbose" && echo "	overriding CXX_MODEL to SHARED" 1>&6
+ 
+-echo "${as_me:-configure}:27485: testing overriding CXX_MODEL to SHARED ..." 1>&5
++echo "${as_me:-configure}:27499: testing overriding CXX_MODEL to SHARED ..." 1>&5
+ 
+ 					with_shared_cxx=yes
+ 					;;
+Index: dist.mk
+Prereq:  1.1305 
+--- ncurses-6.1-20190914+/dist.mk	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/dist.mk	2019-09-21 14:56:20.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1305 2019/09/14 13:43:52 tom Exp $
++# $Id: dist.mk,v 1.1306 2019/09/21 14:56:20 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190914
++NCURSES_PATCH = 20190921
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: doc/html/man/adacurses6-config.1.html
+--- ncurses-6.1-20190914+/doc/html/man/adacurses6-config.1.html	2019-07-26 23:48:24.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/adacurses6-config.1.html	2019-09-21 23:49:50.000000000 +0000
+@@ -1,6 +1,6 @@
+ <!-- 
+   ****************************************************************************
+-  * Copyright (c) 2010-2014,2016 Free Software Foundation, Inc.              *
++  * Copyright (c) 2010-2016,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: MKada_config.in,v 1.10 2016/11/05 21:08:21 tom Exp @
++  * @Id: MKada_config.in,v 1.11 2019/09/07 20:22:51 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -125,7 +125,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: doc/html/man/captoinfo.1m.html
+--- ncurses-6.1-20190914+/doc/html/man/captoinfo.1m.html	2019-07-26 23:48:24.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/captoinfo.1m.html	2019-09-21 23:49:50.000000000 +0000
+@@ -190,7 +190,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/clear.1.html
+--- ncurses-6.1-20190914+/doc/html/man/clear.1.html	2019-07-26 23:48:24.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/clear.1.html	2019-09-21 23:49:50.000000000 +0000
+@@ -148,7 +148,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tput.1.html">tput(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: doc/html/man/form.3x.html
+--- ncurses-6.1-20190914+/doc/html/man/form.3x.html	2019-07-26 23:48:27.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/form.3x.html	2019-09-21 23:49:52.000000000 +0000
+@@ -246,7 +246,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "form_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: doc/html/man/infocmp.1m.html
+--- ncurses-6.1-20190914+/doc/html/man/infocmp.1m.html	2019-07-26 23:48:28.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/infocmp.1m.html	2019-09-21 23:49:52.000000000 +0000
+@@ -512,7 +512,7 @@
+ 
+        https://invisible-island.net/ncurses/tctest.html
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/infotocap.1m.html
+--- ncurses-6.1-20190914+/doc/html/man/infotocap.1m.html	2019-07-26 23:48:28.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/infotocap.1m.html	2019-09-21 23:49:52.000000000 +0000
+@@ -85,7 +85,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/menu.3x.html
+--- ncurses-6.1-20190914+/doc/html/man/menu.3x.html	2019-07-26 23:48:28.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/menu.3x.html	2019-09-21 23:49:53.000000000 +0000
+@@ -221,7 +221,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "menu_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: doc/html/man/ncurses.3x.html
+--- ncurses-6.1-20190914+/doc/html/man/ncurses.3x.html	2019-07-26 23:48:29.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/ncurses.3x.html	2019-09-21 23:49:53.000000000 +0000
+@@ -59,7 +59,7 @@
+        method of updating  character  screens  with  reasonable  optimization.
+        This  implementation  is  "new  curses"  (ncurses)  and is the approved
+        replacement for 4.4BSD classic curses,  which  has  been  discontinued.
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+        The  <STRONG>ncurses</STRONG>  library emulates the curses library of System V Release 4
+        UNIX, and XPG4 (X/Open Portability Guide) curses  (also  known  as  XSI
+Index: doc/html/man/ncurses6-config.1.html
+--- ncurses-6.1-20190914+/doc/html/man/ncurses6-config.1.html	2019-07-26 23:48:29.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/ncurses6-config.1.html	2019-09-21 23:49:53.000000000 +0000
+@@ -112,7 +112,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: doc/html/man/panel.3x.html
+--- ncurses-6.1-20190914+/doc/html/man/panel.3x.html	2019-07-26 23:48:29.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/panel.3x.html	2019-09-21 23:49:54.000000000 +0000
+@@ -204,7 +204,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>,
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/resizeterm.3x.html
+--- ncurses-6.1-20190914+/doc/html/man/resizeterm.3x.html	2019-03-16 19:34:46.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/resizeterm.3x.html	2019-09-21 23:49:54.000000000 +0000
+@@ -1,6 +1,6 @@
+ <!-- 
+   ****************************************************************************
+-  * Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++  * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -27,7 +27,7 @@
+   * authorization.                                                           *
+   ****************************************************************************
+   * Author: Thomas E. Dickey 1996-on
+-  * @Id: resizeterm.3x,v 1.25 2018/07/28 22:20:54 tom Exp @
++  * @Id: resizeterm.3x,v 1.26 2019/09/21 23:44:41 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -74,32 +74,41 @@
+ 
+ </PRE><H3><a name="h3-resize_term">resize_term</a></H3><PRE>
+        Most  of the work is done by the inner function <STRONG>resize_term</STRONG>.  The outer
+-       function <STRONG>resizeterm</STRONG> adds bookkeeping for the  <STRONG>SIGWINCH</STRONG>  handler.   When
+-       resizing  the  windows,  <STRONG>resize_term</STRONG>  blank-fills  the  areas  that are
++       function <STRONG>resizeterm</STRONG> adds bookkeeping for the <STRONG>SIGWINCH</STRONG> handler, as  well
++       as repainting the soft-key area (see <STRONG><A HREF="slk_touch.3x.html">slk_touch(3x)</A></STRONG>).
++
++       When  resizing  the windows, <STRONG>resize_term</STRONG> blank-fills the areas that are
+        extended.  The calling application should  fill  in  these  areas  with
+-       appropriate data.  The <STRONG>resize_term</STRONG> function attempts to resize all win-
+-       dows.  However, due to the calling convention of pads, it is not possi-
+-       ble  to  resize  these without additional interaction with the applica-
+-       tion.
++       appropriate data.
++
++       The  <STRONG>resize_term</STRONG> function attempts to resize all windows.  However, due
++       to the calling convention of pads, it is not possible to  resize  these
++       without additional interaction with the application.
++
++       When  resizing  windows,  <STRONG>resize_term</STRONG>  recursively  adjusts subwindows,
++       keeping them within the updated parent window's limits.  If a top-level
++       window  happens  to extend to the screen's limits, then on resizing the
++       window, <STRONG>resize_term</STRONG> will keep the window extending to the corresponding
++       limit, regardless of whether the screen has shrunk or grown.
+ 
+ 
+ </PRE><H3><a name="h3-is_term_resized">is_term_resized</a></H3><PRE>
+        A support function <STRONG>is_term_resized</STRONG> is provided so that applications can
+-       check  if  the <STRONG>resize_term</STRONG> function would modify the window structures.
++       check if the <STRONG>resize_term</STRONG> function would modify the  window  structures.
+        It returns <STRONG>TRUE</STRONG> if the windows would be modified, and <STRONG>FALSE</STRONG> otherwise.
+ 
+ 
+ </PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+-       Except as noted, these functions return the integer  <STRONG>ERR</STRONG>  upon  failure
++       Except  as  noted,  these functions return the integer <STRONG>ERR</STRONG> upon failure
+        and <STRONG>OK</STRONG> on success.  They will fail if either of the dimensions are less
+-       than or equal to zero, or if an error occurs while (re)allocating  mem-
++       than  or equal to zero, or if an error occurs while (re)allocating mem-
+        ory for the windows.
+ 
+ 
+ </PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+-       While  these functions are intended to be used to support a signal han-
+-       dler (i.e., for <STRONG>SIGWINCH</STRONG>), care should be taken to avoid invoking  them
+-       in  a  context where <STRONG>malloc</STRONG> or <STRONG>realloc</STRONG> may have been interrupted, since
++       While these functions are intended to be used to support a signal  han-
++       dler  (i.e., for <STRONG>SIGWINCH</STRONG>), care should be taken to avoid invoking them
++       in a context where <STRONG>malloc</STRONG> or <STRONG>realloc</STRONG> may have been  interrupted,  since
+        it uses those functions.
+ 
+        If ncurses is configured to supply its own <STRONG>SIGWINCH</STRONG> handler,
+@@ -113,17 +122,17 @@
+        <STRONG>o</STRONG>   which <STRONG>ungetch</STRONG>'s a <STRONG>KEY_RESIZE</STRONG> which will be read on the next call to
+            <STRONG>wgetch</STRONG>.
+ 
+-           The  <STRONG>KEY_RESIZE</STRONG>  alerts  an  application  that  the screen size has
+-           changed, and that it should repaint special features such  as  pads
++           The <STRONG>KEY_RESIZE</STRONG> alerts an  application  that  the  screen  size  has
++           changed,  and  that it should repaint special features such as pads
+            that cannot be done automatically.
+ 
+            Calling <STRONG>resizeterm</STRONG> or <STRONG>resize_term</STRONG> directly from a signal handler is
+-           unsafe.  This indirect method is used to  provide  a  safe  way  to
++           unsafe.   This  indirect  method  is  used to provide a safe way to
+            resize the ncurses data structures.
+ 
+-       If  the  environment variables <STRONG>LINES</STRONG> or <STRONG>COLUMNS</STRONG> are set, this overrides
+-       the library's use of the window size obtained from the  operating  sys-
+-       tem.   Thus,  even if a <STRONG>SIGWINCH</STRONG> is received, no screen size change may
++       If the environment variables <STRONG>LINES</STRONG> or <STRONG>COLUMNS</STRONG> are set,  this  overrides
++       the  library's  use of the window size obtained from the operating sys-
++       tem.  Thus, even if a <STRONG>SIGWINCH</STRONG> is received, no screen size  change  may
+        be recorded.
+ 
+ 
+@@ -136,7 +145,7 @@
+ 
+        Doing that clears the screen and is visually distracting.
+ 
+-       This extension of ncurses was introduced in mid-1995.  It  was  adopted
++       This  extension  of ncurses was introduced in mid-1995.  It was adopted
+        in NetBSD curses (2001) and PDCurses (2003).
+ 
+ 
+@@ -145,7 +154,7 @@
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+-       Thomas  Dickey  (from  an  equivalent  function written in 1988 for BSD
++       Thomas Dickey (from an equivalent function  written  in  1988  for  BSD
+        curses).
+ 
+ 
+Index: doc/html/man/tabs.1.html
+--- ncurses-6.1-20190914+/doc/html/man/tabs.1.html	2019-07-26 23:48:29.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/tabs.1.html	2019-09-21 23:49:54.000000000 +0000
+@@ -205,7 +205,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: doc/html/man/terminfo.5.html
+--- ncurses-6.1-20190914+/doc/html/man/terminfo.5.html	2019-07-27 20:27:54.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/terminfo.5.html	2019-09-21 23:49:54.000000000 +0000
+@@ -103,7 +103,7 @@
+        have, by specifying how to perform screen operations, and by specifying
+        padding requirements and initialization sequences.
+ 
+-       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ </PRE><H3><a name="h3-Terminfo-Entry-Syntax">Terminfo Entry Syntax</a></H3><PRE>
+Index: doc/html/man/tic.1m.html
+--- ncurses-6.1-20190914+/doc/html/man/tic.1m.html	2019-07-26 23:48:29.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/tic.1m.html	2019-09-21 23:49:54.000000000 +0000
+@@ -438,7 +438,7 @@
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,   <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,   <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>,   <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,
+        <STRONG><A HREF="term.5.html">term(5)</A></STRONG>.  <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.  <STRONG><A HREF="user_caps.5.html">user_caps(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/toe.1m.html
+--- ncurses-6.1-20190914+/doc/html/man/toe.1m.html	2019-07-26 23:48:30.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/toe.1m.html	2019-09-21 23:49:54.000000000 +0000
+@@ -170,7 +170,7 @@
+        <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,  <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,  <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,  <STRONG>ter-</STRONG>
+        <STRONG><A HREF="terminfo.5.html">minfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: doc/html/man/tput.1.html
+--- ncurses-6.1-20190914+/doc/html/man/tput.1.html	2019-07-26 23:48:30.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/tput.1.html	2019-09-21 23:49:54.000000000 +0000
+@@ -522,7 +522,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="clear.1.html">clear(1)</A></STRONG>, <STRONG>stty(1)</STRONG>, <STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>, <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>, <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: doc/html/man/tset.1.html
+--- ncurses-6.1-20190914+/doc/html/man/tset.1.html	2019-07-26 23:48:30.000000000 +0000
++++ ncurses-6.1-20190921/doc/html/man/tset.1.html	2019-09-21 23:49:54.000000000 +0000
+@@ -389,7 +389,7 @@
+        <STRONG>csh(1)</STRONG>,  <STRONG>sh(1)</STRONG>,  <STRONG>stty(1)</STRONG>,   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>,   <STRONG>tty(4)</STRONG>,   <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>,
+        <STRONG>ttys(5)</STRONG>, <STRONG>environ(7)</STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190727).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
+ 
+ 
+ 
+Index: man/resizeterm.3x
+Prereq:  1.25 
+--- ncurses-6.1-20190914+/man/resizeterm.3x	2018-07-28 22:20:54.000000000 +0000
++++ ncurses-6.1-20190921/man/resizeterm.3x	2019-09-21 23:44:41.000000000 +0000
+@@ -1,5 +1,5 @@
+ .\"***************************************************************************
+-.\" Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.              *
++.\" Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -28,7 +28,7 @@
+ .\"
+ .\" Author: Thomas E. Dickey 1996-on
+ .\"
+-.\" $Id: resizeterm.3x,v 1.25 2018/07/28 22:20:54 tom Exp $
++.\" $Id: resizeterm.3x,v 1.26 2019/09/21 23:44:41 tom Exp $
+ .TH resizeterm 3X ""
+ .de bP
+ .ie n  .IP \(bu 4
+@@ -61,14 +61,24 @@
+ .PP
+ Most of the work is done by the inner function \fBresize_term\fR.
+ The outer function \fBresizeterm\fR adds bookkeeping
+-for the \fBSIGWINCH\fP handler.
++for the \fBSIGWINCH\fP handler,
++as well as repainting the soft-key area (see \fBslk_touch\fP(3X)).
++.PP
+ When resizing the windows,
+ \fBresize_term\fR blank-fills the areas that are extended.
+ The calling application should fill in these areas with appropriate data.
++.PP
+ The \fBresize_term\fR function attempts to resize all windows.
+ However, due to the calling convention of pads,
+ it is not possible to resize these
+ without additional interaction with the application.
++.PP
++When resizing windows, \fBresize_term\fR recursively adjusts subwindows,
++keeping them within the updated parent window's limits.
++If a top-level window happens to extend to the screen's limits,
++then on resizing the window, \fBresize_term\fR will keep the window
++extending to the corresponding limit, regardless of whether the
++screen has shrunk or grown.
+ .SS is_term_resized
+ .PP
+ A support function \fBis_term_resized\fR is provided so that applications
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190914+/package/debian-mingw/changelog	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/package/debian-mingw/changelog	2019-09-21 14:56:20.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190914) unstable; urgency=low
++ncurses6 (6.1+20190921) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Sep 2019 09:43:52 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Sep 2019 10:56:20 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190914+/package/debian-mingw64/changelog	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/package/debian-mingw64/changelog	2019-09-21 14:56:20.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190914) unstable; urgency=low
++ncurses6 (6.1+20190921) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Sep 2019 09:43:52 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Sep 2019 10:56:20 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190914+/package/debian/changelog	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/package/debian/changelog	2019-09-21 14:56:20.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190914) unstable; urgency=low
++ncurses6 (6.1+20190921) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Sep 2019 09:43:52 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Sep 2019 10:56:20 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.351 
+--- ncurses-6.1-20190914+/package/mingw-ncurses.nsi	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/package/mingw-ncurses.nsi	2019-09-21 14:56:20.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.351 2019/09/14 13:43:52 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.352 2019/09/21 14:56:20 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0914"
++!define VERSION_MMDD  "0921"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190914+/package/mingw-ncurses.spec	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/package/mingw-ncurses.spec	2019-09-21 14:56:20.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190914
++Release: 20190921
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190914+/package/ncurses.spec	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/package/ncurses.spec	2019-09-21 14:56:20.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190914
++Release: 20190921
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190914+/package/ncursest.spec	2019-09-14 13:43:52.000000000 +0000
++++ ncurses-6.1-20190921/package/ncursest.spec	2019-09-21 14:56:20.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190914
++Release: 20190921
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz

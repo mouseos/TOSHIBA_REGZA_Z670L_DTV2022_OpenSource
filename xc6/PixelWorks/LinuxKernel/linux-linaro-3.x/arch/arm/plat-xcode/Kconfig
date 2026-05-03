@@ -1,0 +1,29 @@
+if ARCH_XCODE
+
+menu "ViXS Xcode Common Features"
+
+choice
+	prompt "Xcode System Type"
+	default ARCH_XCODE6
+
+config ARCH_XCODE6
+	bool "Xcode 6"
+	select CLKDEV_LOOKUP
+ 
+endchoice
+
+choice
+	prompt "Xcode6 Platfrom type"
+	depends on ARCH_XCODE6
+	default PLAT_XCODE64xx
+
+config PLAT_XCODE64xx
+	bool "Xcode64xx SDK"
+
+config PLAT_XCODE68xx
+	bool "Xcode68xx SDK"
+endchoice
+
+endmenu
+
+endif

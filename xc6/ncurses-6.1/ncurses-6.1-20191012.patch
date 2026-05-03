@@ -1,0 +1,1359 @@
+# ncurses 6.1 - patch 20191012 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191012.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Oct 13 01:25:51 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                                  |   18 +-
+# VERSION                               |    2 
+# dist.mk                               |    4 
+# doc/html/man/adacurses6-config.1.html |    2 
+# doc/html/man/captoinfo.1m.html        |   17 +
+# doc/html/man/clear.1.html             |    2 
+# doc/html/man/form.3x.html             |    2 
+# doc/html/man/infocmp.1m.html          |    2 
+# doc/html/man/infotocap.1m.html        |   12 +
+# doc/html/man/menu.3x.html             |    2 
+# doc/html/man/ncurses.3x.html          |    2 
+# doc/html/man/ncurses6-config.1.html   |    2 
+# doc/html/man/panel.3x.html            |    2 
+# doc/html/man/tabs.1.html              |    2 
+# doc/html/man/terminfo.5.html          |    2 
+# doc/html/man/tic.1m.html              |  275 +++++++++++++++++---------------
+# doc/html/man/toe.1m.html              |    2 
+# doc/html/man/tput.1.html              |    2 
+# doc/html/man/tset.1.html              |    2 
+# man/captoinfo.1m                      |   12 +
+# man/infotocap.1m                      |    6 
+# man/tic.1m                            |   72 +++++---
+# misc/gen-pkgconfig.in                 |   44 ++++-
+# misc/ncurses-config.in                |    5 
+# ncurses/tinfo/comp_hash.c             |   14 +
+# ncurses/tinfo/parse_entry.c           |   32 +--
+# package/debian-mingw/changelog        |    4 
+# package/debian-mingw64/changelog      |    4 
+# package/debian/changelog              |    4 
+# package/mingw-ncurses.nsi             |    4 
+# package/mingw-ncurses.spec            |    2 
+# package/ncurses.spec                  |    2 
+# package/ncursest.spec                 |    2 
+# progs/dump_entry.c                    |    7 
+# 34 files changed, 346 insertions(+), 222 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3382 
+--- ncurses-6.1-20191005+/NEWS	2019-10-05 22:53:18.000000000 +0000
++++ ncurses-6.1-20191012/NEWS	2019-10-12 21:17:50.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3382 2019/10/05 22:53:18 tom Exp $
++-- $Id: NEWS,v 1.3389 2019/10/12 21:17:50 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,12 +45,26 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191012
++	+ amend recent changes to ncurses*-config and pc-files to filter out
++	  Debian linker-flags (report by Sven Joachim, cf: 20150516).
++	+ clarify relationship between tic, infocmp and captoinfo in manpage.
++	+ check for invalid hashcode in _nc_find_type_entry and
++	  _nc_find_name_entry.
++	> fix several errata in tic (reports/testcases by "zjuchenyuan"):
++	+ check for invalid hashcode in _nc_find_entry.
++	+ check for missing character after backslash in fmt_entry
++	+ check for acsc with odd length in dump_entry in check for one-one
++	  mapping (cf: 20060415);
++	+ check length when converting from old AIX box_chars_1 capability,
++	  overlooked in changes to eliminate strcpy (cf: 20001007).
++
+ 20191005
+ 	+ modify the ncurse*-config and pc-files to more closely match for the
+ 	  -I and -l options.
+ 
+ 20190928
+-	+ amend the ncurse*-config and pc-files to take into account the rpath
++	+ amend the ncurses*-config and pc-files to take into account the rpath
+ 	  hack which differed between those files.
+ 	+ improve -L option filtering in ncurses*-config
+ 	+ improve recovery from error when reading command-character in
+Index: VERSION
+--- ncurses-6.1-20191005+/VERSION	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/VERSION	2019-10-12 15:30:55.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20191005
++5:0:10	6.1	20191012
+Index: dist.mk
+Prereq:  1.1308 
+--- ncurses-6.1-20191005+/dist.mk	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/dist.mk	2019-10-12 15:30:55.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1308 2019/10/05 14:44:23 tom Exp $
++# $Id: dist.mk,v 1.1309 2019/10/12 15:30:55 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20191005
++NCURSES_PATCH = 20191012
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: doc/html/man/adacurses6-config.1.html
+--- ncurses-6.1-20191005+/doc/html/man/adacurses6-config.1.html	2019-09-21 23:49:50.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/adacurses6-config.1.html	2019-10-12 21:32:36.000000000 +0000
+@@ -125,7 +125,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: doc/html/man/captoinfo.1m.html
+--- ncurses-6.1-20191005+/doc/html/man/captoinfo.1m.html	2019-09-21 23:49:50.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/captoinfo.1m.html	2019-10-12 21:32:36.000000000 +0000
+@@ -1,7 +1,7 @@
+ <!-- 
+   * t
+   ****************************************************************************
+-  * Copyright (c) 1998-2016,2018 Free Software Foundation, Inc.              *
++  * Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -27,7 +27,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: captoinfo.1m,v 1.27 2018/07/28 21:34:06 tom Exp @
++  * @Id: captoinfo.1m,v 1.29 2019/10/12 21:10:00 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -183,14 +183,22 @@
+        This utility is actually a link to <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, running in  <EM>-I</EM>  mode.   You
+        can use other <STRONG>tic</STRONG> options such as <STRONG>-f</STRONG> and  <STRONG>-x</STRONG>.
+ 
+-       The  trace  option  is not identical to SVr4's.  Under SVr4, instead of
++       The  verbose option is not identical to SVr4's.  Under SVr4, instead of
+        following the <STRONG>-v</STRONG> with a trace level n, you repeat it n times.
+ 
+ 
++</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
++       X/Open Curses, Issue 7 (2009) describes <STRONG>tic</STRONG>  briefly,  but  omits  this
++       program.  SVr4 systems provide <STRONG>captoinfo</STRONG> as a separate application from
++       <STRONG>tic</STRONG>.
++
++       NetBSD does not provide this application.
++
++
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+@@ -209,6 +217,7 @@
+ <li><a href="#h2-FILES">FILES</a></li>
+ <li><a href="#h2-TRANSLATIONS-FROM-NONSTANDARD-CAPABILITIES">TRANSLATIONS FROM NONSTANDARD CAPABILITIES</a></li>
+ <li><a href="#h2-NOTES">NOTES</a></li>
++<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+ <li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+ <li><a href="#h2-AUTHOR">AUTHOR</a></li>
+ </ul>
+Index: doc/html/man/clear.1.html
+--- ncurses-6.1-20191005+/doc/html/man/clear.1.html	2019-09-21 23:49:50.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/clear.1.html	2019-10-12 21:32:36.000000000 +0000
+@@ -148,7 +148,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tput.1.html">tput(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: doc/html/man/form.3x.html
+--- ncurses-6.1-20191005+/doc/html/man/form.3x.html	2019-09-21 23:49:52.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/form.3x.html	2019-10-12 21:32:38.000000000 +0000
+@@ -246,7 +246,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "form_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: doc/html/man/infocmp.1m.html
+--- ncurses-6.1-20191005+/doc/html/man/infocmp.1m.html	2019-09-21 23:49:52.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/infocmp.1m.html	2019-10-12 21:32:39.000000000 +0000
+@@ -512,7 +512,7 @@
+ 
+        https://invisible-island.net/ncurses/tctest.html
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/infotocap.1m.html
+--- ncurses-6.1-20191005+/doc/html/man/infotocap.1m.html	2019-09-21 23:49:52.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/infotocap.1m.html	2019-10-12 21:32:39.000000000 +0000
+@@ -1,7 +1,7 @@
+ <!-- 
+   * t
+   ****************************************************************************
+-  * Copyright (c) 1999-2016,2018 Free Software Foundation, Inc.              *
++  * Copyright (c) 1999-2018,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -27,7 +27,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: infotocap.1m,v 1.13 2018/07/28 21:34:06 tom Exp @
++  * @Id: infotocap.1m,v 1.15 2019/10/12 21:16:00 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -82,10 +82,15 @@
+        use other <STRONG>tic</STRONG> options such as <STRONG>-f</STRONG> and  <STRONG>-x</STRONG>.
+ 
+ 
++</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
++       None  of  X/Open  Curses,  Issue 7 (2009), SVr4 or NetBSD document this
++       application.
++
++
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+@@ -103,6 +108,7 @@
+ <li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+ <li><a href="#h2-FILES">FILES</a></li>
+ <li><a href="#h2-NOTES">NOTES</a></li>
++<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+ <li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+ <li><a href="#h2-AUTHOR">AUTHOR</a></li>
+ </ul>
+Index: doc/html/man/menu.3x.html
+--- ncurses-6.1-20191005+/doc/html/man/menu.3x.html	2019-09-21 23:49:53.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/menu.3x.html	2019-10-12 21:32:39.000000000 +0000
+@@ -221,7 +221,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "menu_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: doc/html/man/ncurses.3x.html
+--- ncurses-6.1-20191005+/doc/html/man/ncurses.3x.html	2019-09-21 23:49:53.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/ncurses.3x.html	2019-10-12 21:32:40.000000000 +0000
+@@ -59,7 +59,7 @@
+        method of updating  character  screens  with  reasonable  optimization.
+        This  implementation  is  "new  curses"  (ncurses)  and is the approved
+        replacement for 4.4BSD classic curses,  which  has  been  discontinued.
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+        The  <STRONG>ncurses</STRONG>  library emulates the curses library of System V Release 4
+        UNIX, and XPG4 (X/Open Portability Guide) curses  (also  known  as  XSI
+Index: doc/html/man/ncurses6-config.1.html
+--- ncurses-6.1-20191005+/doc/html/man/ncurses6-config.1.html	2019-09-21 23:49:53.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/ncurses6-config.1.html	2019-10-12 21:32:40.000000000 +0000
+@@ -112,7 +112,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: doc/html/man/panel.3x.html
+--- ncurses-6.1-20191005+/doc/html/man/panel.3x.html	2019-09-21 23:49:54.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/panel.3x.html	2019-10-12 21:32:40.000000000 +0000
+@@ -204,7 +204,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>,
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/tabs.1.html
+--- ncurses-6.1-20191005+/doc/html/man/tabs.1.html	2019-09-21 23:49:54.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/tabs.1.html	2019-10-12 21:32:40.000000000 +0000
+@@ -205,7 +205,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: doc/html/man/terminfo.5.html
+--- ncurses-6.1-20191005+/doc/html/man/terminfo.5.html	2019-09-21 23:49:54.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/terminfo.5.html	2019-10-12 21:32:41.000000000 +0000
+@@ -103,7 +103,7 @@
+        have, by specifying how to perform screen operations, and by specifying
+        padding requirements and initialization sequences.
+ 
+-       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ </PRE><H3><a name="h3-Terminfo-Entry-Syntax">Terminfo Entry Syntax</a></H3><PRE>
+Index: doc/html/man/tic.1m.html
+--- ncurses-6.1-20191005+/doc/html/man/tic.1m.html	2019-09-21 23:49:54.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/tic.1m.html	2019-10-12 21:32:41.000000000 +0000
+@@ -26,7 +26,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: tic.1m,v 1.74 2019/07/20 17:57:09 tom Exp @
++  * @Id: tic.1m,v 1.75 2019/10/12 20:56:38 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -106,46 +106,55 @@
+        <STRONG>o</STRONG>   the system terminfo database (<EM>/usr/share/terminfo</EM>).
+ 
+ 
++</PRE><H3><a name="h3-ALIASES">ALIASES</a></H3><PRE>
++       This is the same program as infotocap and captoinfo; usually those  are
++       linked to, or copied from this program:
++
++       <STRONG>o</STRONG>   When invoked as infotocap, tic sets the <STRONG>-I</STRONG> option.
++
++       <STRONG>o</STRONG>   When invoked as captoinfo, tic sets the <STRONG>-C</STRONG> option.
++
++
+ </PRE><H3><a name="h3-OPTIONS">OPTIONS</a></H3><PRE>
+        <STRONG>-0</STRONG>     restricts the output to a single line
+ 
+        <STRONG>-1</STRONG>     restricts the output to a single column
+ 
+-       <STRONG>-a</STRONG>     tells <STRONG>tic</STRONG> to retain commented-out capabilities rather than  dis-
++       <STRONG>-a</STRONG>     tells  <STRONG>tic</STRONG> to retain commented-out capabilities rather than dis-
+               carding them.  Capabilities are commented by prefixing them with
+-              a period.  This sets the <STRONG>-x</STRONG> option, because it treats  the  com-
+-              mented-out  entries  as  user-defined  names.   If the source is
+-              termcap, accept the 2-character names  required  by  version  6.
++              a  period.   This sets the <STRONG>-x</STRONG> option, because it treats the com-
++              mented-out entries as user-defined  names.   If  the  source  is
++              termcap,  accept  the  2-character  names required by version 6.
+               Otherwise these are ignored.
+ 
+-       <STRONG>-C</STRONG>     Force  source translation to termcap format.  Note: this differs
+-              from the <STRONG>-C</STRONG> option of <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG> in that  it  does  not  merely
++       <STRONG>-C</STRONG>     Force source translation to termcap format.  Note: this  differs
++              from  the  <STRONG>-C</STRONG>  option  of <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG> in that it does not merely
+               translate capability names, but also translates terminfo strings
+-              to termcap format.  Capabilities that are not  translatable  are
+-              left  in  the entry under their terminfo names but commented out
+-              with two preceding dots.  The actual  format  used  incorporates
+-              some  improvements  for escaped characters from terminfo format.
++              to  termcap  format.  Capabilities that are not translatable are
++              left in the entry under their terminfo names but  commented  out
++              with  two  preceding  dots.  The actual format used incorporates
++              some improvements for escaped characters from  terminfo  format.
+               For a stricter BSD-compatible translation, add the <STRONG>-K</STRONG> option.
+ 
+-              If this is combined with <STRONG>-c</STRONG>,  <STRONG>tic</STRONG>  makes  additional  checks  to
+-              report  cases  where  the  terminfo  values do not have an exact
++              If  this  is  combined  with  <STRONG>-c</STRONG>, <STRONG>tic</STRONG> makes additional checks to
++              report cases where the terminfo values  do  not  have  an  exact
+               equivalent in termcap form.  For example:
+ 
+-              <STRONG>o</STRONG>   <STRONG>sgr</STRONG> usually will not  convert,  because  termcap  lacks  the
+-                  ability  to  work with more than two parameters, and because
+-                  termcap lacks many of the arithmetic/logical operators  used
++              <STRONG>o</STRONG>   <STRONG>sgr</STRONG>  usually  will  not  convert,  because termcap lacks the
++                  ability to work with more than two parameters,  and  because
++                  termcap  lacks many of the arithmetic/logical operators used
+                   in terminfo.
+ 
+-              <STRONG>o</STRONG>   capabilities  with more than one delay or with delays before
++              <STRONG>o</STRONG>   capabilities with more than one delay or with delays  before
+                   the end of the string will not convert completely.
+ 
+-       <STRONG>-c</STRONG>     tells <STRONG>tic</STRONG> to only check <EM>file</EM> for errors, including syntax  prob-
+-              lems  and  bad  use-links.   If  you  specify  <STRONG>-C</STRONG> (<STRONG>-I</STRONG>) with this
+-              option, the code will print warnings about entries which,  after
+-              use  resolution, are more than 1023 (4096) bytes long.  Due to a
++       <STRONG>-c</STRONG>     tells  <STRONG>tic</STRONG> to only check <EM>file</EM> for errors, including syntax prob-
++              lems and bad use-links.   If  you  specify  <STRONG>-C</STRONG>  (<STRONG>-I</STRONG>)  with  this
++              option,  the code will print warnings about entries which, after
++              use resolution, are more than 1023 (4096) bytes long.  Due to  a
+               fixed buffer length in older termcap libraries, as well as buggy
+-              checking  for  the buffer length (and a documented limit in ter-
+-              minfo), these entries may cause core dumps with other  implemen-
++              checking for the buffer length (and a documented limit  in  ter-
++              minfo),  these entries may cause core dumps with other implemen-
+               tations.
+ 
+               <STRONG>tic</STRONG> checks string capabilities to ensure that those with parame-
+@@ -153,29 +162,29 @@
+               predefined string capabilities; those which are defined with the
+               <STRONG>-x</STRONG> option are ignored.
+ 
+-       <STRONG>-D</STRONG>     tells <STRONG>tic</STRONG> to print the database locations that it  knows  about,
++       <STRONG>-D</STRONG>     tells  <STRONG>tic</STRONG>  to print the database locations that it knows about,
+               and exit.  The first location shown is the one to which it would
+-              write compiled terminal descriptions.  If <STRONG>tic</STRONG>  is  not  able  to
+-              find  a writable database location according to the rules summa-
+-              rized above, it will print a diagnostic and exit with  an  error
++              write  compiled  terminal  descriptions.   If <STRONG>tic</STRONG> is not able to
++              find a writable database location according to the rules  summa-
++              rized  above,  it will print a diagnostic and exit with an error
+               rather than printing a list of database locations.
+ 
+        <STRONG>-e</STRONG> <EM>names</EM>
+-              Limit  writes  and translations to the following comma-separated
+-              list of terminals.  If any name or alias of a  terminal  matches
+-              one  of  the  names  in  the  list, the entry will be written or
++              Limit writes and translations to the  following  comma-separated
++              list  of  terminals.  If any name or alias of a terminal matches
++              one of the names in the list,  the  entry  will  be  written  or
+               translated as normal.  Otherwise no output will be generated for
+-              it.   The  option  value is interpreted as a file containing the
++              it.  The option value is interpreted as a  file  containing  the
+               list if it contains a '/'.  (Note: depending on how tic was com-
+               piled, this option may require <STRONG>-I</STRONG> or <STRONG>-C</STRONG>.)
+ 
+-       <STRONG>-f</STRONG>     Display     complex     terminfo     strings    which    contain
++       <STRONG>-f</STRONG>     Display    complex    terminfo     strings     which     contain
+               if/then/else/endif expressions indented for readability.
+ 
+-       <STRONG>-G</STRONG>     Display constant literals in  decimal  form  rather  than  their
++       <STRONG>-G</STRONG>     Display  constant  literals  in  decimal  form rather than their
+               character equivalents.
+ 
+-       <STRONG>-g</STRONG>     Display  constant  character literals in quoted form rather than
++       <STRONG>-g</STRONG>     Display constant character literals in quoted form  rather  than
+               their decimal equivalents.
+ 
+        <STRONG>-I</STRONG>     Force source translation to terminfo format.
+@@ -183,24 +192,24 @@
+        <STRONG>-K</STRONG>     Suppress some longstanding ncurses extensions to termcap format,
+               e.g., "\s" for space.
+ 
+-       <STRONG>-L</STRONG>     Force  source  translation  to  terminfo format using the long C
++       <STRONG>-L</STRONG>     Force source translation to terminfo format  using  the  long  C
+               variable names listed in &lt;<STRONG>term.h</STRONG>&gt;
+ 
+        <STRONG>-N</STRONG>     Disable smart defaults.  Normally, when translating from termcap
+-              to  terminfo,  the  compiler makes a number of assumptions about
+-              the  defaults  of  string   capabilities   <STRONG>reset1_string</STRONG>,   <STRONG>car-</STRONG>
++              to terminfo, the compiler makes a number  of  assumptions  about
++              the   defaults   of   string  capabilities  <STRONG>reset1_string</STRONG>,  <STRONG>car-</STRONG>
+               <STRONG>riage_return</STRONG>,  <STRONG>cursor_left</STRONG>,  <STRONG>cursor_down</STRONG>,  <STRONG>scroll_forward</STRONG>,  <STRONG>tab</STRONG>,
+               <STRONG>newline</STRONG>, <STRONG>key_backspace</STRONG>, <STRONG>key_left</STRONG>, and <STRONG>key_down</STRONG>, then attempts to
+-              use  obsolete termcap capabilities to deduce correct values.  It
++              use obsolete termcap capabilities to deduce correct values.   It
+               also normally suppresses output of obsolete termcap capabilities
+-              such  as <STRONG>bs</STRONG>.  This option forces a more literal translation that
++              such as <STRONG>bs</STRONG>.  This option forces a more literal translation  that
+               also preserves the obsolete capabilities.
+ 
+-       <STRONG>-o</STRONG><EM>dir</EM>  Write compiled entries to given  database  location.   Overrides
++       <STRONG>-o</STRONG><EM>dir</EM>  Write  compiled  entries  to given database location.  Overrides
+               the TERMINFO environment variable.
+ 
+-       <STRONG>-Q</STRONG><EM>n</EM>    Rather  than  show  source  in terminfo (text) format, print the
+-              compiled (binary) format in hexadecimal or base64 form,  depend-
++       <STRONG>-Q</STRONG><EM>n</EM>    Rather than show source in terminfo  (text)  format,  print  the
++              compiled  (binary) format in hexadecimal or base64 form, depend-
+               ing on the option's value:
+ 
+                1  hexadecimal
+@@ -213,35 +222,35 @@
+               source.
+ 
+        <STRONG>-R</STRONG><EM>subset</EM>
+-              Restrict output to a given subset.  This option is for use  with
+-              archaic  versions  of  terminfo  like  those on SVr1, Ultrix, or
+-              HP/UX that do not support the full set of SVR4/XSI  Curses  ter-
+-              minfo;  and  outright  broken ports like AIX 3.x that have their
+-              own extensions incompatible with  SVr4/XSI.   Available  subsets
++              Restrict  output to a given subset.  This option is for use with
++              archaic versions of terminfo like  those  on  SVr1,  Ultrix,  or
++              HP/UX  that  do not support the full set of SVR4/XSI Curses ter-
++              minfo; and outright broken ports like AIX 3.x  that  have  their
++              own  extensions  incompatible  with SVr4/XSI.  Available subsets
+               are "SVr1", "Ultrix", "HP", "BSD" and "AIX"; see <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG> for
+               details.
+ 
+-       <STRONG>-r</STRONG>     Force entry resolution (so there are no remaining  tc  capabili-
+-              ties)  even  when doing translation to termcap format.  This may
+-              be needed if you are preparing a  termcap  file  for  a  termcap
+-              library  (such as GNU termcap through version 1.3 or BSD termcap
+-              through 4.3BSD) that does not handle  multiple  tc  capabilities
++       <STRONG>-r</STRONG>     Force  entry  resolution (so there are no remaining tc capabili-
++              ties) even when doing translation to termcap format.   This  may
++              be  needed  if  you  are  preparing a termcap file for a termcap
++              library (such as GNU termcap through version 1.3 or BSD  termcap
++              through  4.3BSD)  that  does not handle multiple tc capabilities
+               per entry.
+ 
+-       <STRONG>-s</STRONG>     Summarize  the  compile  by  showing  the database location into
+-              which entries are written, and the number of entries  which  are
++       <STRONG>-s</STRONG>     Summarize the compile by  showing  the  database  location  into
++              which  entries  are written, and the number of entries which are
+               compiled.
+ 
+-       <STRONG>-T</STRONG>     eliminates  size-restrictions  on  the  generated text.  This is
+-              mainly useful for  testing  and  analysis,  since  the  compiled
+-              descriptions  are limited (e.g., 1023 for termcap, 4096 for ter-
++       <STRONG>-T</STRONG>     eliminates size-restrictions on the  generated  text.   This  is
++              mainly  useful  for  testing  and  analysis,  since the compiled
++              descriptions are limited (e.g., 1023 for termcap, 4096 for  ter-
+               minfo).
+ 
+-       <STRONG>-t</STRONG>     tells <STRONG>tic</STRONG> to discard commented-out capabilities.  Normally  when
+-              translating  from  terminfo to termcap, untranslatable capabili-
++       <STRONG>-t</STRONG>     tells  <STRONG>tic</STRONG> to discard commented-out capabilities.  Normally when
++              translating from terminfo to termcap,  untranslatable  capabili-
+               ties are commented-out.
+ 
+-       <STRONG>-U</STRONG>   tells <STRONG>tic</STRONG> to not post-process the data after  parsing  the  source
++       <STRONG>-U</STRONG>   tells  <STRONG>tic</STRONG>  to  not post-process the data after parsing the source
+             file.  Normally, it infers data which is commonly missing in older
+             terminfo data, or in termcaps.
+ 
+@@ -251,9 +260,9 @@
+        <STRONG>-v</STRONG><EM>n</EM>  specifies that (verbose) output be written to standard error trace
+             information showing <STRONG>tic</STRONG>'s progress.
+ 
+-            The optional parameter <EM>n</EM> is a number  from  1  to  10,  inclusive,
++            The  optional  parameter  <EM>n</EM>  is  a number from 1 to 10, inclusive,
+             indicating the desired level of detail of information.  If ncurses
+-            is built  without  tracing  support,  the  optional  parameter  is
++            is  built  without  tracing  support,  the  optional  parameter is
+             ignored.  If <EM>n</EM> is omitted, the default level is 1.  If <EM>n</EM> is speci-
+             fied and greater than 1, the level of detail is increased.
+ 
+@@ -275,90 +284,90 @@
+ 
+             If the debug level <EM>n</EM> is not given, it is taken to be one.
+ 
+-       <STRONG>-W</STRONG>   By itself, the <STRONG>-w</STRONG>  option  will  not  force  long  strings  to  be
++       <STRONG>-W</STRONG>   By  itself,  the  <STRONG>-w</STRONG>  option  will  not  force  long strings to be
+             wrapped.  Use the <STRONG>-W</STRONG> option to do this.
+ 
+-            If  you specify both <STRONG>-f</STRONG> and <STRONG>-W</STRONG> options, the latter is ignored when
++            If you specify both <STRONG>-f</STRONG> and <STRONG>-W</STRONG> options, the latter is ignored  when
+             <STRONG>-f</STRONG> has already split the line.
+ 
+        <STRONG>-w</STRONG><EM>n</EM>  specifies the width of the output.  The parameter is optional.  If
+             it is omitted, it defaults to 60.
+ 
+-       <STRONG>-x</STRONG>   Treat  unknown  capabilities  as  user-defined (see <STRONG>user_caps(5)</STRONG>).
++       <STRONG>-x</STRONG>   Treat unknown capabilities  as  user-defined  (see  <STRONG>user_caps(5)</STRONG>).
+             That is, if you supply a capability name which <STRONG>tic</STRONG> does not recog-
+-            nize,  it will infer its type (boolean, number or string) from the
+-            syntax and make an extended table entry  for  that.   User-defined
++            nize, it will infer its type (boolean, number or string) from  the
++            syntax  and  make  an extended table entry for that.  User-defined
+             capability strings whose name begins with "k" are treated as func-
+             tion keys.
+ 
+ 
+ </PRE><H3><a name="h3-PARAMETERS">PARAMETERS</a></H3><PRE>
+-       <EM>file</EM>   contains one or more <STRONG>terminfo</STRONG> terminal  descriptions  in  source
+-              format   [see   <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>].   Each  description  in  the  file
++       <EM>file</EM>   contains  one  or  more <STRONG>terminfo</STRONG> terminal descriptions in source
++              format  [see  <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>].   Each  description  in   the   file
+               describes the capabilities of a particular terminal.
+ 
+-              If <EM>file</EM> is "-", then the data is read from the  standard  input.
++              If  <EM>file</EM>  is "-", then the data is read from the standard input.
+               The <EM>file</EM> parameter may also be the path of a character-device.
+ 
+ 
+ </PRE><H3><a name="h3-PROCESSING">PROCESSING</a></H3><PRE>
+-       All  but  one  of  the capabilities recognized by <STRONG>tic</STRONG> are documented in
++       All but one of the capabilities recognized by  <STRONG>tic</STRONG>  are  documented  in
+        <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.  The exception is the <STRONG>use</STRONG> capability.
+ 
+        When a <STRONG>use</STRONG>=<EM>entry</EM>-<EM>name</EM> field is discovered in a terminal entry currently
+-       being  compiled,  <STRONG>tic</STRONG>  reads  in the binary from <STRONG>/usr/share/terminfo</STRONG> to
+-       complete the entry.  (Entries created from <EM>file</EM>  will  be  used  first.
+-       <STRONG>tic</STRONG>  duplicates  the  capabilities in <EM>entry</EM>-<EM>name</EM> for the current entry,
++       being compiled, <STRONG>tic</STRONG> reads in the  binary  from  <STRONG>/usr/share/terminfo</STRONG>  to
++       complete  the  entry.   (Entries  created from <EM>file</EM> will be used first.
++       <STRONG>tic</STRONG> duplicates the capabilities in <EM>entry</EM>-<EM>name</EM> for  the  current  entry,
+        with the exception of those capabilities that explicitly are defined in
+        the current entry.
+ 
+-       When  an  entry, e.g., <STRONG>entry_name_1</STRONG>, contains a <STRONG>use=</STRONG><EM>entry</EM>_<EM>name</EM>_<EM>2</EM> field,
+-       any  canceled  capabilities  in  <EM>entry</EM>_<EM>name</EM>_<EM>2</EM>  must  also   appear   in
+-       <STRONG>entry_name_1</STRONG>  before  <STRONG>use=</STRONG>  for  these  capabilities  to be canceled in
++       When an entry, e.g., <STRONG>entry_name_1</STRONG>, contains a  <STRONG>use=</STRONG><EM>entry</EM>_<EM>name</EM>_<EM>2</EM>  field,
++       any   canceled   capabilities  in  <EM>entry</EM>_<EM>name</EM>_<EM>2</EM>  must  also  appear  in
++       <STRONG>entry_name_1</STRONG> before <STRONG>use=</STRONG> for  these  capabilities  to  be  canceled  in
+        <STRONG>entry_name_1</STRONG>.
+ 
+        Total compiled entries cannot exceed 4096 bytes.  The name field cannot
+-       exceed  512  bytes.   Terminal names exceeding the maximum alias length
++       exceed 512 bytes.  Terminal names exceeding the  maximum  alias  length
+        (32 characters on systems with long filenames, 14 characters otherwise)
+-       will  be  truncated  to  the maximum alias length and a warning message
++       will be truncated to the maximum alias length  and  a  warning  message
+        will be printed.
+ 
+ 
+ </PRE><H2><a name="h2-HISTORY">HISTORY</a></H2><PRE>
+-       System V Release 2 provided  a  <STRONG>tic</STRONG>  utility.   It  accepted  a  single
+-       option:  <STRONG>-v</STRONG>  (optionally  followed  by  a  number).   According to Ross
++       System  V  Release  2  provided  a  <STRONG>tic</STRONG>  utility.  It accepted a single
++       option: <STRONG>-v</STRONG> (optionally  followed  by  a  number).   According  to  Ross
+        Ridge's comment in <EM>mytinfo</EM>, this version of <STRONG>tic</STRONG> was unable to represent
+        cancelled capabilities.
+ 
+-       System  V  Release 3 provided a different <STRONG>tic</STRONG> utility, written by Pavel
+-       Curtis, (originally named "compile" in <EM>pcurses</EM>).  This added an  option
+-       <STRONG>-c</STRONG>  to check the file for errors, with the caveat that errors in "use="
++       System V Release 3 provided a different <STRONG>tic</STRONG> utility, written  by  Pavel
++       Curtis,  (originally named "compile" in <EM>pcurses</EM>).  This added an option
++       <STRONG>-c</STRONG> to check the file for errors, with the caveat that errors in  "use="
+        links would not be reported.  System V Release 3 documented a few warn-
+        ing messages which did not appear in <EM>pcurses</EM>.  While the program itself
+-       was changed little as development continued with System  V  Release  4,
++       was  changed  little  as development continued with System V Release 4,
+        the table of capabilities grew from 180 (<EM>pcurses</EM>) to 464 (Solaris).
+ 
+-       In  early  development of ncurses (1993), Zeyd Ben-Halim used the table
+-       from <EM>mytinfo</EM> to extend the  <EM>pcurses</EM>  table  to  469  capabilities  (456
+-       matched  SVr4, 8 were only in SVr4, 13 were not in SVr4).  Of those 13,
+-       11 were ultimately discarded (perhaps to  match  the  draft  of  X/Open
+-       Curses).   The exceptions were <STRONG>memory_lock_above</STRONG> and <STRONG>memory_unlock</STRONG> (see
++       In early development of ncurses (1993), Zeyd Ben-Halim used  the  table
++       from  <EM>mytinfo</EM>  to  extend  the  <EM>pcurses</EM>  table to 469 capabilities (456
++       matched SVr4, 8 were only in SVr4, 13 were not in SVr4).  Of those  13,
++       11  were  ultimately  discarded  (perhaps  to match the draft of X/Open
++       Curses).  The exceptions were <STRONG>memory_lock_above</STRONG> and <STRONG>memory_unlock</STRONG>  (see
+        <STRONG><A HREF="user_caps.5.html">user_caps(5)</A></STRONG>).
+ 
+-       Eric Raymond incorporated parts of <EM>mytinfo</EM> into  ncurses  to  implement
+-       the  termcap-to-terminfo  source conversion, and extended that to begin
++       Eric  Raymond  incorporated  parts of <EM>mytinfo</EM> into ncurses to implement
++       the termcap-to-terminfo source conversion, and extended that  to  begin
+        development of the corresponding terminfo-to-termcap source conversion,
+-       Thomas  Dickey  completed  that  development over the course of several
++       Thomas Dickey completed that development over  the  course  of  several
+        years.
+ 
+-       In 1999, Thomas Dickey added the  <STRONG>-x</STRONG>  option  to  support  user-defined
++       In  1999,  Thomas  Dickey  added  the <STRONG>-x</STRONG> option to support user-defined
+        capabilities.
+ 
+-       In  2010,  Roy  Marples provided a <STRONG>tic</STRONG> program and terminfo library for
+-       NetBSD.  This implementation  adapts  several  features  from  ncurses,
++       In 2010, Roy Marples provided a <STRONG>tic</STRONG> program and  terminfo  library  for
++       NetBSD.   That  implementation  adapts  several  features from ncurses,
+        including <STRONG>tic</STRONG>'s <STRONG>-x</STRONG> option.
+ 
+-       The  <STRONG>-c</STRONG>  option  tells <STRONG>tic</STRONG> to check for problems in the terminfo source
++       The <STRONG>-c</STRONG> option tells <STRONG>tic</STRONG> to check for problems in  the  terminfo  source
+        file.  Continued development provides additional checks:
+ 
+        <STRONG>o</STRONG>   <EM>pcurses</EM> had 8 warnings
+@@ -373,57 +382,70 @@
+ 
+        The checking done in ncurses' <STRONG>tic</STRONG> helps with the conversion to termcap,
+        as well as pointing out errors and inconsistencies.  It is also used to
+-       ensure consistency with the user-defined capabilities.  There  are  527
+-       distinct  capabilities  in ncurses' terminal database; 128 of those are
++       ensure  consistency  with the user-defined capabilities.  There are 527
++       distinct capabilities in ncurses' terminal database; 128 of  those  are
+        user-defined.
+ 
+ 
+ </PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+-       X/Open Curses, Issue 7 (2009) provides a brief description of <STRONG>tic</STRONG>.   It
+-       lists  one  option:  <STRONG>-c</STRONG>.  The omission of <STRONG>-v</STRONG> is unexpected.  The change
+-       history states that  the  description  is  derived  from  True64  UNIX.
+-       According  to  its  manual  pages,  that  system  also supported the <STRONG>-v</STRONG>
++       X/Open  Curses, Issue 7 (2009) provides a brief description of <STRONG>tic</STRONG>.  It
++       lists one option: <STRONG>-c</STRONG>.  The omission of <STRONG>-v</STRONG> is  unexpected.   The  change
++       history  states  that  the  description  is  derived  from True64 UNIX.
++       According to its manual  pages,  that  system  also  supported  the  <STRONG>-v</STRONG>
+        option.
+ 
+-       Shortly after Issue 7 was released,  Tru64  was  discontinued.   As  of
+-       2019,  the  surviving  implementations  of <STRONG>tic</STRONG> are SVr4 (AIX, HP-UX and
+-       Solaris), ncurses and NetBSD curses.
+-
+-       The X/Open rationale states that some implementations of <STRONG>tic</STRONG> read  ter-
+-       minal  descriptions  from  the  standard input if the <EM>file</EM> parameter is
+-       omitted.  None of these implementations do that.  Further, it  comments
++       Shortly  after  Issue  7  was  released, Tru64 was discontinued.  As of
++       2019, the surviving implementations of <STRONG>tic</STRONG> are  SVr4  (AIX,  HP-UX  and
++       Solaris), ncurses and NetBSD curses.  The SVr4 <STRONG>tic</STRONG> programs all support
++       the <STRONG>-v</STRONG> option.  The NetBSD <STRONG>tic</STRONG> program follows X/Open's  documentation,
++       omitting the <STRONG>-v</STRONG> option.
++
++       The  X/Open rationale states that some implementations of <STRONG>tic</STRONG> read ter-
++       minal descriptions from the standard input if  the  <EM>file</EM>  parameter  is
++       omitted.   None of these implementations do that.  Further, it comments
+        that some may choose to read from "./terminfo.src" but that is obsoles-
+-       cent behavior from SVr2, and is not (for example) a documented  feature
++       cent  behavior from SVr2, and is not (for example) a documented feature
+        of SVr3.
+ 
+ 
+ </PRE><H3><a name="h3-COMPATIBILITY">COMPATIBILITY</a></H3><PRE>
+-       There  is  some  evidence  that  historic  <STRONG>tic</STRONG>  implementations treated
+-       description fields with no whitespace in them as additional aliases  or
++       There is  some  evidence  that  historic  <STRONG>tic</STRONG>  implementations  treated
++       description  fields with no whitespace in them as additional aliases or
+        short names.  This <STRONG>tic</STRONG> does not do that, but it does warn when descrip-
+-       tion fields may be treated that way and check them for dangerous  char-
++       tion  fields may be treated that way and check them for dangerous char-
+        acters.
+ 
+ 
+ </PRE><H3><a name="h3-EXTENSIONS">EXTENSIONS</a></H3><PRE>
+-       Unlike  the  SVr4 <STRONG>tic</STRONG> command, this implementation can actually compile
+-       termcap sources.  In fact, entries in terminfo and termcap  syntax  can
+-       be  mixed  in  a  single  source file.  See <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG> for the list of
++       Unlike the SVr4 <STRONG>tic</STRONG> command, this implementation can  actually  compile
++       termcap  sources.   In fact, entries in terminfo and termcap syntax can
++       be mixed in a single source file.  See  <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>  for  the  list  of
+        termcap names taken to be equivalent to terminfo names.
+ 
+-       The SVr4 manual pages are not clear on the  resolution  rules  for  <STRONG>use</STRONG>
+-       capabilities.   This  implementation  of <STRONG>tic</STRONG> will find <STRONG>use</STRONG> targets any-
+-       where in the source file, or anywhere in the file tree rooted  at  <STRONG>TER-</STRONG>
+-       <STRONG>MINFO</STRONG>  (if <STRONG>TERMINFO</STRONG> is defined), or in the user's <EM>$HOME/.terminfo</EM> data-
++       The  SVr4  manual  pages  are not clear on the resolution rules for <STRONG>use</STRONG>
++       capabilities.  This implementation of <STRONG>tic</STRONG> will find  <STRONG>use</STRONG>  targets  any-
++       where  in  the source file, or anywhere in the file tree rooted at <STRONG>TER-</STRONG>
++       <STRONG>MINFO</STRONG> (if <STRONG>TERMINFO</STRONG> is defined), or in the user's <EM>$HOME/.terminfo</EM>  data-
+        base (if it exists), or (finally) anywhere in the system's file tree of
+        compiled entries.
+ 
+-       The  error  messages  from this <STRONG>tic</STRONG> have the same format as GNU C error
++       The error messages from this <STRONG>tic</STRONG> have the same format as  GNU  C  error
+        messages, and can be parsed by GNU Emacs's compile facility.
+ 
+-       The <STRONG>-0</STRONG>, <STRONG>-1</STRONG>, <STRONG>-C</STRONG>, <STRONG>-G</STRONG>, <STRONG>-I</STRONG>, <STRONG>-N</STRONG>, <STRONG>-R</STRONG>, <STRONG>-T</STRONG>, <STRONG>-V</STRONG>, <STRONG>-a</STRONG>, <STRONG>-e</STRONG>, <STRONG>-f</STRONG>, <STRONG>-g</STRONG>, <STRONG>-o</STRONG>, <STRONG>-r</STRONG>, <STRONG>-s</STRONG>,  <STRONG>-t</STRONG>
+-       and <STRONG>-x</STRONG> options are not supported under SVr4.  The SVr4 <STRONG>-c</STRONG> mode does not
+-       report bad "use=" links.
++       Aside from <STRONG>-c</STRONG> and <STRONG>-v</STRONG>, options are not portable:
++
++       <STRONG>o</STRONG>   Most of tic's options are not supported by SVr4 <STRONG>tic</STRONG>:
++
++           <STRONG>-0</STRONG> <STRONG>-1</STRONG> <STRONG>-C</STRONG> <STRONG>-G</STRONG> <STRONG>-I</STRONG> <STRONG>-N</STRONG> <STRONG>-R</STRONG> <STRONG>-T</STRONG> <STRONG>-V</STRONG> <STRONG>-a</STRONG> <STRONG>-e</STRONG> <STRONG>-f</STRONG> <STRONG>-g</STRONG> <STRONG>-o</STRONG> <STRONG>-r</STRONG> <STRONG>-s</STRONG> <STRONG>-t</STRONG> <STRONG>-x</STRONG>
++
++       <STRONG>o</STRONG>   The NetBSD <STRONG>tic</STRONG>  supports a few of the ncurses options
++
++           <STRONG>-a</STRONG> <STRONG>-o</STRONG> <STRONG>-x</STRONG>
++
++           and  adds  <STRONG>-S</STRONG>  (a feature which does the same thing as infocmp's <STRONG>-e</STRONG>
++           and <STRONG>-E</STRONG> options).
++
++       The SVr4 <STRONG>-c</STRONG> mode does not report bad "use=" links.
+ 
+        System V does  not  compile  entries  to  or  read  entries  from  your
+        <EM>$HOME/.terminfo</EM> database unless TERMINFO is explicitly set to it.
+@@ -438,7 +460,7 @@
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,   <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,   <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>,   <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,
+        <STRONG><A HREF="term.5.html">term(5)</A></STRONG>.  <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.  <STRONG><A HREF="user_caps.5.html">user_caps(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+@@ -455,6 +477,7 @@
+ <li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+ <li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+ <ul>
++<li><a href="#h3-ALIASES">ALIASES</a></li>
+ <li><a href="#h3-OPTIONS">OPTIONS</a></li>
+ <li><a href="#h3-PARAMETERS">PARAMETERS</a></li>
+ <li><a href="#h3-PROCESSING">PROCESSING</a></li>
+Index: doc/html/man/toe.1m.html
+--- ncurses-6.1-20191005+/doc/html/man/toe.1m.html	2019-09-21 23:49:54.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/toe.1m.html	2019-10-12 21:32:41.000000000 +0000
+@@ -170,7 +170,7 @@
+        <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,  <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,  <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,  <STRONG>ter-</STRONG>
+        <STRONG><A HREF="terminfo.5.html">minfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: doc/html/man/tput.1.html
+--- ncurses-6.1-20191005+/doc/html/man/tput.1.html	2019-09-21 23:49:54.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/tput.1.html	2019-10-12 21:32:41.000000000 +0000
+@@ -522,7 +522,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="clear.1.html">clear(1)</A></STRONG>, <STRONG>stty(1)</STRONG>, <STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>, <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>, <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: doc/html/man/tset.1.html
+--- ncurses-6.1-20191005+/doc/html/man/tset.1.html	2019-09-21 23:49:54.000000000 +0000
++++ ncurses-6.1-20191012/doc/html/man/tset.1.html	2019-10-12 21:32:41.000000000 +0000
+@@ -389,7 +389,7 @@
+        <STRONG>csh(1)</STRONG>,  <STRONG>sh(1)</STRONG>,  <STRONG>stty(1)</STRONG>,   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>,   <STRONG>tty(4)</STRONG>,   <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>,
+        <STRONG>ttys(5)</STRONG>, <STRONG>environ(7)</STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20190921).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
+ 
+ 
+ 
+Index: man/captoinfo.1m
+Prereq:  1.27 
+--- ncurses-6.1-20191005+/man/captoinfo.1m	2018-07-28 21:34:06.000000000 +0000
++++ ncurses-6.1-20191012/man/captoinfo.1m	2019-10-12 21:10:00.000000000 +0000
+@@ -1,6 +1,6 @@
+ '\" t
+ .\"***************************************************************************
+-.\" Copyright (c) 1998-2016,2018 Free Software Foundation, Inc.              *
++.\" Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -27,7 +27,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: captoinfo.1m,v 1.27 2018/07/28 21:34:06 tom Exp $
++.\" $Id: captoinfo.1m,v 1.29 2019/10/12 21:10:00 tom Exp $
+ .TH @CAPTOINFO@ 1M ""
+ .ds n 5
+ .ds d @TERMINFO@
+@@ -183,9 +183,15 @@
+ This utility is actually a link to \fB@TIC@\fR(1M), running in \fI\-I\fR mode.
+ You can use other \fB@TIC@\fR options such as \fB\-f\fR and  \fB\-x\fR.
+ .PP
+-The trace option is not identical to SVr4's.
++The verbose option is not identical to SVr4's.
+ Under SVr4, instead of following
+ the \fB\-v\fR with a trace level n, you repeat it n times.
++.SH PORTABILITY
++X/Open Curses, Issue 7 (2009) describes \fBtic\fP briefly,
++but omits this program.
++SVr4 systems provide \fBcaptoinfo\fP as a separate application from \fBtic\fP.
++.PP
++NetBSD does not provide this application.
+ .SH SEE ALSO
+ \fB@INFOCMP@\fR(1M),
+ \fBcurses\fR(3X),
+Index: man/infotocap.1m
+Prereq:  1.13 
+--- ncurses-6.1-20191005+/man/infotocap.1m	2018-07-28 21:34:06.000000000 +0000
++++ ncurses-6.1-20191012/man/infotocap.1m	2019-10-12 21:16:00.000000000 +0000
+@@ -1,6 +1,6 @@
+ '\" t
+ .\"***************************************************************************
+-.\" Copyright (c) 1999-2016,2018 Free Software Foundation, Inc.              *
++.\" Copyright (c) 1999-2018,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -27,7 +27,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: infotocap.1m,v 1.13 2018/07/28 21:34:06 tom Exp $
++.\" $Id: infotocap.1m,v 1.15 2019/10/12 21:16:00 tom Exp $
+ .TH @INFOTOCAP@ 1M ""
+ .ds n 5
+ .ds d @TERMINFO@
+@@ -63,6 +63,8 @@
+ .SH NOTES
+ This utility is actually a link to \fB@TIC@\fR, running in \fI\-C\fR mode.
+ You can use other \fB@TIC@\fR options such as \fB\-f\fR and  \fB\-x\fR.
++.SH PORTABILITY
++None of X/Open Curses, Issue 7 (2009), SVr4 or NetBSD document this application.
+ .SH SEE ALSO
+ \fBcurses\fR(3X),
+ \fB@TIC@\fR(1M),
+Index: man/tic.1m
+Prereq:  1.74 
+--- ncurses-6.1-20191005+/man/tic.1m	2019-07-20 17:57:09.000000000 +0000
++++ ncurses-6.1-20191012/man/tic.1m	2019-10-12 20:56:38.000000000 +0000
+@@ -26,7 +26,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: tic.1m,v 1.74 2019/07/20 17:57:09 tom Exp $
++.\" $Id: tic.1m,v 1.75 2019/10/12 20:56:38 tom Exp $
+ .TH @TIC@ 1M ""
+ .ie \n(.g .ds `` \(lq
+ .el       .ds `` ``
+@@ -128,6 +128,14 @@
+ a compiled-in list of directories (@TERMINFO_DIRS@), and
+ .bP
+ the system terminfo database (\fI\*d\fR).
++.SS ALIASES
++.PP
++This is the same program as @INFOTOCAP@ and @CAPTOINFO@;
++usually those are linked to, or copied from this program:
++.bP
++When invoked as @INFOTOCAP@, @TIC@ sets the \fB\-I\fP option.
++.bP
++When invoked as @CAPTOINFO@, @TIC@ sets the \fB\-C\fP option.
+ .SS OPTIONS
+ .TP
+ \fB\-0\fR
+@@ -443,7 +451,7 @@
+ .PP
+ In 2010, Roy Marples provided a \fBtic\fP program
+ and terminfo library for NetBSD.
+-This implementation adapts several features from ncurses,
++That implementation adapts several features from ncurses,
+ including \fB@TIC@\fP's \fB\-x\fP option.
+ .PP
+ The \fB\-c\fP option tells \fB@TIC@\fP to check for problems in the
+@@ -478,6 +486,9 @@
+ are SVr4 (AIX, HP-UX and Solaris),
+ ncurses
+ and NetBSD curses.
++The SVr4 \fBtic\fP programs all support the \fB\-v\fP option.
++The NetBSD \fBtic\fP program follows X/Open's documentation,
++omitting the \fB\-v\fP option.
+ .PP
+ The X/Open rationale states that some implementations of \fBtic\fP
+ read terminal descriptions from the standard input if the \fIfile\fP
+@@ -514,27 +525,44 @@
+ The error messages from this \fB@TIC@\fR have the same format as GNU C
+ error messages, and can be parsed by GNU Emacs's compile facility.
+ .PP
+-The
+-\fB\-0\fR,
+-\fB\-1\fR,
+-\fB\-C\fR,
+-\fB\-G\fR,
+-\fB\-I\fR,
+-\fB\-N\fR,
+-\fB\-R\fR,
+-\fB\-T\fR,
+-\fB\-V\fR,
+-\fB\-a\fR,
+-\fB\-e\fR,
+-\fB\-f\fR,
+-\fB\-g\fR,
+-\fB\-o\fR,
+-\fB\-r\fR,
+-\fB\-s\fR,
+-\fB\-t\fR and
++Aside from \fB\-c\fP and \fB\-v\fP, options are not portable:
++.bP
++Most of @TIC@'s options 
++are not supported by SVr4 \fBtic\fP:
++.sp
++.RS
++\fB\-0\fR
++\fB\-1\fR
++\fB\-C\fR
++\fB\-G\fR
++\fB\-I\fR
++\fB\-N\fR
++\fB\-R\fR
++\fB\-T\fR
++\fB\-V\fR
++\fB\-a\fR
++\fB\-e\fR
++\fB\-f\fR
++\fB\-g\fR
++\fB\-o\fR
++\fB\-r\fR
++\fB\-s\fR
++\fB\-t\fR
+ \fB\-x\fR
+-options
+-are not supported under SVr4.
++.RE
++.bP
++The NetBSD \fBtic\fP  supports a few of the ncurses options
++.sp
++.RS
++\fB\-a\fP
++\fB\-o\fP
++\fB\-x\fP
++.RE
++.IP
++and adds \fB\-S\fP
++(a feature which does the same thing
++as @INFOCMP@'s \fB\-e\fP and \fB\-E\fP options).
++.PP
+ The SVr4 \fB\-c\fR mode does not report bad \*(``use=\*('' links.
+ .PP
+ System V does not compile entries to or read entries from your
+Index: misc/gen-pkgconfig.in
+Prereq:  1.38 
+--- ncurses-6.1-20191005+/misc/gen-pkgconfig.in	2019-10-05 22:25:47.000000000 +0000
++++ ncurses-6.1-20191012/misc/gen-pkgconfig.in	2019-10-12 22:27:10.000000000 +0000
+@@ -1,5 +1,5 @@
+ #!@SHELL@
+-# $Id: gen-pkgconfig.in,v 1.38 2019/10/05 22:25:47 tom Exp $
++# $Id: gen-pkgconfig.in,v 1.40 2019/10/12 22:27:10 tom Exp $
+ ##############################################################################
+ # Copyright (c) 2009-2018,2019 Free Software Foundation, Inc.                #
+ #                                                                            #
+@@ -77,13 +77,39 @@
+ 	fi
+ fi
+ 
+-LDFLAGS=
+-if [ "$libdir" != "/usr/lib" ]; then
+-	LDFLAGS="$LDFLAGS -L\${libdir}"
+-fi
+-if [ "x@EXTRA_LDFLAGS@" != "x" ]; then
+-	LDFLAGS="$LDFLAGS @EXTRA_LDFLAGS@"
+-fi
++lib_flags=
++for opt in -L$libdir @LDFLAGS@ @EXTRA_LDFLAGS@ @LIBS@
++do
++	case $opt in
++	-l*) # LIBS is handled specially below
++		continue
++		;;
++	-Wl,-z,*) # ignore flags used to manipulate shared image
++		continue
++		;;
++	-L*)
++		[ -d ${opt##-L} ] || continue
++		case ${opt##-L} in
++		@LD_SEARCHPATH@) # skip standard libdir
++			continue
++			;;
++		*)
++			found=no
++			for check in $lib_flags
++			do
++				if [ "x$check" = "x$opt" ]
++				then
++					found=yes
++					break
++				fi
++			done
++			[ $found = yes ] && continue
++			;;
++		esac
++		;;
++	esac
++	lib_flags="$lib_flags $opt"
++done
+ 
+ # Check if we should specify the tinfo library explicitly so that terminfo
+ # functions or curses variables (which also reside in tinfo) can be linked
+@@ -150,7 +176,7 @@
+ Version: \${version}
+ URL: https://invisible-island.net/ncurses
+ Requires.private: $reqs
+-Libs: $LDFLAGS $LIBS
++Libs: $lib_flags $LIBS
+ Libs.private: @LIBS@ $main_libs
+ Cflags: $CFLAGS
+ EOF
+Index: misc/ncurses-config.in
+Prereq:  1.40 
+--- ncurses-6.1-20191005+/misc/ncurses-config.in	2019-10-05 22:24:20.000000000 +0000
++++ ncurses-6.1-20191012/misc/ncurses-config.in	2019-10-12 21:25:17.000000000 +0000
+@@ -1,5 +1,5 @@
+ #!@SHELL@
+-# $Id: ncurses-config.in,v 1.40 2019/10/05 22:24:20 tom Exp $
++# $Id: ncurses-config.in,v 1.41 2019/10/12 21:25:17 tom Exp $
+ ##############################################################################
+ # Copyright (c) 2006-2018,2019 Free Software Foundation, Inc.                #
+ #                                                                            #
+@@ -103,6 +103,9 @@
+ for opt in -L$libdir @LDFLAGS@ @EXTRA_LDFLAGS@ $LIBS
+ do
+ 	case $opt in
++	-Wl,-z,*) # ignore flags used to manipulate shared image
++		continue
++		;;
+ 	-L*)
+ 		[ -d ${opt##-L} ] || continue
+ 		case ${opt##-L} in
+Index: ncurses/tinfo/comp_hash.c
+Prereq:  1.49 
+--- ncurses-6.1-20191005+/ncurses/tinfo/comp_hash.c	2019-03-10 00:06:48.000000000 +0000
++++ ncurses-6.1-20191012/ncurses/tinfo/comp_hash.c	2019-10-12 16:32:13.000000000 +0000
+@@ -44,7 +44,7 @@
+ #include <tic.h>
+ #include <hashsize.h>
+ 
+-MODULE_ID("$Id: comp_hash.c,v 1.49 2019/03/10 00:06:48 tom Exp $")
++MODULE_ID("$Id: comp_hash.c,v 1.51 2019/10/12 16:32:13 tom Exp $")
+ 
+ /*
+  * Finds the entry for the given string in the hash table if present.
+@@ -63,7 +63,9 @@
+ 
+     hashvalue = data->hash_of(string);
+ 
+-    if (data->table_data[hashvalue] >= 0) {
++    if (hashvalue >= 0
++	&& (unsigned) hashvalue < data->table_size
++	&& data->table_data[hashvalue] >= 0) {
+ 
+ 	real_table = _nc_get_table(termcap);
+ 	ptr = real_table + data->table_data[hashvalue];
+@@ -96,7 +98,9 @@
+     const HashData *data = _nc_get_hash_info(termcap);
+     int hashvalue = data->hash_of(string);
+ 
+-    if (data->table_data[hashvalue] >= 0) {
++    if (hashvalue >= 0
++	&& (unsigned) hashvalue < data->table_size
++	&& data->table_data[hashvalue] >= 0) {
+ 	const struct name_table_entry *const table = _nc_get_table(termcap);
+ 
+ 	ptr = table + data->table_data[hashvalue];
+@@ -124,7 +128,9 @@
+ 
+     hashvalue = data->hash_of(string);
+ 
+-    if (data->table_data[hashvalue] >= 0) {
++    if (hashvalue >= 0
++	&& (unsigned) hashvalue < data->table_size
++	&& data->table_data[hashvalue] >= 0) {
+ 
+ 	real_table = _nc_get_userdefs_table();
+ 	ptr = real_table + data->table_data[hashvalue];
+Index: ncurses/tinfo/parse_entry.c
+Prereq:  1.97 
+--- ncurses-6.1-20191005+/ncurses/tinfo/parse_entry.c	2019-08-03 23:10:38.000000000 +0000
++++ ncurses-6.1-20191012/ncurses/tinfo/parse_entry.c	2019-10-12 00:50:31.000000000 +0000
+@@ -47,7 +47,7 @@
+ #include <ctype.h>
+ #include <tic.h>
+ 
+-MODULE_ID("$Id: parse_entry.c,v 1.97 2019/08/03 23:10:38 tom Exp $")
++MODULE_ID("$Id: parse_entry.c,v 1.98 2019/10/12 00:50:31 tom Exp $")
+ 
+ #ifdef LINT
+ static short const parametrized[] =
+@@ -654,12 +654,12 @@
+ }
+ 
+ static void
+-append_acs0(string_desc * dst, int code, int src)
++append_acs0(string_desc * dst, int code, char *src, size_t off)
+ {
+-    if (src != 0) {
++    if (src != 0 && off < strlen(src)) {
+ 	char temp[3];
+ 	temp[0] = (char) code;
+-	temp[1] = (char) src;
++	temp[1] = src[off];
+ 	temp[2] = 0;
+ 	_nc_safe_strcat(dst, temp);
+     }
+@@ -669,7 +669,7 @@
+ append_acs(string_desc * dst, int code, char *src)
+ {
+     if (VALID_STRING(src) && strlen(src) == 1) {
+-	append_acs0(dst, code, *src);
++	append_acs0(dst, code, src, 0);
+     }
+ }
+ 
+@@ -1038,17 +1038,17 @@
+ 	_nc_str_init(&result, buf2, sizeof(buf2));
+ 	_nc_safe_strcat(&result, acs_chars);
+ 
+-	append_acs0(&result, 'l', box_chars_1[0]);	/* ACS_ULCORNER */
+-	append_acs0(&result, 'q', box_chars_1[1]);	/* ACS_HLINE */
+-	append_acs0(&result, 'k', box_chars_1[2]);	/* ACS_URCORNER */
+-	append_acs0(&result, 'x', box_chars_1[3]);	/* ACS_VLINE */
+-	append_acs0(&result, 'j', box_chars_1[4]);	/* ACS_LRCORNER */
+-	append_acs0(&result, 'm', box_chars_1[5]);	/* ACS_LLCORNER */
+-	append_acs0(&result, 'w', box_chars_1[6]);	/* ACS_TTEE */
+-	append_acs0(&result, 'u', box_chars_1[7]);	/* ACS_RTEE */
+-	append_acs0(&result, 'v', box_chars_1[8]);	/* ACS_BTEE */
+-	append_acs0(&result, 't', box_chars_1[9]);	/* ACS_LTEE */
+-	append_acs0(&result, 'n', box_chars_1[10]);	/* ACS_PLUS */
++	append_acs0(&result, 'l', box_chars_1, 0);	/* ACS_ULCORNER */
++	append_acs0(&result, 'q', box_chars_1, 1);	/* ACS_HLINE */
++	append_acs0(&result, 'k', box_chars_1, 2);	/* ACS_URCORNER */
++	append_acs0(&result, 'x', box_chars_1, 3);	/* ACS_VLINE */
++	append_acs0(&result, 'j', box_chars_1, 4);	/* ACS_LRCORNER */
++	append_acs0(&result, 'm', box_chars_1, 5);	/* ACS_LLCORNER */
++	append_acs0(&result, 'w', box_chars_1, 6);	/* ACS_TTEE */
++	append_acs0(&result, 'u', box_chars_1, 7);	/* ACS_RTEE */
++	append_acs0(&result, 'v', box_chars_1, 8);	/* ACS_BTEE */
++	append_acs0(&result, 't', box_chars_1, 9);	/* ACS_LTEE */
++	append_acs0(&result, 'n', box_chars_1, 10);	/* ACS_PLUS */
+ 
+ 	if (buf2[0]) {
+ 	    acs_chars = _nc_save_str(buf2);
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20191005+/package/debian-mingw/changelog	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/package/debian-mingw/changelog	2019-10-12 15:30:55.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191005) unstable; urgency=low
++ncurses6 (6.1+20191012) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 05 Oct 2019 10:44:23 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 11 Oct 2019 19:37:45 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20191005+/package/debian-mingw64/changelog	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/package/debian-mingw64/changelog	2019-10-12 15:30:55.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191005) unstable; urgency=low
++ncurses6 (6.1+20191012) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 05 Oct 2019 10:44:23 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 11 Oct 2019 19:37:45 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20191005+/package/debian/changelog	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/package/debian/changelog	2019-10-12 15:30:55.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191005) unstable; urgency=low
++ncurses6 (6.1+20191012) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 05 Oct 2019 10:44:23 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 11 Oct 2019 19:37:45 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.354 
+--- ncurses-6.1-20191005+/package/mingw-ncurses.nsi	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/package/mingw-ncurses.nsi	2019-10-12 15:30:55.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.354 2019/10/05 14:44:23 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.355 2019/10/12 15:30:55 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "1005"
++!define VERSION_MMDD  "1012"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20191005+/package/mingw-ncurses.spec	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/package/mingw-ncurses.spec	2019-10-12 15:30:55.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20191005
++Release: 20191012
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20191005+/package/ncurses.spec	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/package/ncurses.spec	2019-10-12 15:30:55.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20191005
++Release: 20191012
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20191005+/package/ncursest.spec	2019-10-05 14:44:23.000000000 +0000
++++ ncurses-6.1-20191012/package/ncursest.spec	2019-10-12 15:30:55.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20191005
++Release: 20191012
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: progs/dump_entry.c
+Prereq:  1.173 
+--- ncurses-6.1-20191005+/progs/dump_entry.c	2019-05-11 21:02:24.000000000 +0000
++++ ncurses-6.1-20191012/progs/dump_entry.c	2019-10-12 15:59:07.000000000 +0000
+@@ -39,7 +39,7 @@
+ #include "termsort.c"		/* this C file is generated */
+ #include <parametrized.h>	/* so is this */
+ 
+-MODULE_ID("$Id: dump_entry.c,v 1.173 2019/05/11 21:02:24 tom Exp $")
++MODULE_ID("$Id: dump_entry.c,v 1.175 2019/10/12 15:59:07 tom Exp $")
+ 
+ #define DISCARD(string) string = ABSENT_STRING
+ #define PRINTF (void) printf
+@@ -1136,7 +1136,8 @@
+ 				*d++ = '\\';
+ 				*d = ':';
+ 			    } else if (*d == '\\') {
+-				*++d = *s++;
++				if ((*++d = *s++) == '\0')
++				    break;
+ 			    }
+ 			    d++;
+ 			    *d = '\0';
+@@ -1396,7 +1397,7 @@
+ 
+     if (VALID_STRING(mapping)) {
+ 	int n = 0;
+-	while (mapping[n] != '\0') {
++	while (mapping[n] != '\0' && mapping[n + 1] != '\0') {
+ 	    if (isLine(mapping[n]) &&
+ 		mapping[n] != mapping[n + 1]) {
+ 		result = FALSE;

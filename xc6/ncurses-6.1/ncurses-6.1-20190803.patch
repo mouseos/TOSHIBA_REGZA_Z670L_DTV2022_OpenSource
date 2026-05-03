@@ -1,0 +1,657 @@
+# ncurses 6.1 - patch 20190803 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20190803.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Aug  4 00:24:33 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                             |   13 ++-
+# VERSION                          |    2 
+# dist.mk                          |    4 
+# misc/terminfo.src                |  155 +++++++++++++++++++++----------------
+# ncurses/base/lib_scroll.c        |   14 +--
+# ncurses/tinfo/parse_entry.c      |    7 +
+# package/debian-mingw/changelog   |    4 
+# package/debian-mingw64/changelog |    4 
+# package/debian/changelog         |    4 
+# package/mingw-ncurses.nsi        |    4 
+# package/mingw-ncurses.spec       |    2 
+# package/ncurses.spec             |    2 
+# package/ncursest.spec            |    2 
+# 13 files changed, 130 insertions(+), 87 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3356 
+--- ncurses-6.1-20190728+/NEWS	2019-07-28 18:49:10.000000000 +0000
++++ ncurses-6.1-20190803/NEWS	2019-08-03 22:31:47.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3356 2019/07/28 18:49:10 tom Exp $
++-- $Id: NEWS,v 1.3359 2019/08/03 22:31:47 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,17 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20190803
++	+ improve loop limits in _nc_scroll_window() to handle a case where
++	  the scrolled data is a pad which is taller than the window (patch
++	  by Rob King).
++	+ amend the change to screen, because tmux relies upon that entry
++	  and does not support that feature (Debian #933572) -TD
++	+ updated ms-terminal entry & notes -TD
++	+ updated kitty entry & notes -TD
++	+ updated alacritty+common entry & notes -TD
++	+ use xterm+sl-twm for consistency -TD
++
+ 20190728
+ 	+ fix a few more coverity warnings.
+ 	+ more documentation updates based on tctest.
+Index: VERSION
+--- ncurses-6.1-20190728+/VERSION	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/VERSION	2019-08-03 13:57:42.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20190728
++5:0:10	6.1	20190803
+Index: dist.mk
+Prereq:  1.1298 
+--- ncurses-6.1-20190728+/dist.mk	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/dist.mk	2019-08-03 13:57:42.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1298 2019/07/28 10:39:10 tom Exp $
++# $Id: dist.mk,v 1.1299 2019/08/03 13:57:42 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20190728
++NCURSES_PATCH = 20190803
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: misc/terminfo.src
+--- ncurses-6.1-20190728+/misc/terminfo.src	2019-07-06 20:35:26.000000000 +0000
++++ ncurses-6.1-20190803/misc/terminfo.src	2019-08-03 21:42:15.000000000 +0000
+@@ -6,8 +6,8 @@
+ # Report bugs and new terminal descriptions to
+ #	bug-ncurses@gnu.org
+ #
+-#	$Revision: 1.757 $
+-#	$Date: 2019/07/06 20:35:26 $
++#	$Revision: 1.763 $
++#	$Date: 2019/08/03 21:42:15 $
+ #
+ # The original header is preserved below for reference.  It is noted that there
+ # is a "newer" version which differs in some cosmetic details (but actually
+@@ -4223,8 +4223,9 @@
+ ms-vt-utf8|vt-utf8|UTF-8 flavor of vt100+,
+ 	use=ms-vt100+,
+ 
++# Windows Terminal (Preview)
+ # Windows 10 1903
+-# Version 0.2.1715.0
++# Version 0.2.1831.0
+ # https://github.com/microsoft/terminal
+ #
+ # The task manager shows this as "OpenConsole.exe", which differs
+@@ -4239,10 +4240,12 @@
+ #   fail in vttest, which does not pay attention to TERM.
+ # vttest:
+ # - menu 1 (tests for cursor movement) misbehaves like command-prompt
++# - primary DA says this is a vanilla VT100
+ # - does not flush response to primary DA, leaving a ^M on the end when
+-#   The PowerShell tab is used.  Both the "Legacy" tab and the command-prompt
++#   the PowerShell tab is used.  Both the "Legacy" tab and the command-prompt
+ #   work properly in this test.
+-# - in the generic VT100 tests, there are problems with character sets.
++# - in the generic VT100 tests, there are problems with character sets
++#   (diamond shows as a double-width character, DEL as two replacement-chars).
+ # - outside of the generic VT100 tests, the program does poorly because most
+ #   of the features are missing.
+ # - ECH does not work properly
+@@ -4257,11 +4260,14 @@
+ #   or simply incorrect
+ # - sends escape+key rather than implementing meta mode
+ # other:
+-# - color palette cannot be altered
++# - color palette can be altered, but OSC 104 for resetting does not work
++# - crashed with a script used for testing NRCS.
++# - does not recognize either xterm+direct or xterm+indirect escapes.
+ ms-terminal|Windows10 terminal,
+ 	npc,
+ 	rmkx=\E[?1l, rmm@, smkx=\E[?1h, smm@, use=xterm+256setaf,
+-	use=xterm+pcfkeys, use=xterm-basic,
++	use=xterm+pcfkeys, use=ansi+rep, use=ecma+index,
++	use=xterm-basic,
+ 
+ #### Visual Studio
+ # Visual Studio Code 1.35.1 uses xterm.js (see https://xtermjs.org/).
+@@ -6847,6 +6853,7 @@
+ 
+ #### Alacritty
+ # https://github.com/jwilm/alacritty
++# Version 0.3.3 (2019/08/03)
+ # Version 0.2.1 (2018/10/03)
+ # Project started in 2016/02, uses Rust and OpenGL, and in contrast to (most X
+ # terminal programs) is not designed to run with a remote server.
+@@ -6854,21 +6861,24 @@
+ # Packaged in Arch Linux -
+ # vttest:
+ #	initial screensize 24x80
+-#	does not switch between 80/132 columns
+-#	passes wrapping test
+-#	identifies as a vt100
++#	no DECCOLM (does not switch between 80/132 columns)
++#	otherwise, passes wrapping test
++#	no DECSCNM
++#	identifies as a vt102
+ #	passes bce test
+ #	vt220:
+-#		fails ECH, leaving text on right margin
++#		ECH works (0.2.1 left text on right margin)
+ #		no SRM, DECSCA
+ #	vt320:
+ #		fails DECXCPR
+ #		does not implement any of the DECRQM/DECRPM controls
+ #		does not implement any of the DECRQSS controls
+ #	vt420:
++#		no DECLRMM
+ #		no DECBI, DECFI
+ #	other:
+-#		fails REP, SL, SR
++#		fails CHT, otherwise ECMA-48 cursor movement ok
++#		fails ERM/SPA, SL, SR, passes REP, SD, SU
+ #	xterm:
+ #		no X10 mouse
+ #		has normal and highlight mouse
+@@ -6876,9 +6886,9 @@
+ #		cursor-position wrong after alternate-screen
+ #		none of the dtterm controls work
+ # tack:
+-#	bell and flash do not work (perhaps Parallels problem)
+-#	italics works; crossed-out does not
+-#	function-keys work up to kf36; window manager interferes with remainder
++#	bell and flash do not work
++#	italics and crossed-out work (latter did not work in 0.2.1)
++#	function-keys work up to kf36; those using two modifiers do not work
+ #
+ # The program sources include "alacritty" and "alacritty-direct", which are
+ # copied from "xterm-256color" and "xterm-direct" (but using semicolon for
+@@ -6891,18 +6901,19 @@
+ 	use=xterm+indirect, use=alacritty+common,
+ 
+ # removed ech, since it fails vttest -TD
+-# removed ecma+strikeout, not implemented -TD
++# added ecma+strikeout in 0.3.3 -TD
++# added xterm+sl-twm in 0.3.3 -TD
+ alacritty+common|base fragment for alacritty,
+ 	npc,
+-	ech@, kb2=\EOE, kbs=^H, kcbt=\E[Z, kent=\EOM, Se=\E[0 q,
++	ech@, kb2=\EOE, kbs=^?, kcbt=\E[Z, kent=\EOM, Se=\E[0 q,
+ 	use=ecma+index, use=xterm-basic, use=xterm+app,
+ 	use=ansi+rep, use=xterm+sm+1006, use=xterm+tmux,
+-	use=ecma+italics, use=xterm+pce2, use=xterm+pcc2,
+-	use=xterm+pcf2,
++	use=ecma+strikeout, use=xterm+sl-twm, use=ecma+italics,
++	use=xterm+pce2, use=xterm+pcc2, use=xterm+pcf2,
+ 
+ #### Kitty
+ # https://github.com/kovidgoyal/kitty
+-# Version 0.12.3
++# Version 0.13.3
+ # Project started in 2016/10 (see alacritty), but is a Python script rather
+ # than Rust, using OpenGL.  The same caveats regarding remote connections
+ # apply.  This is not an X terminal, though (like alacritty), it copies
+@@ -6959,8 +6970,10 @@
+ #			no mouse-highlight tracking
+ #			no DEC locator
+ #		dtterm - only supports report-size chars/pixels
++#		recognizes tcap-query
+ # tack:
+ #	flash doesn't work
++#	italics do not work
+ #	bce should be set (but see vttest)
+ #*	developer's terminfo stopped at kf25, but the program continues,
+ #	copying xterm for the rest of the control+fkey sequence
+@@ -6971,6 +6984,7 @@
+ #	act like xterm for the editing/cursor-keys, e.g., alt+shift.  While
+ #	the implementation is incomplete, the building-blocks are consistent
+ #	with what has been implemented -TD
++#	DECKPAM does not work -TD
+ #*	ka1, ka3, kc1, kc3 were bogus (removed)
+ #*	meta sends escape (removed kmm) -TD
+ #*	cvvis does not make cursor "more visible" -TD
+@@ -6988,8 +7002,8 @@
+ 	csr=\E[%i%p1%d;%p2%dr, cub=\E[%p1%dD, cub1=^H,
+ 	cud=\E[%p1%dB, cud1=\n, cuf=\E[%p1%dC, cuf1=\E[C,
+ 	cup=\E[%i%p1%d;%p2%dH, cuu=\E[%p1%dA, cuu1=\E[A,
+-	dch=\E[%p1%dP, dch1=\E[P, dl=\E[%p1%dM, dl1=\E[M,
+-	ech=\E[%p1%dX, ed=\E[J, el=\E[K, el1=\E[1K,
++	dch=\E[%p1%dP, dch1=\E[P, dim=\E[2m, dl=\E[%p1%dM,
++	dl1=\E[M, ech=\E[%p1%dX, ed=\E[J, el=\E[K, el1=\E[1K,
+ 	flash=\E[?5h$<100/>\E[?5l, home=\E[H, hpa=\E[%i%p1%dG,
+ 	ht=^I, hts=\EH, ich=\E[%p1%d@, il=\E[%p1%dL, il1=\E[L,
+ 	ind=\n, kbs=^?, kcbt=\E[Z, kcub1=\EOD, kcud1=\EOB,
+@@ -7007,13 +7021,13 @@
+ 	knp=\E[6~, kpp=\E[5~, kri=\E[1;2A, op=\E[39;49m, rc=\E8,
+ 	rev=\E[7m, ri=\EM, rmacs=\E(B, rmam=\E[?7l, rmir=\E[4l,
+ 	rmkx=\E[?1l, rmso=\E[27m, rmul=\E[24m, rs1=\Ec, sc=\E7,
+-	sgr=%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|
+-	    %t;7%;;m,
++	sgr=%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p5%t;2%;%?%p2%t;4%;
++	    %?%p1%p3%|%t;7%;m,
+ 	sgr0=\E(B\E[m, smacs=\E(0, smam=\E[?7h, smir=\E[4h,
+ 	smkx=\E[?1h, smso=\E[7m, smul=\E[4m, tbc=\E[3g,
+ 	vpa=\E[%i%p1%dd, use=ecma+index, use=xterm+sl-twm,
+-	use=xterm+pce2, use=xterm+pcc2, use=ecma+italics,
+-	use=xterm+alt1049,
++	use=ecma+strikeout, use=xterm+pce2, use=xterm+pcc2,
++	use=ecma+italics, use=xterm+alt1049,
+ 
+ ######## WEB CLIENTS
+ 
+@@ -7221,6 +7235,12 @@
+ # the other capabilities will confuse screen.  Curses applications which use
+ # sgr are not impacted (because that usually resets all capabilities before
+ # setting any), but termcap applications do not use sgr -TD
++#
++# The "screen" entry should use ecma+index rather than just indn, but tmux
++# defaults to using "screen".  For background, screen supported ecma+index
++# since 1994 (i.e., screen 3.0.5), stating that it was an obscure code used by
++# the (Siemens Nixdorf) 97801 terminal.  It was not shown in the termcap or
++# terminfo entries (which list about 60% of the control sequences).
+ screen|VT 100/ANSI X3.64 virtual terminal,
+ 	OTbs, OTpt, am, km, mir, msgr, xenl, G0,
+ 	colors#8, cols#80, it#8, lines#24, ncv@, pairs#64, U8#1,
+@@ -7235,27 +7255,27 @@
+ 	dl=\E[%p1%dM, dl1=\E[M, ed=\E[J, el=\E[K, el1=\E[1K,
+ 	enacs=\E(B\E)0, flash=\Eg, home=\E[H, hpa=\E[%i%p1%dG,
+ 	ht=^I, hts=\EH, ich=\E[%p1%d@, il=\E[%p1%dL, il1=\E[L,
+-	ind=\n, is2=\E)0, kbs=^H, kcbt=\E[Z, kcub1=\EOD, kcud1=\EOB,
+-	kcuf1=\EOC, kcuu1=\EOA, kdch1=\E[3~, kend=\E[4~, kf1=\EOP,
+-	kf10=\E[21~, kf11=\E[23~, kf12=\E[24~, kf2=\EOQ, kf3=\EOR,
+-	kf4=\EOS, kf5=\E[15~, kf6=\E[17~, kf7=\E[18~, kf8=\E[19~,
+-	kf9=\E[20~, khome=\E[1~, kich1=\E[2~, kmous=\E[M,
+-	knp=\E[6~, kpp=\E[5~, nel=\EE, rc=\E8, rev=\E[7m, ri=\EM,
+-	rmacs=^O, rmir=\E[4l, rmkx=\E[?1l\E>, rmso=\E[23m,
+-	rmul=\E[24m, rs2=\Ec\E[?1000l\E[?25h, sc=\E7,
++	ind=\n, indn=\E[%p1%dS, is2=\E)0, kbs=^H, kcbt=\E[Z,
++	kcub1=\EOD, kcud1=\EOB, kcuf1=\EOC, kcuu1=\EOA,
++	kdch1=\E[3~, kend=\E[4~, kf1=\EOP, kf10=\E[21~,
++	kf11=\E[23~, kf12=\E[24~, kf2=\EOQ, kf3=\EOR, kf4=\EOS,
++	kf5=\E[15~, kf6=\E[17~, kf7=\E[18~, kf8=\E[19~, kf9=\E[20~,
++	khome=\E[1~, kich1=\E[2~, kmous=\E[M, knp=\E[6~, kpp=\E[5~,
++	nel=\EE, rc=\E8, rev=\E[7m, ri=\EM, rmacs=^O, rmir=\E[4l,
++	rmkx=\E[?1l\E>, rmso=\E[23m, rmul=\E[24m,
++	rs2=\Ec\E[?1000l\E[?25h, sc=\E7,
+ 	sgr=\E[0%?%p6%t;1%;%?%p1%t;3%;%?%p2%t;4%;%?%p3%t;7%;%?%p4%t;
+ 	    5%;%?%p5%t;2%;m%?%p9%t\016%e\017%;,
+ 	sgr0=\E[m\017, smacs=^N, smir=\E[4h, smkx=\E[?1h\E=,
+ 	smso=\E[3m, smul=\E[4m, tbc=\E[3g, vpa=\E[%i%p1%dd,
+-	E0=\E(B, S0=\E(%p1%c, use=ecma+index, use=xterm+alt1049,
+-	use=ecma+color,
++	E0=\E(B, S0=\E(%p1%c, use=xterm+alt1049, use=ecma+color,
+ # The bce and status-line entries are from screen 3.9.13 (and require some
+ # changes to .screenrc).
+ screen-bce|VT 100/ANSI X3.64 virtual terminal with bce,
+ 	bce,
+-	ech@, use=screen,
++	ech@, use=screen4,
+ screen-s|VT 100/ANSI X3.64 virtual terminal with hardstatus line,
+-	dsl=\E_\E\\, fsl=\E\\, tsl=\E_, use=screen,
++	dsl=\E_\E\\, fsl=\E\\, tsl=\E_, use=screen4,
+ 
+ # ======================================================================
+ # Entries for GNU Screen with 16 colors.
+@@ -7266,7 +7286,7 @@
+ # do all support 16 color palette.
+ 
+ screen-16color|GNU Screen with 16 colors,
+-	use=ibm+16color, use=screen,
++	use=ibm+16color, use=screen4,
+ 
+ screen-16color-s|GNU Screen with 16 colors and status line,
+ 	use=ibm+16color, use=screen-s,
+@@ -7281,7 +7301,7 @@
+ # Entries for GNU Screen 4.02 with --enable-colors256.
+ 
+ screen-256color|GNU Screen with 256 colors,
+-	use=xterm+256setaf, use=screen,
++	use=xterm+256setaf, use=screen4,
+ 
+ screen-256color-s|GNU Screen with 256 colors and status line,
+ 	use=xterm+256setaf, use=screen-s,
+@@ -7367,14 +7387,14 @@
+ 	acsc=+\020\,\021-\030.^Y0\333`\004a\261f\370g\361h\260i
+ 	     \316j\331k\277l\332m\300n\305o~p\304q\304r\304s_t\303u
+ 	     \264v\301w\302x\263y\363z\362{\343|\330}\234~\376,
+-	use=screen+fkeys, use=xterm+x11mouse, use=screen,
++	use=screen+fkeys, use=xterm+x11mouse, use=screen4,
+ # Other terminals
+ screen.rxvt|screen in rxvt,
+ 	bw, XT,
+ 	cvvis@, flash@, kcub1=\EOD, kcud1=\EOB, kcuf1=\EOC,
+ 	kcuu1=\EOA, use=screen+fkeys, use=vt100+enq,
+ 	use=rxvt+pcfkeys, use=xterm+x11mouse, use=vt220+keypad,
+-	use=screen,
++	use=screen4,
+ screen.Eterm|screen in Eterm,
+ 	use=xterm+x11mouse, use=screen+fkeys, use=Eterm,
+ screen.mrxvt|screen in mrxvt,
+@@ -7392,7 +7412,7 @@
+ screen.linux|screen in linux console,
+ 	bw,
+ 	kbs=^?, kcbt@, use=xterm+x11mouse, use=screen+fkeys,
+-	use=screen,
++	use=screen4,
+ screen.mlterm|screen in mlterm,
+ 	use=xterm+x11mouse, use=screen+fkeys, use=mlterm,
+ screen.putty|screen in putty,
+@@ -7434,7 +7454,7 @@
+ 	ech@, use=screen.linux,
+ 
+ screen-w|VT 100/ANSI X3.64 virtual terminal with 132 cols,
+-	cols#132, use=screen,
++	cols#132, use=screen4,
+ 
+ screen2|old VT 100/ANSI X3.64 virtual terminal,
+ 	cols#80, it#8, lines#24,
+@@ -7470,7 +7490,7 @@
+ # was last updated in 2009 to include 256-color support.  The most recent
+ # release is 4.6.2 (October 2017).
+ screen4|VT 100/ANSI X3.64 virtual terminal,
+-	use=screen,
++	use=ecma+index, use=screen,
+ 
+ # As of March 2019, screen 5.0 has not been released.
+ #
+@@ -7488,7 +7508,7 @@
+ 	rmso=\E[27m,
+ 	sgr=\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|%t;7%;%?%p4%t;5%;%?
+ 	    %p5%t;2%;m%?%p9%t\016%e\017%;,
+-	smso=\E[7m, use=ecma+italics, use=screen,
++	smso=\E[7m, use=ecma+italics, use=screen4,
+ 
+ #### Tmux
+ 
+@@ -20670,7 +20690,7 @@
+ 	     yzz||}}~~,
+ 	bel=\007\E\^ \E\\, bold@, csr@, flash=\Eg\E\^ \E\\, kmous@,
+ 	rmul@, smul@, u6=\E[%i%d;%dR, u7=\E[6n, u8=\E[?1;2c, u9=\EZ,
+-	use=xterm+x11mouse, use=screen,
++	use=xterm+x11mouse, use=screen4,
+ 
+ screen.minitel1b|Screen specific for minitel1b,
+ 	kclr=\E[2J, kdl1=\E[M, kf13=^Y{1, kf14=^Y{2, kf15=^Y{3,
+@@ -20798,7 +20818,7 @@
+ 	   \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+ 	   \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+ 	   \n\n\n\n\n\n\n\n\n\n,
+-	use=xterm+x11mouse, use=screen,
++	use=xterm+x11mouse, use=screen4,
+ 
+ screen.linux-m1b|Linux m1b specific for screen,
+ 	colors@, pairs@,
+@@ -20813,30 +20833,29 @@
+ 
+ putty-m1|Putty Minitel 1 "like" Couleurs,
+ 	hs,
+-	dim@, dsl=\E]2;\007, fsl=^G, kf1=\E[11~, kf2=\E[12~,
+-	kf3=\E[13~, kf4=\E[14~, kf5=\E[15~,
+-	rmcup=\E[2J\E[?47l\E8, rmul=\E[24m, smcup=\E7\E[?47h,
+-	smul=\E[4m, tsl=\E]2;, .E3=\E[300S, .WS=\E[8;%d;%dt,
+-	Z0=\E[?3h, Z1=\E[?3l, use=ecma+index, use=linux-m1,
++	dim@, kf1=\E[11~, kf2=\E[12~, kf3=\E[13~, kf4=\E[14~,
++	kf5=\E[15~, rmcup=\E[2J\E[?47l\E8, rmul=\E[24m,
++	smcup=\E7\E[?47h, smul=\E[4m, .E3=\E[300S,
++	.WS=\E[8;%d;%dt, Z0=\E[?3h, Z1=\E[?3l, use=xterm+sl-twm,
++	use=ecma+index, use=linux-m1,
+ 
+ putty-m1b|Putty Minitel 1B "like" Monochrome (Gris/Blanc/Noir),
+ 	hs,
+-	dim@, dsl=\E]2;\007, fsl=^G, kf1=\E[11~, kf2=\E[12~,
+-	kf3=\E[13~, kf4=\E[14~, kf5=\E[15~,
+-	rmcup=\E[2J\E[?47l\E8, rmul=\E[24m, smcup=\E7\E[?47h,
+-	smul=\E[4m, tsl=\E]2;, .E3=\E[300S, .WS=\E[8;%d;%dt,
+-	Z0=\E[?3h, Z1=\E[?3l, use=ecma+index, use=linux-m1b,
++	dim@, kf1=\E[11~, kf2=\E[12~, kf3=\E[13~, kf4=\E[14~,
++	kf5=\E[15~, rmcup=\E[2J\E[?47l\E8, rmul=\E[24m,
++	smcup=\E7\E[?47h, smul=\E[4m, .E3=\E[300S,
++	.WS=\E[8;%d;%dt, Z0=\E[?3h, Z1=\E[?3l, use=xterm+sl-twm,
++	use=ecma+index, use=linux-m1b,
+ 
+ putty-m2|Putty Minitel 2 "like" Couleurs (Vert/Blanc/Noir),
+ 	hs,
+ 	acsc=``aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{
+ 	     {||}}~~,
+-	dim@, dsl=\E]2;\007, fsl=^G, kf1=\E[11~, kf2=\E[12~,
+-	kf3=\E[13~, kf4=\E[14~, kf5=\E[15~,
+-	rmcup=\E[2J\E[?47l\E8, rmul=\E[24m, smcup=\E7\E[?47h,
+-	smul=\E[4m, tsl=\E]2;, .E3=\E[300S, .WS=\E[8;%d;%dt,
+-	Z0=\E[?3h, Z1=\E[?3l, use=ecma+index, use=linux-m2,
+-
++	dim@, kf1=\E[11~, kf2=\E[12~, kf3=\E[13~, kf4=\E[14~,
++	kf5=\E[15~, rmcup=\E[2J\E[?47l\E8, rmul=\E[24m,
++	smcup=\E7\E[?47h, smul=\E[4m, .E3=\E[300S,
++	.WS=\E[8;%d;%dt, Z0=\E[?3h, Z1=\E[?3l, use=xterm+sl-twm,
++	use=ecma+index, use=linux-m2,
+ 
+ screen.putty-m1|Putty m1 specific for screen,
+ 	dim@, rmul=\E[24m, smul=\E[4m, E3@, use=screen.linux-m1,
+@@ -26345,4 +26364,12 @@
+ #	+ add domterm -TD
+ #	+ improve comments for recent changes, add alias xterm.js -TD
+ #
++# 2019-08-03
++#	+ amend the change to screen, because tmux relies upon that entry
++#	  and does not support that feature (Debian #933572) -TD
++#	+ updated ms-terminal entry & notes -TD
++#	+ updated kitty entry & notes -TD
++#	+ updated alacritty+common entry & notes -TD
++#	+ use xterm+sl-twm for consistency -TD
++#
+ ######## SHANTIH!  SHANTIH!  SHANTIH!
+Index: ncurses/base/lib_scroll.c
+Prereq:  1.29 
+--- ncurses-6.1-20190728+/ncurses/base/lib_scroll.c	2011-10-22 16:34:50.000000000 +0000
++++ ncurses-6.1-20190803/ncurses/base/lib_scroll.c	2019-08-03 22:27:55.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2010,2011 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2011,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -43,7 +43,7 @@
+ 
+ #include <curses.priv.h>
+ 
+-MODULE_ID("$Id: lib_scroll.c,v 1.29 2011/10/22 16:34:50 tom Exp $")
++MODULE_ID("$Id: lib_scroll.c,v 1.31 2019/08/03 22:27:55 tom Exp $")
+ 
+ NCURSES_EXPORT(void)
+ _nc_scroll_window(WINDOW *win,
+@@ -77,11 +77,13 @@
+      * setup cost.  So there is no point in trying to be excessively
+      * clever -- esr.
+      */
++#define BottomLimit(n) ((n) >= 0 && (n) >= top)
++#define TopLimit(n)    ((n) <= win->_maxy && (n) <= bottom)
+ 
+     /* shift n lines downwards */
+     if (n < 0) {
+ 	limit = top - n;
+-	for (line = bottom; line >= limit && line >= 0; line--) {
++	for (line = bottom; line >= limit && BottomLimit(line); line--) {
+ 	    TR(TRACE_MOVE, ("...copying %d to %d", line + n, line));
+ 	    memcpy(win->_line[line].text,
+ 		   win->_line[line + n].text,
+@@ -89,7 +91,7 @@
+ 	    if_USE_SCROLL_HINTS(win->_line[line].oldindex =
+ 				win->_line[line + n].oldindex);
+ 	}
+-	for (line = top; line < limit && line <= win->_maxy; line++) {
++	for (line = top; line < limit && TopLimit(line); line++) {
+ 	    TR(TRACE_MOVE, ("...filling %d", line));
+ 	    for (j = 0; j <= win->_maxx; j++)
+ 		win->_line[line].text[j] = blank;
+@@ -100,14 +102,14 @@
+     /* shift n lines upwards */
+     if (n > 0) {
+ 	limit = bottom - n;
+-	for (line = top; line <= limit && line <= win->_maxy; line++) {
++	for (line = top; line <= limit && TopLimit(line); line++) {
+ 	    memcpy(win->_line[line].text,
+ 		   win->_line[line + n].text,
+ 		   to_copy);
+ 	    if_USE_SCROLL_HINTS(win->_line[line].oldindex =
+ 				win->_line[line + n].oldindex);
+ 	}
+-	for (line = bottom; line > limit && line >= 0; line--) {
++	for (line = bottom; line > limit && BottomLimit(line); line--) {
+ 	    for (j = 0; j <= win->_maxx; j++)
+ 		win->_line[line].text[j] = blank;
+ 	    if_USE_SCROLL_HINTS(win->_line[line].oldindex = _NEWINDEX);
+Index: ncurses/tinfo/parse_entry.c
+Prereq:  1.96 
+--- ncurses-6.1-20190728+/ncurses/tinfo/parse_entry.c	2019-03-16 23:31:40.000000000 +0000
++++ ncurses-6.1-20190803/ncurses/tinfo/parse_entry.c	2019-08-03 23:10:38.000000000 +0000
+@@ -47,7 +47,7 @@
+ #include <ctype.h>
+ #include <tic.h>
+ 
+-MODULE_ID("$Id: parse_entry.c,v 1.96 2019/03/16 23:31:40 tom Exp $")
++MODULE_ID("$Id: parse_entry.c,v 1.97 2019/08/03 23:10:38 tom Exp $")
+ 
+ #ifdef LINT
+ static short const parametrized[] =
+@@ -530,9 +530,12 @@
+ 		break;
+ 
+ 	    case NUMBER:
++#if !NCURSES_EXT_NUMBERS
+ 		if (_nc_curr_token.tk_valnumber > MAX_NUMBER) {
+ 		    entryp->tterm.Numbers[entry_ptr->nte_index] = MAX_NUMBER;
+-		} else {
++		} else
++#endif
++		{
+ 		    entryp->tterm.Numbers[entry_ptr->nte_index] =
+ 			(NCURSES_INT2) _nc_curr_token.tk_valnumber;
+ 		}
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20190728+/package/debian-mingw/changelog	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/package/debian-mingw/changelog	2019-08-03 13:57:42.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190728) unstable; urgency=low
++ncurses6 (6.1+20190803) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 28 Jul 2019 06:39:10 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 03 Aug 2019 09:57:42 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20190728+/package/debian-mingw64/changelog	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/package/debian-mingw64/changelog	2019-08-03 13:57:42.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190728) unstable; urgency=low
++ncurses6 (6.1+20190803) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 28 Jul 2019 06:39:10 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 03 Aug 2019 09:57:42 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20190728+/package/debian/changelog	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/package/debian/changelog	2019-08-03 13:57:42.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20190728) unstable; urgency=low
++ncurses6 (6.1+20190803) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 28 Jul 2019 06:39:10 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 03 Aug 2019 09:57:42 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.344 
+--- ncurses-6.1-20190728+/package/mingw-ncurses.nsi	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/package/mingw-ncurses.nsi	2019-08-03 13:57:42.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.344 2019/07/28 10:39:10 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.345 2019/08/03 13:57:42 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "0728"
++!define VERSION_MMDD  "0803"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20190728+/package/mingw-ncurses.spec	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/package/mingw-ncurses.spec	2019-08-03 13:57:42.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20190728
++Release: 20190803
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20190728+/package/ncurses.spec	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/package/ncurses.spec	2019-08-03 13:57:42.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20190728
++Release: 20190803
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20190728+/package/ncursest.spec	2019-07-28 10:39:10.000000000 +0000
++++ ncurses-6.1-20190803/package/ncursest.spec	2019-08-03 13:57:42.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20190728
++Release: 20190803
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz

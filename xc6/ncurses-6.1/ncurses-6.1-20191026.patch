@@ -1,0 +1,740 @@
+# ncurses 6.1 - patch 20191026 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191026.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Oct 27 01:34:14 UTC 2019
+# ------------------------------------------------------------------------------
+# NEWS                                  |   10 ++-
+# VERSION                               |    2 
+# dist.mk                               |    4 -
+# doc/html/man/adacurses6-config.1.html |    2 
+# doc/html/man/captoinfo.1m.html        |    2 
+# doc/html/man/clear.1.html             |    2 
+# doc/html/man/curs_add_wch.3x.html     |  103 +++++++++++++++++---------------
+# doc/html/man/form.3x.html             |    2 
+# doc/html/man/infocmp.1m.html          |    2 
+# doc/html/man/infotocap.1m.html        |    2 
+# doc/html/man/menu.3x.html             |    2 
+# doc/html/man/ncurses.3x.html          |    2 
+# doc/html/man/ncurses6-config.1.html   |    2 
+# doc/html/man/panel.3x.html            |    2 
+# doc/html/man/tabs.1.html              |    2 
+# doc/html/man/terminfo.5.html          |    2 
+# doc/html/man/tic.1m.html              |    2 
+# doc/html/man/toe.1m.html              |    2 
+# doc/html/man/tput.1.html              |    2 
+# doc/html/man/tset.1.html              |    2 
+# man/curs_add_wch.3x                   |   56 ++++++++++-------
+# misc/terminfo.src                     |   16 ++++
+# ncurses/tinfo/lib_tgoto.c             |   13 +++-
+# package/debian-mingw/changelog        |    4 -
+# package/debian-mingw64/changelog      |    4 -
+# package/debian/changelog              |    4 -
+# package/mingw-ncurses.nsi             |    4 -
+# package/mingw-ncurses.spec            |    2 
+# package/ncurses.spec                  |    2 
+# package/ncursest.spec                 |    2 
+# 30 files changed, 152 insertions(+), 106 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.3396 
+--- ncurses-6.1-20191019+/NEWS	2019-10-19 21:16:45.000000000 +0000
++++ ncurses-6.1-20191026/NEWS	2019-10-27 00:10:51.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3396 2019/10/19 21:16:45 tom Exp $
++-- $Id: NEWS,v 1.3399 2019/10/27 00:10:51 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,14 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191026
++	+ add a note in man/curs_add_wch.3x about Unicode terminology for the
++	  line-drawing characters (report by Nick Black).
++	+ improve comment in lib_tgoto.c regarding the use of \200 where a
++	  \0 would be intended by the caller (report by "64 bit", cf: 20000923).
++	+ modify linux-16color to accommodate Linux console driver change in
++	  early 2018 (report by Dino Petrucci).
++
+ 20191019
+ 	+ modify make_hash to not require --disable-leaks, to simplify building
+ 	  with address-sanitizer.
+Index: VERSION
+--- ncurses-6.1-20191019+/VERSION	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/VERSION	2019-10-26 08:56:47.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20191019
++5:0:10	6.1	20191026
+Index: dist.mk
+Prereq:  1.1311 
+--- ncurses-6.1-20191019+/dist.mk	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/dist.mk	2019-10-26 08:56:47.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1311 2019/10/19 12:47:53 tom Exp $
++# $Id: dist.mk,v 1.1312 2019/10/26 08:56:47 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20191019
++NCURSES_PATCH = 20191026
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: doc/html/man/adacurses6-config.1.html
+--- ncurses-6.1-20191019+/doc/html/man/adacurses6-config.1.html	2019-10-12 21:32:36.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/adacurses6-config.1.html	2019-10-27 00:15:46.000000000 +0000
+@@ -125,7 +125,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: doc/html/man/captoinfo.1m.html
+--- ncurses-6.1-20191019+/doc/html/man/captoinfo.1m.html	2019-10-12 21:32:36.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/captoinfo.1m.html	2019-10-27 00:15:46.000000000 +0000
+@@ -198,7 +198,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/clear.1.html
+--- ncurses-6.1-20191019+/doc/html/man/clear.1.html	2019-10-12 21:32:36.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/clear.1.html	2019-10-27 00:15:46.000000000 +0000
+@@ -148,7 +148,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tput.1.html">tput(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: doc/html/man/curs_add_wch.3x.html
+--- ncurses-6.1-20191019+/doc/html/man/curs_add_wch.3x.html	2019-03-16 19:34:43.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/curs_add_wch.3x.html	2019-10-27 00:15:46.000000000 +0000
+@@ -1,6 +1,6 @@
+ <!-- 
+   ****************************************************************************
+-  * Copyright (c) 2001-2015,2017 Free Software Foundation, Inc.              *
++  * Copyright (c) 2001-2017,2019 Free Software Foundation, Inc.              *
+   *                                                                          *
+   * Permission is hereby granted, free of charge, to any person obtaining a  *
+   * copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+   * sale, use or other dealings in this Software without prior written       *
+   * authorization.                                                           *
+   ****************************************************************************
+-  * @Id: curs_add_wch.3x,v 1.24 2017/11/18 23:47:37 tom Exp @
++  * @Id: curs_add_wch.3x,v 1.25 2019/10/27 00:07:13 tom Exp @
+ -->
+ <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+ <HTML>
+@@ -138,7 +138,24 @@
+        WACS_VLINE        0x2502     |         x       vertical line
+ 
+        The wide-character configuration of ncurses also  defines  symbols  for
+-       double-lines:
++       thick lines (<STRONG>acsc</STRONG> "J" to "V"):
++
++       <STRONG>ACS</STRONG>               <STRONG>Unicode</STRONG>   <STRONG>ASCII</STRONG>     <STRONG>acsc</STRONG>    <STRONG>Glyph</STRONG>
++       <STRONG>Name</STRONG>              <STRONG>Default</STRONG>   <STRONG>Default</STRONG>   <STRONG>char</STRONG>    <STRONG>Name</STRONG>
++       -----------------------------------------------------------------------
++       WACS_T_BTEE       0x253b    +         V       thick tee pointing up
++       WACS_T_HLINE      0x2501    -         Q       thick horizontal line
++       WACS_T_LLCORNER   0x2517    +         M       thick lower left corner
++       WACS_T_LRCORNER   0x251b    +         J       thick lower right corner
++       WACS_T_LTEE       0x252b    +         T       thick tee pointing right
++       WACS_T_PLUS       0x254b    +         N       thick large plus
++       WACS_T_RTEE       0x2523    +         U       thick tee pointing left
++       WACS_T_TTEE       0x2533    +         W       thick tee pointing down
++       WACS_T_ULCORNER   0x250f    +         L       thick upper left corner
++       WACS_T_URCORNER   0x2513    +         K       thick upper right corner
++       WACS_T_VLINE      0x2503    |         X       thick vertical line
++
++       and for double-lines (<STRONG>acsc</STRONG> "A" to "I"):
+ 
+        <STRONG>ACS</STRONG>               <STRONG>Unicode</STRONG>   <STRONG>ASCII</STRONG>     <STRONG>acsc</STRONG>    <STRONG>Glyph</STRONG>
+        <STRONG>Name</STRONG>              <STRONG>Default</STRONG>   <STRONG>Default</STRONG>   <STRONG>char</STRONG>    <STRONG>Name</STRONG>
+@@ -155,28 +172,22 @@
+        WACS_D_URCORNER   0x2557    +         B       double upper right corner
+        WACS_D_VLINE      0x2551    |         Y       double vertical line
+ 
+-       and for thick lines:
++       Unicode's  descriptions  for  these  characters  differs  slightly from
++       ncurses, by introducing the term "light"  (along  with  less  important
++       details).   Here are its descriptions for the normal, thick, and double
++       horizontal lines:
+ 
+-       <STRONG>ACS</STRONG>               <STRONG>Unicode</STRONG>   <STRONG>ASCII</STRONG>     <STRONG>acsc</STRONG>    <STRONG>Glyph</STRONG>
+-       <STRONG>Name</STRONG>              <STRONG>Default</STRONG>   <STRONG>Default</STRONG>   <STRONG>char</STRONG>    <STRONG>Name</STRONG>
+-       -----------------------------------------------------------------------
+-       WACS_T_BTEE       0x253b    +         V       thick tee pointing up
+-       WACS_T_HLINE      0x2501    -         Q       thick horizontal line
+-       WACS_T_LLCORNER   0x2517    +         M       thick lower left corner
+-       WACS_T_LRCORNER   0x251b    +         J       thick lower right corner
+-       WACS_T_LTEE       0x252b    +         T       thick tee pointing right
+-       WACS_T_PLUS       0x254b    +         N       thick large plus
+-       WACS_T_RTEE       0x2523    +         U       thick tee pointing left
+-       WACS_T_TTEE       0x2533    +         W       thick tee pointing down
+-       WACS_T_ULCORNER   0x250f    +         L       thick upper left corner
+-       WACS_T_URCORNER   0x2513    +         K       thick upper right corner
+-       WACS_T_VLINE      0x2503    |         X       thick vertical line
++       <STRONG>o</STRONG>   U+2500 BOX DRAWINGS LIGHT HORIZONTAL
++
++       <STRONG>o</STRONG>   U+2501 BOX DRAWINGS HEAVY HORIZONTAL
++
++       <STRONG>o</STRONG>   U+2550 BOX DRAWINGS DOUBLE HORIZONTAL
+ 
+ 
+ </PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+        All routines return the integer <STRONG>ERR</STRONG> upon failure and <STRONG>OK</STRONG> on success.
+ 
+-       Functions  with  a  "mv"  prefix  first perform a cursor movement using
++       Functions with a "mv" prefix first  perform  a  cursor  movement  using
+        <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+        the window pointer is null.
+ 
+@@ -186,71 +197,71 @@
+ 
+ 
+ </PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+-       All  of these functions are described in the XSI Curses standard, Issue
+-       4.  The defaults specified for line-drawing  characters  apply  in  the
++       All of these functions are described in the XSI Curses standard,  Issue
++       4.   The  defaults  specified  for line-drawing characters apply in the
+        POSIX locale.
+ 
+-       X/Open  Curses  makes it clear that the WACS_ symbols should be defined
++       X/Open Curses makes it clear that the WACS_ symbols should  be  defined
+        as a pointer to <STRONG>cchar_t</STRONG> data, e.g., in the discussion of <STRONG>border_set</STRONG>.  A
+        few implementations are problematic:
+ 
+        <STRONG>o</STRONG>   NetBSD curses defines the symbols as a <STRONG>wchar_t</STRONG> within a <STRONG>cchar_t</STRONG>.
+ 
+        <STRONG>o</STRONG>   HPUX curses equates some of the <EM>ACS</EM><STRONG>_</STRONG> symbols to the analogous <EM>WACS</EM><STRONG>_</STRONG>
+-           symbols as if the <EM>ACS</EM><STRONG>_</STRONG> symbols were wide  characters.   The  misde-
+-           fined  symbols  are the arrows and other symbols which are not used
++           symbols  as  if  the <EM>ACS</EM><STRONG>_</STRONG> symbols were wide characters.  The misde-
++           fined symbols are the arrows and other symbols which are  not  used
+            for line-drawing.
+ 
+        X/Open Curses does not define symbols for thick- or double-lines.  SVr4
+-       curses  implementations  defined their line-drawing symbols in terms of
+-       intermediate symbols.  This implementation extends those symbols,  pro-
++       curses implementations defined their line-drawing symbols in  terms  of
++       intermediate  symbols.  This implementation extends those symbols, pro-
+        viding new definitions which are not in the SVr4 implementations.
+ 
+-       Not  all  Unicode-capable  terminals  provide  support  for VT100-style
++       Not all  Unicode-capable  terminals  provide  support  for  VT100-style
+        alternate character sets (i.e., the <STRONG>acsc</STRONG> capability), with their corre-
+-       sponding  line-drawing  characters.   X/Open Curses did not address the
+-       aspect of integrating Unicode with line-drawing  characters.   Existing
+-       implementations  of  Unix curses (AIX, HPUX, Solaris) use only the <STRONG>acsc</STRONG>
+-       character-mapping to provide this feature.  As a result,  those  imple-
+-       mentations  can  only use single-byte line-drawing characters.  Ncurses
+-       5.3 (2002) provided a table of Unicode values to solve these  problems.
++       sponding line-drawing characters.  X/Open Curses did  not  address  the
++       aspect  of  integrating Unicode with line-drawing characters.  Existing
++       implementations of Unix curses (AIX, HPUX, Solaris) use only  the  <STRONG>acsc</STRONG>
++       character-mapping  to  provide this feature.  As a result, those imple-
++       mentations can only use single-byte line-drawing  characters.   Ncurses
++       5.3  (2002) provided a table of Unicode values to solve these problems.
+        NetBSD curses incorporated that table in 2010.
+ 
+        In this implementation, the Unicode values are used instead of the ter-
+-       minal description's <STRONG>acsc</STRONG> mapping as discussed in  <STRONG><A HREF="ncurses.3x.html">ncurses(3x)</A></STRONG>  for  the
+-       environment  variable  <STRONG>NCURSES_NO_UTF8_ACS</STRONG>.   In contrast, for the same
++       minal  description's  <STRONG>acsc</STRONG>  mapping as discussed in <STRONG><A HREF="ncurses.3x.html">ncurses(3x)</A></STRONG> for the
++       environment variable <STRONG>NCURSES_NO_UTF8_ACS</STRONG>.  In contrast,  for  the  same
+        cases, the line-drawing characters described in <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG> will use
+        only the ASCII default values.
+ 
+-       Having  Unicode available does not solve all of the problems with line-
++       Having Unicode available does not solve all of the problems with  line-
+        drawing for curses:
+ 
+-       <STRONG>o</STRONG>   The closest Unicode equivalents to the VT100 graphics  <EM>S1</EM>,  <EM>S3</EM>,  <EM>S7</EM>
+-           and  <EM>S9</EM> frequently are not displayed at the regular intervals which
++       <STRONG>o</STRONG>   The  closest  Unicode  equivalents to the VT100 graphics <EM>S1</EM>, <EM>S3</EM>, <EM>S7</EM>
++           and <EM>S9</EM> frequently are not displayed at the regular intervals  which
+            the terminal used.
+ 
+-       <STRONG>o</STRONG>   The <EM>lantern</EM> is a special case.  It originated with  the  AT&amp;T  4410
+-           terminal  in the early 1980s.  There is no accessible documentation
++       <STRONG>o</STRONG>   The  <EM>lantern</EM>  is  a special case.  It originated with the AT&amp;T 4410
++           terminal in the early 1980s.  There is no accessible  documentation
+            depicting the lantern symbol on the AT&amp;T terminal.
+ 
+            Lacking documentation, most readers assume that a <EM>storm</EM> <EM>lantern</EM> was
+            intended.  But there are several possibilities, all with problems.
+ 
+-           Unicode  6.0  (2010)  does provide two lantern symbols: U+1F383 and
+-           U+1F3EE.  Those were not available  in  2002,  and  are  irrelevant
+-           since  they  lie  outside the BMP and as a result are not generally
++           Unicode 6.0 (2010) does provide two lantern  symbols:  U+1F383  and
++           U+1F3EE.   Those  were  not  available  in 2002, and are irrelevant
++           since they lie outside the BMP and as a result  are  not  generally
+            available in terminals.  They are not storm lanterns, in any case.
+ 
+            Most <EM>storm</EM> <EM>lanterns</EM> have a tapering glass chimney (to guard against
+            tipping); some have a wire grid protecting the chimney.
+ 
+-           For  the  tapering  appearance,   U+2603 was adequate.  In use on a
++           For the tapering appearance,  U+2603 was adequate.   In  use  on  a
+            terminal, no one can tell what the image represents.  Unicode calls
+            it a snowman.
+ 
+-           Others  have suggested these alternatives: S U+00A7 (section mark),
++           Others have suggested these alternatives: S U+00A7 (section  mark),
+            <STRONG>O</STRONG> U+0398 (theta), <STRONG>O</STRONG> U+03A6 (phi), d U+03B4 (delta),  U+2327 (x in a
+-           rectangle),   U+256C  (forms  double  vertical and horizontal), and
++           rectangle),  U+256C (forms double  vertical  and  horizontal),  and
+            U+2612 (ballot box with x).
+ 
+ 
+Index: doc/html/man/form.3x.html
+--- ncurses-6.1-20191019+/doc/html/man/form.3x.html	2019-10-12 21:32:38.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/form.3x.html	2019-10-27 00:15:49.000000000 +0000
+@@ -246,7 +246,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "form_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: doc/html/man/infocmp.1m.html
+--- ncurses-6.1-20191019+/doc/html/man/infocmp.1m.html	2019-10-12 21:32:39.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/infocmp.1m.html	2019-10-27 00:15:50.000000000 +0000
+@@ -512,7 +512,7 @@
+ 
+        https://invisible-island.net/ncurses/tctest.html
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/infotocap.1m.html
+--- ncurses-6.1-20191019+/doc/html/man/infotocap.1m.html	2019-10-12 21:32:39.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/infotocap.1m.html	2019-10-27 00:15:50.000000000 +0000
+@@ -90,7 +90,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/menu.3x.html
+--- ncurses-6.1-20191019+/doc/html/man/menu.3x.html	2019-10-12 21:32:39.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/menu.3x.html	2019-10-27 00:15:50.000000000 +0000
+@@ -221,7 +221,7 @@
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "menu_" for detailed
+        descriptions of the entry points.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: doc/html/man/ncurses.3x.html
+--- ncurses-6.1-20191019+/doc/html/man/ncurses.3x.html	2019-10-12 21:32:40.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/ncurses.3x.html	2019-10-27 00:15:51.000000000 +0000
+@@ -59,7 +59,7 @@
+        method of updating  character  screens  with  reasonable  optimization.
+        This  implementation  is  "new  curses"  (ncurses)  and is the approved
+        replacement for 4.4BSD classic curses,  which  has  been  discontinued.
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+        The  <STRONG>ncurses</STRONG>  library emulates the curses library of System V Release 4
+        UNIX, and XPG4 (X/Open Portability Guide) curses  (also  known  as  XSI
+Index: doc/html/man/ncurses6-config.1.html
+--- ncurses-6.1-20191019+/doc/html/man/ncurses6-config.1.html	2019-10-12 21:32:40.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/ncurses6-config.1.html	2019-10-27 00:15:51.000000000 +0000
+@@ -112,7 +112,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: doc/html/man/panel.3x.html
+--- ncurses-6.1-20191019+/doc/html/man/panel.3x.html	2019-10-12 21:32:40.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/panel.3x.html	2019-10-27 00:15:51.000000000 +0000
+@@ -204,7 +204,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>,
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/tabs.1.html
+--- ncurses-6.1-20191019+/doc/html/man/tabs.1.html	2019-10-12 21:32:40.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/tabs.1.html	2019-10-27 00:15:51.000000000 +0000
+@@ -205,7 +205,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: doc/html/man/terminfo.5.html
+--- ncurses-6.1-20191019+/doc/html/man/terminfo.5.html	2019-10-12 21:32:41.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/terminfo.5.html	2019-10-27 00:15:51.000000000 +0000
+@@ -103,7 +103,7 @@
+        have, by specifying how to perform screen operations, and by specifying
+        padding requirements and initialization sequences.
+ 
+-       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This manual describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ </PRE><H3><a name="h3-Terminfo-Entry-Syntax">Terminfo Entry Syntax</a></H3><PRE>
+Index: doc/html/man/tic.1m.html
+--- ncurses-6.1-20191019+/doc/html/man/tic.1m.html	2019-10-12 21:32:41.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/tic.1m.html	2019-10-27 00:15:51.000000000 +0000
+@@ -460,7 +460,7 @@
+        <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,   <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,   <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>,   <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,
+        <STRONG><A HREF="term.5.html">term(5)</A></STRONG>.  <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.  <STRONG><A HREF="user_caps.5.html">user_caps(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ </PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+Index: doc/html/man/toe.1m.html
+--- ncurses-6.1-20191019+/doc/html/man/toe.1m.html	2019-10-12 21:32:41.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/toe.1m.html	2019-10-27 00:15:51.000000000 +0000
+@@ -170,7 +170,7 @@
+        <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,  <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,  <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,  <STRONG>ter-</STRONG>
+        <STRONG><A HREF="terminfo.5.html">minfo(5)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: doc/html/man/tput.1.html
+--- ncurses-6.1-20191019+/doc/html/man/tput.1.html	2019-10-12 21:32:41.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/tput.1.html	2019-10-27 00:15:51.000000000 +0000
+@@ -522,7 +522,7 @@
+ </PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+        <STRONG><A HREF="clear.1.html">clear(1)</A></STRONG>, <STRONG>stty(1)</STRONG>, <STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>, <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>, <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>.
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: doc/html/man/tset.1.html
+--- ncurses-6.1-20191019+/doc/html/man/tset.1.html	2019-10-12 21:32:41.000000000 +0000
++++ ncurses-6.1-20191026/doc/html/man/tset.1.html	2019-10-27 00:15:51.000000000 +0000
+@@ -389,7 +389,7 @@
+        <STRONG>csh(1)</STRONG>,  <STRONG>sh(1)</STRONG>,  <STRONG>stty(1)</STRONG>,   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>,   <STRONG>tty(4)</STRONG>,   <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>,
+        <STRONG>ttys(5)</STRONG>, <STRONG>environ(7)</STRONG>
+ 
+-       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191012).
++       This describes <STRONG>ncurses</STRONG> version 6.1 (patch 20191026).
+ 
+ 
+ 
+Index: man/curs_add_wch.3x
+Prereq:  1.24 
+--- ncurses-6.1-20191019+/man/curs_add_wch.3x	2017-11-18 23:47:37.000000000 +0000
++++ ncurses-6.1-20191026/man/curs_add_wch.3x	2019-10-27 00:07:13.000000000 +0000
+@@ -1,5 +1,5 @@
+ .\"***************************************************************************
+-.\" Copyright (c) 2001-2015,2017 Free Software Foundation, Inc.              *
++.\" Copyright (c) 2001-2017,2019 Free Software Foundation, Inc.              *
+ .\"                                                                          *
+ .\" Permission is hereby granted, free of charge, to any person obtaining a  *
+ .\" copy of this software and associated documentation files (the            *
+@@ -26,7 +26,7 @@
+ .\" authorization.                                                           *
+ .\"***************************************************************************
+ .\"
+-.\" $Id: curs_add_wch.3x,v 1.24 2017/11/18 23:47:37 tom Exp $
++.\" $Id: curs_add_wch.3x,v 1.25 2019/10/27 00:07:13 tom Exp $
+ .TH curs_add_wch 3X ""
+ .ie \n(.g .ds `` \(lq
+ .el       .ds `` ``
+@@ -155,7 +155,28 @@
+ .TE
+ .PP
+ The wide-character configuration of ncurses also defines symbols
+-for double-lines:
++for thick lines (\fBacsc\fP \*(``J\*('' to \*(``V\*(''):
++.TS
++l l l l l
++l l l l l
++_ _ _ _ _
++lw(1.5i) lw5 lw5 lw5 lw20.
++\fBACS\fR	\fBUnicode\fP	\fBASCII\fR	\fBacsc\fP	\fBGlyph\fR
++\fBName\fR	\fBDefault\fP	\fBDefault\fR	\fBchar\fP	\fBName\fR
++WACS_T_BTEE	0x253b	+	V	thick tee pointing up
++WACS_T_HLINE	0x2501	-	Q	thick horizontal line
++WACS_T_LLCORNER	0x2517	+	M	thick lower left corner
++WACS_T_LRCORNER	0x251b	+	J	thick lower right corner
++WACS_T_LTEE	0x252b	+	T	thick tee pointing right
++WACS_T_PLUS	0x254b	+	N	thick large plus
++WACS_T_RTEE	0x2523	+	U	thick tee pointing left
++WACS_T_TTEE	0x2533	+	W	thick tee pointing down
++WACS_T_ULCORNER	0x250f	+	L	thick upper left corner
++WACS_T_URCORNER	0x2513	+	K	thick upper right corner
++WACS_T_VLINE	0x2503	|	X	thick vertical line
++.TE
++.PP
++and for double-lines (\fBacsc\fP \*(``A\*('' to \*(``I\*(''):
+ .PP
+ .TS
+ l l l l l
+@@ -177,26 +198,15 @@
+ WACS_D_VLINE	0x2551	|	Y	double vertical line
+ .TE
+ .PP
+-and for thick lines:
+-.TS
+-l l l l l
+-l l l l l
+-_ _ _ _ _
+-lw(1.5i) lw5 lw5 lw5 lw20.
+-\fBACS\fR	\fBUnicode\fP	\fBASCII\fR	\fBacsc\fP	\fBGlyph\fR
+-\fBName\fR	\fBDefault\fP	\fBDefault\fR	\fBchar\fP	\fBName\fR
+-WACS_T_BTEE	0x253b	+	V	thick tee pointing up
+-WACS_T_HLINE	0x2501	-	Q	thick horizontal line
+-WACS_T_LLCORNER	0x2517	+	M	thick lower left corner
+-WACS_T_LRCORNER	0x251b	+	J	thick lower right corner
+-WACS_T_LTEE	0x252b	+	T	thick tee pointing right
+-WACS_T_PLUS	0x254b	+	N	thick large plus
+-WACS_T_RTEE	0x2523	+	U	thick tee pointing left
+-WACS_T_TTEE	0x2533	+	W	thick tee pointing down
+-WACS_T_ULCORNER	0x250f	+	L	thick upper left corner
+-WACS_T_URCORNER	0x2513	+	K	thick upper right corner
+-WACS_T_VLINE	0x2503	|	X	thick vertical line
+-.TE
++Unicode's descriptions for these characters differs slightly from ncurses,
++by introducing the term \*(``light\*('' (along with less important details).
++Here are its descriptions for the normal, thick, and double horizontal lines:
++.bP
++U+2500 BOX DRAWINGS LIGHT HORIZONTAL
++.bP
++U+2501 BOX DRAWINGS HEAVY HORIZONTAL
++.bP
++U+2550 BOX DRAWINGS DOUBLE HORIZONTAL
+ .SH RETURN VALUE
+ .PP
+ All routines return the integer \fBERR\fR upon failure and \fBOK\fR on success.
+Index: misc/terminfo.src
+--- ncurses-6.1-20191019+/misc/terminfo.src	2019-09-22 18:48:45.000000000 +0000
++++ ncurses-6.1-20191026/misc/terminfo.src	2019-10-26 17:00:56.000000000 +0000
+@@ -6,8 +6,8 @@
+ # Report bugs and new terminal descriptions to
+ #	bug-ncurses@gnu.org
+ #
+-#	$Revision: 1.765 $
+-#	$Date: 2019/09/22 18:48:45 $
++#	$Revision: 1.766 $
++#	$Date: 2019/10/26 17:00:56 $
+ #
+ # The original header is preserved below for reference.  It is noted that there
+ # is a "newer" version which differs in some cosmetic details (but actually
+@@ -1126,10 +1126,16 @@
+ # console font but bright background colors turn into dim ones when
+ # you use a 512-character console font. This uses bold for bright
+ # foreground colors and blink for bright background colors.
++#
++# Interestingly, the original version of this entry in 2009 used a documented
++# (but nonstandard) SGR 21, which was supported in the Linux console since 1992
++# as an equivalent for SGR 22.  Long after (early 2018), someone modified the
++# console driver to make it ignore SGR 21 because the ECMA-48 standard
++# suggested a different use for that particular code.
+ linux-16color|linux console with 16 colors,
+ 	colors#16, ncv#42, pairs#0x100,
+ 	setab=\E[4%p1%{8}%m%d%?%p1%{7}%>%t;5%e;25%;m,
+-	setaf=\E[3%p1%{8}%m%d%?%p1%{7}%>%t;1%e;21%;m,
++	setaf=\E[3%p1%{8}%m%d%?%p1%{7}%>%t;1%e;22%;m,
+ 	use=linux,
+ 
+ # bterm (bogl 0.1.18)
+@@ -26375,4 +26381,8 @@
+ # 2019-09-22
+ #	+ correct a comment -TD
+ #
++# 2019-10-26
++#	+ modify linux-16color to accommodate Linux console driver change in
++#	  early 2018 (report by Dino Petrucci).
++#
+ ######## SHANTIH!  SHANTIH!  SHANTIH!
+Index: ncurses/tinfo/lib_tgoto.c
+Prereq:  1.17 
+--- ncurses-6.1-20191019+/ncurses/tinfo/lib_tgoto.c	2018-04-07 21:11:48.000000000 +0000
++++ ncurses-6.1-20191026/ncurses/tinfo/lib_tgoto.c	2019-10-26 22:43:48.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 2000-2012,2018 Free Software Foundation, Inc.              *
++ * Copyright (c) 2000-2018,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -35,7 +35,7 @@
+ #include <ctype.h>
+ #include <termcap.h>
+ 
+-MODULE_ID("$Id: lib_tgoto.c,v 1.17 2018/04/07 21:11:48 tom Exp $")
++MODULE_ID("$Id: lib_tgoto.c,v 1.18 2019/10/26 22:43:48 tom Exp $")
+ 
+ #if !PURE_TERMINFO
+ static bool
+@@ -125,7 +125,14 @@
+ 			*value += 1;
+ 			need_BC = TRUE;
+ 		    } else {
+-			*value = 0200;	/* tputs will treat this as \0 */
++			/* tputs will pretend this is \0, which will almost
++			 * always work since ANSI-compatible terminals ignore
++			 * the character.  ECMA-48 does not document a C1
++			 * control for this value.  A few (obsolete) terminals
++			 * can use this value in special cases, such as cursor
++			 * addressing using single-byte coordinates.
++			 */
++			*value = 0200;
+ 		    }
+ 		}
+ 		result[used++] = (char) *value++;
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20191019+/package/debian-mingw/changelog	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/package/debian-mingw/changelog	2019-10-26 08:56:47.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191019) unstable; urgency=low
++ncurses6 (6.1+20191026) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 19 Oct 2019 08:47:53 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 26 Oct 2019 04:56:47 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20191019+/package/debian-mingw64/changelog	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/package/debian-mingw64/changelog	2019-10-26 08:56:47.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191019) unstable; urgency=low
++ncurses6 (6.1+20191026) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 19 Oct 2019 08:47:53 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 26 Oct 2019 04:56:47 -0400
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20191019+/package/debian/changelog	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/package/debian/changelog	2019-10-26 08:56:47.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191019) unstable; urgency=low
++ncurses6 (6.1+20191026) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 19 Oct 2019 08:47:53 -0400
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 26 Oct 2019 04:56:47 -0400
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.357 
+--- ncurses-6.1-20191019+/package/mingw-ncurses.nsi	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/package/mingw-ncurses.nsi	2019-10-26 08:56:47.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.357 2019/10/19 12:47:53 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.358 2019/10/26 08:56:47 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "1019"
++!define VERSION_MMDD  "1026"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20191019+/package/mingw-ncurses.spec	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/package/mingw-ncurses.spec	2019-10-26 08:56:47.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20191019
++Release: 20191026
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20191019+/package/ncurses.spec	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/package/ncurses.spec	2019-10-26 08:56:47.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20191019
++Release: 20191026
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20191019+/package/ncursest.spec	2019-10-19 12:47:53.000000000 +0000
++++ ncurses-6.1-20191026/package/ncursest.spec	2019-10-26 08:56:47.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20191019
++Release: 20191026
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz

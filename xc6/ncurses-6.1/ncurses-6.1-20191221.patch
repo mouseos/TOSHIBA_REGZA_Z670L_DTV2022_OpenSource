@@ -1,0 +1,733 @@
+# ncurses 6.1 - patch 20191221 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.1 is at
+# 	ftp.gnu.org:/pub/gnu
+#
+# Patches for ncurses 6.1 can be found at
+# 	ftp://ftp.invisible-island.net/ncurses/6.1
+#	http://invisible-mirror.net/archives/ncurses/6.1 
+#
+# ------------------------------------------------------------------------------
+# ftp://ftp.invisible-island.net/ncurses/6.1/ncurses-6.1-20191221.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Dec 22 03:20:49 UTC 2019
+# ------------------------------------------------------------------------------
+# Ada95/samples/Makefile.in        |    5 
+# NEWS                             |   12 +
+# VERSION                          |    2 
+# dist.mk                          |    4 
+# include/MKterm.h.awk.in          |    6 
+# ncurses/base/keyok.c             |    5 
+# ncurses/base/lib_color.c         |    4 
+# package/debian-mingw/changelog   |    4 
+# package/debian-mingw64/changelog |    4 
+# package/debian/changelog         |    4 
+# package/mingw-ncurses.nsi        |    4 
+# package/mingw-ncurses.spec       |    2 
+# package/ncurses.spec             |    2 
+# package/ncursest.spec            |    2 
+# test/tracemunch                  |  400 ++++++++++++++++++++++++++++++++++---
+# 15 files changed, 412 insertions(+), 48 deletions(-)
+# ------------------------------------------------------------------------------
+Index: Ada95/samples/Makefile.in
+Prereq:  1.56 
+--- ncurses-6.1-20191214+/Ada95/samples/Makefile.in	2019-09-08 00:01:38.000000000 +0000
++++ ncurses-6.1-20191221/Ada95/samples/Makefile.in	2019-12-22 01:09:19.000000000 +0000
+@@ -28,7 +28,7 @@
+ #
+ #  Author:  Juergen Pfeifer, 1996
+ #
+-#  $Id: Makefile.in,v 1.56 2019/09/08 00:01:38 tom Exp $
++#  $Id: Makefile.in,v 1.57 2019/12/22 01:09:19 tom Exp $
+ #
+ .SUFFIXES:
+ 
+@@ -82,6 +82,7 @@
+ LIBDIR		= $(DESTDIR)$(libdir)
+ 
+ MY_DATADIR	= $(DATADIR)/@ADA_LIBNAME@
++THIS_DATADIR	= $(datadir)/@ADA_LIBNAME@
+ 
+ ################################################################################
+ ada_srcdir	= ../src
+@@ -165,4 +166,4 @@
+ 
+ $(THISLIB)-explanation.adb : $(srcdir)/$(THISLIB)-explanation.adb_p
+ 	rm -f $@
+-	$(ADAPREP) -DTHIS_DATADIR=\"$(DATADIR)\" @GNATPREP_OPTS@ $(srcdir)/$(THISLIB)-explanation.adb_p $@
++	$(ADAPREP) -DTHIS_DATADIR=\"$(THIS_DATADIR)/\" @GNATPREP_OPTS@ $(srcdir)/$(THISLIB)-explanation.adb_p $@
+Index: NEWS
+Prereq:  1.3416 
+--- ncurses-6.1-20191214+/NEWS	2019-12-14 21:26:03.000000000 +0000
++++ ncurses-6.1-20191221/NEWS	2019-12-21 22:43:54.000000000 +0000
+@@ -25,7 +25,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.3416 2019/12/14 21:26:03 tom Exp $
++-- $Id: NEWS,v 1.3420 2019/12/21 22:43:54 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -45,6 +45,16 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20191221
++	+ correct pathname used in Ada95 sample programs for explain.txt, to
++	  work with test-packages.
++	+ improve tracemunch:
++	  + keep track of TERMINAL* values
++	  + if tracing was first turned on after initialization, attempt to
++	    show distinct screen, window and terminal names anyway.
++	+ ensure that GCC_NORETURN is defined in term.h, because the prototype
++	  for exit_terminfo() uses it (report by Werner Fink).
++
+ 20191214
+ 	+ add exit_curses() and exit_terminfo() to replace internal symbols for
+ 	  leak-checking.
+Index: VERSION
+--- ncurses-6.1-20191214+/VERSION	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/VERSION	2019-12-21 11:16:12.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.1	20191214
++5:0:10	6.1	20191221
+Index: dist.mk
+Prereq:  1.1319 
+--- ncurses-6.1-20191214+/dist.mk	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/dist.mk	2019-12-21 11:16:12.000000000 +0000
+@@ -25,7 +25,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1319 2019/12/14 17:50:13 tom Exp $
++# $Id: dist.mk,v 1.1320 2019/12/21 11:16:12 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -37,7 +37,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 1
+-NCURSES_PATCH = 20191214
++NCURSES_PATCH = 20191221
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: include/MKterm.h.awk.in
+Prereq:  1.72 
+--- ncurses-6.1-20191214+/include/MKterm.h.awk.in	2019-12-14 22:31:32.000000000 +0000
++++ ncurses-6.1-20191221/include/MKterm.h.awk.in	2019-12-21 18:29:09.000000000 +0000
+@@ -59,7 +59,7 @@
+ 	print  "/*    and: Thomas E. Dickey                        1995-on                  */"
+ 	print  "/****************************************************************************/"
+ 	print  ""
+-	print  "/* $Id: MKterm.h.awk.in,v 1.72 2019/12/14 22:31:32 tom Exp $ */"
++	print  "/* $Id: MKterm.h.awk.in,v 1.73 2019/12/21 18:29:09 tom Exp $ */"
+ 	print  ""
+ 	print  "/*"
+ 	print  "**	term.h -- Definition of struct term"
+@@ -147,6 +147,10 @@
+ 	print  "#define SET_TTY(fd, buf) stty(fd, buf)"
+ 	print  "#endif"
+ 	print  ""
++	print  "#ifndef	GCC_NORETURN"
++	print  "#define	GCC_NORETURN /* nothing */"
++	print  "#endif"
++	print  ""
+ 	print  "#define NAMESIZE 256"
+ 	print  ""
+ 	print  "/* The cast works because TERMTYPE is the first data in TERMINAL */"
+Index: ncurses/base/keyok.c
+Prereq:  1.14 
+--- ncurses-6.1-20191214+/ncurses/base/keyok.c	2014-03-08 20:32:59.000000000 +0000
++++ ncurses-6.1-20191221/ncurses/base/keyok.c	2019-12-21 22:40:32.000000000 +0000
+@@ -1,5 +1,5 @@
+ /****************************************************************************
+- * Copyright (c) 1998-2012,2014 Free Software Foundation, Inc.              *
++ * Copyright (c) 1998-2014,2019 Free Software Foundation, Inc.              *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+@@ -33,7 +33,7 @@
+ 
+ #include <curses.priv.h>
+ 
+-MODULE_ID("$Id: keyok.c,v 1.14 2014/03/08 20:32:59 tom Exp $")
++MODULE_ID("$Id: keyok.c,v 1.15 2019/12/21 22:40:32 tom Exp $")
+ 
+ /*
+  * Enable (or disable) ncurses' interpretation of a keycode by adding (or
+@@ -55,7 +55,6 @@
+ #ifdef USE_TERM_DRIVER
+ 	code = CallDriver_2(sp, td_kyOk, c, flag);
+ #else
+-	T((T_CALLED("keyok(%d,%d)"), c, flag));
+ 	if (c >= 0) {
+ 	    int count = 0;
+ 	    char *s;
+Index: ncurses/base/lib_color.c
+Prereq:  1.140 
+--- ncurses-6.1-20191214+/ncurses/base/lib_color.c	2019-01-21 01:55:18.000000000 +0000
++++ ncurses-6.1-20191221/ncurses/base/lib_color.c	2019-12-22 00:57:53.000000000 +0000
+@@ -48,7 +48,7 @@
+ #define CUR SP_TERMTYPE
+ #endif
+ 
+-MODULE_ID("$Id: lib_color.c,v 1.140 2019/01/21 01:55:18 tom Exp $")
++MODULE_ID("$Id: lib_color.c,v 1.142 2019/12/22 00:57:53 tom Exp $")
+ 
+ #ifdef USE_TERM_DRIVER
+ #define CanChange      InfoOf(SP_PARM).canchange
+@@ -803,7 +803,7 @@
+     int code = FALSE;
+ 
+     (void) SP_PARM;
+-    T((T_CALLED("has_colors()")));
++    T((T_CALLED("has_colors(%p)"), (void *) SP_PARM));
+     if (HasTerminal(SP_PARM)) {
+ #ifdef USE_TERM_DRIVER
+ 	code = HasColor;
+Index: package/debian-mingw/changelog
+--- ncurses-6.1-20191214+/package/debian-mingw/changelog	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/package/debian-mingw/changelog	2019-12-21 11:16:12.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191214) unstable; urgency=low
++ncurses6 (6.1+20191221) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Dec 2019 12:50:13 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Dec 2019 06:16:12 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.1-20191214+/package/debian-mingw64/changelog	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/package/debian-mingw64/changelog	2019-12-21 11:16:12.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191214) unstable; urgency=low
++ncurses6 (6.1+20191221) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Dec 2019 12:50:13 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Dec 2019 06:16:12 -0500
+ 
+ ncurses6 (5.9-20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.1-20191214+/package/debian/changelog	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/package/debian/changelog	2019-12-21 11:16:12.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6 (6.1+20191214) unstable; urgency=low
++ncurses6 (6.1+20191221) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Dec 2019 12:50:13 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Dec 2019 06:16:12 -0500
+ 
+ ncurses6 (5.9-20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.365 
+--- ncurses-6.1-20191214+/package/mingw-ncurses.nsi	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/package/mingw-ncurses.nsi	2019-12-21 11:16:12.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.365 2019/12/14 17:50:13 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.366 2019/12/21 11:16:12 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "1"
+ !define VERSION_YYYY  "2019"
+-!define VERSION_MMDD  "1214"
++!define VERSION_MMDD  "1221"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.1-20191214+/package/mingw-ncurses.spec	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/package/mingw-ncurses.spec	2019-12-21 11:16:12.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.1
+-Release: 20191214
++Release: 20191221
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncurses.spec
+--- ncurses-6.1-20191214+/package/ncurses.spec	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/package/ncurses.spec	2019-12-21 11:16:12.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.1
+-Release: 20191214
++Release: 20191221
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: package/ncursest.spec
+--- ncurses-6.1-20191214+/package/ncursest.spec	2019-12-14 17:50:13.000000000 +0000
++++ ncurses-6.1-20191221/package/ncursest.spec	2019-12-21 11:16:12.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.1
+-Release: 20191214
++Release: 20191221
+ License: X11
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+Index: test/tracemunch
+Prereq:  1.24 
+--- ncurses-6.1-20191214+/test/tracemunch	2018-12-29 22:20:06.000000000 +0000
++++ ncurses-6.1-20191221/test/tracemunch	2019-12-21 22:33:35.000000000 +0000
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env perl
+-# $Id: tracemunch,v 1.24 2018/12/29 22:20:06 tom Exp $
++# $Id: tracemunch,v 1.26 2019/12/21 22:33:35 tom Exp $
+ ##############################################################################
+-# Copyright (c) 1998-2017,2018 Free Software Foundation, Inc.                #
++# Copyright (c) 1998-2018,2019 Free Software Foundation, Inc.                #
+ #                                                                            #
+ # Permission is hereby granted, free of charge, to any person obtaining a    #
+ # copy of this software and associated documentation files (the "Software"), #
+@@ -42,8 +42,305 @@
+ our $waddnstr =
+   'waddnstr\(0x([[:xdigit:]]+),"([^\"]+)",[0-9]+\) called \{A_NORMAL\}';
+ 
++# If the trace is complete, we can infer addresses using the return value from
++# newwin, etc.  But if it is incomplete, we can still check for special cases
++# such as SCREEN* and WINDOW* parameters.  In this table, the type for the
++# first parameter is encoded, relying upon an ncurses programming convention:
++# 1 = SCREEN*
++# 2 = WINDOW*
++# 4 = TERMINAL*
++our %known_p1 = qw(
++  TransformLine           1
++  _nc_freewin             2
++  _nc_initscr             1
++  _nc_makenew             1
++  _nc_mingw_console_read  1
++  _nc_reset_colors        1
++  _nc_scroll_optimize     1
++  _nc_tinfo               1
++  _nc_tinfo_mvcur         1
++  _nc_wgetch              2
++  adjust_window           2
++  assume_default_colors   1
++  attr_get                2
++  baudrate                1
++  beep                    1
++  border_set              2
++  box                     2
++  box_set                 2
++  can_change_color        1
++  cbreak                  1
++  clearok                 2
++  color_content           1
++  copywin                 2
++  curs_set                1
++  decrease_size           1
++  def_prog_mode           1
++  def_shell_mode          1
++  define_key              1
++  del_curterm             1
++  delay_output            1
++  delscreen               1
++  delwin                  2
++  derwin                  2
++  doupdate                1
++  dupwin                  2
++  echo                    1
++  endwin                  1
++  erasechar               1
++  filter                  1
++  flash                   1
++  flushinp                1
++  getattrs                2
++  getbegx                 2
++  getbegy                 2
++  getbkgd                 2
++  getcurx                 2
++  getcury                 2
++  getmaxx                 2
++  getmaxy                 2
++  getmouse                1
++  getparx                 2
++  getpary                 2
++  halfdelay               1
++  has_ic                  1
++  has_il                  1
++  has_key                 1
++  idcok                   2
++  idlok                   2
++  immedok                 2
++  increase_size           1
++  init_color              1
++  init_pair               1
++  intrflush               1
++  is_cleared              2
++  is_idcok                2
++  is_idlok                2
++  is_immedok              2
++  is_keypad               2
++  is_leaveok              2
++  is_linetouched          2
++  is_nodelay              2
++  is_notimeout            2
++  is_pad                  2
++  is_scrollok             2
++  is_subwin               2
++  is_syncok               2
++  is_term_resized         1
++  is_wintouched           2
++  key_defined             1
++  keybound                1
++  keyok                   1
++  keypad                  2
++  killchar                1
++  leaveok                 2
++  longname                1
++  meta                    2
++  mouseinterval           1
++  mousemask               1
++  mvcur                   1
++  mvderwin                2
++  mvwadd_wch              2
++  mvwadd_wchnstr          2
++  mvwadd_wchstr           2
++  mvwaddch                2
++  mvwaddchnstr            2
++  mvwaddchstr             2
++  mvwaddnstr              2
++  mvwaddnwstr             2
++  mvwaddstr               2
++  mvwaddwstr              2
++  mvwchgat                2
++  mvwdelch                2
++  mvwget_wch              2
++  mvwget_wstr             2
++  mvwgetch                2
++  mvwgetn_wstr            2
++  mvwgetnstr              2
++  mvwgetstr               2
++  mvwhline                2
++  mvwhline_set            2
++  mvwin                   2
++  mvwin_wch               2
++  mvwin_wchnstr           2
++  mvwin_wchstr            2
++  mvwinch                 2
++  mvwinchnstr             2
++  mvwinchstr              2
++  mvwins_nwstr            2
++  mvwins_wch              2
++  mvwins_wstr             2
++  mvwinsch                2
++  mvwinsnstr              2
++  mvwinsstr               2
++  mvwinstr                2
++  mvwinwstr               2
++  mvwvline                2
++  mvwvline_set            2
++  newpad                  1
++  newterm                 1
++  newwin                  1
++  nl                      1
++  nocbreak                1
++  nodelay                 2
++  noecho                  1
++  nofilter                1
++  nonl                    1
++  noqiflush               1
++  noraw                   1
++  notimeout               2
++  overlap                 2
++  overlay                 2
++  overwrite               2
++  pair_content            1
++  pecho_wchar             2
++  pechochar               2
++  pnoutrefresh            2
++  putwin                  2
++  qiflush                 1
++  raw                     1
++  redrawwin               2
++  reset_prog_mode         1
++  reset_shell_mode        1
++  resetty                 1
++  resize_term             1
++  resizeterm              1
++  restartterm             1
++  ripoffline              1
++  savetty                 1
++  scr_init                1
++  scr_restore             1
++  scr_set                 1
++  scroll                  2
++  scrollok                2
++  set_curterm             4
++  set_term                1
++  slk_attr                1
++  slk_attr_set            1
++  slk_attroff             1
++  slk_attron              1
++  slk_attrset             1
++  slk_clear               1
++  slk_color               1
++  slk_init                1
++  slk_label               1
++  slk_noutrefresh         1
++  slk_refresh             1
++  slk_restore             1
++  slk_set                 1
++  slk_touch               1
++  start_color             1
++  subwin                  2
++  syncok                  2
++  termattrs               1
++  termname                1
++  tgetflag                1
++  tgetnum                 1
++  tigetflag               1
++  tigetnum                1
++  tigetstr                1
++  tinfo                   1
++  touchline               2
++  touchwin                2
++  typeahead               1
++  unget_wch               1
++  ungetch                 1
++  ungetmouse              1
++  untouchwin              2
++  use_default_colors      1
++  use_env                 1
++  use_legacy_coding       1
++  use_screen              1
++  use_tioctl              1
++  use_window              2
++  vidattr                 1
++  vidputs                 1
++  vw_printw               2
++  vwprintw                2
++  wadd_wch                2
++  wadd_wchnstr            2
++  wadd_wchstr             2
++  waddch                  2
++  waddchnstr              2
++  waddchstr               2
++  waddnstr                2
++  waddnwstr               2
++  waddstr                 2
++  waddwstr                2
++  wattr_get               2
++  wattr_off               2
++  wattr_on                2
++  wattr_set               2
++  wattroff                2
++  wattron                 2
++  wattrset                2
++  wbkgd                   2
++  wbkgdset                2
++  wborder                 2
++  wborder_set             2
++  wchgat                  2
++  wclear                  2
++  wclrtobot               2
++  wclrtoeol               2
++  wcolor_set              2
++  wcursyncup              2
++  wdelch                  2
++  wdeleteln               2
++  wechochar               2
++  wenclose                2
++  werase                  2
++  wget_wch                2
++  wget_wstr               2
++  wgetbkgrnd              2
++  wgetch                  2
++  wgetch_events           2
++  wgetdelay               2
++  wgetn_wstr              2
++  wgetnstr                2
++  wgetparent              2
++  wgetscrreg              2
++  wgetstr                 2
++  whline                  2
++  whline_set              2
++  win_wch                 2
++  win_wchnstr             2
++  win_wchstr              2
++  winch                   2
++  winchnstr               2
++  winchstr                2
++  winnstr                 2
++  winnwstr                2
++  wins_nwstr              2
++  wins_wch                2
++  wins_wstr               2
++  winsch                  2
++  winsdelln               2
++  winsertln               2
++  winsnstr                2
++  winsstr                 2
++  winstr                  2
++  winwstr                 2
++  wmouse_trafo            2
++  wmove                   2
++  wnoutrefresh            2
++  wprintw                 2
++  wredrawln               2
++  wrefresh                2
++  wresize                 2
++  wscrl                   2
++  wsetscrreg              2
++  wstandend               2
++  wstandout               2
++  wsyncdown               2
++  wsyncup                 2
++  wtimeout                2
++  wtouchln                2
++  wvline                  2
++);
++
+ our $scr_nums = 0;
+ our $thr_nums = 0;
++our $trm_nums = 0;
+ our $try_nums = 0;
+ our $win_nums = 0;
+ our $curscr   = "";
+@@ -51,40 +348,90 @@
+ our $stdscr   = "";
+ our %scr_addr;
+ our %thr_addr;
++our %trm_addr;
+ our %try_addr;
+ our %win_addr;
+ 
+-sub transaddr {
++sub has_addr($) {
++    my $value  = shift;
++    my $result = 0;
++    $result = 1 if ( $value =~ /\b0x[[:xdigit:]]+\b/i );
++    return $result;
++}
++
++sub transaddr($) {
++    my $arg = shift;
+     my $n;
+-    my $arg = $_[0];
+ 
+     $arg =~ s/\b$curscr\b/curscr/g if ($curscr);
+     $arg =~ s/\b$newscr\b/newscr/g if ($newscr);
+     $arg =~ s/\b$stdscr\b/stdscr/g if ($stdscr);
+-    foreach my $addr ( keys %scr_addr ) {
+-        $n = $scr_addr{$addr};
+-        $arg =~ s/\b$addr\b/screen$n/g if ( defined $n );
+-    }
+-    foreach my $addr ( keys %thr_addr ) {
+-        $n = $thr_addr{$addr};
+-        $arg =~ s/\b$addr\b/thread$n/g if ( defined $n );
+-    }
+-    foreach my $addr ( keys %try_addr ) {
+-        $n = $try_addr{$addr};
+-        $arg =~ s/\b$addr\b/tries_$n/g if ( defined $n );
+-    }
+-    foreach my $addr ( keys %win_addr ) {
+-        $n = $win_addr{$addr};
+-        $arg =~ s/\b$addr\b/window$n/g if ( defined $n );
++    if ( &has_addr($arg) ) {
++        foreach my $addr ( keys %scr_addr ) {
++            $n = $scr_addr{$addr};
++            $arg =~ s/\b$addr\b/screen$n/g if ( defined $n );
++        }
++    }
++    if ( &has_addr($arg) ) {
++        foreach my $addr ( keys %thr_addr ) {
++            $n = $thr_addr{$addr};
++            $arg =~ s/\b$addr\b/thread$n/g if ( defined $n );
++        }
++    }
++    if ( &has_addr($arg) ) {
++        foreach my $addr ( keys %trm_addr ) {
++            $n = $trm_addr{$addr};
++            $arg =~ s/\b$addr\b/terminal$n/g if ( defined $n );
++        }
+     }
+-    if ( $arg =~ /add_wch\((window\d+,)?0x[[:xdigit:]]+\)/i ) {
+-        $arg =~ s/(0x[[:xdigit:]]+)[)]/\&wch)/i;
++    if ( &has_addr($arg) ) {
++        foreach my $addr ( keys %try_addr ) {
++            $n = $try_addr{$addr};
++            $arg =~ s/\b$addr\b/tries_$n/g if ( defined $n );
++        }
+     }
+-    elsif ( $arg =~ /color_content\((screen\d+,)?\d+(,0x[[:xdigit:]]+){3}/i ) {
+-        $arg =~ s/(,0x[[:xdigit:]]+){3}[)]/,\&r,\&g,\&b)/i;
++    if ( &has_addr($arg) ) {
++        foreach my $addr ( keys %win_addr ) {
++            $n = $win_addr{$addr};
++            $arg =~ s/\b$addr\b/window$n/g if ( defined $n );
++        }
+     }
+-    elsif ( $arg =~ /pair_content\((screen\d+,)?\d+(,0x[[:xdigit:]]+){2}/i ) {
+-        $arg =~ s/(,0x[[:xdigit:]]+){2}[)]/,\&fg,\&bg)/i;
++    if ( &has_addr($arg) ) {
++        if ( $arg =~ /add_wch\((window\d+,)?0x[[:xdigit:]]+\)/i ) {
++            $arg =~ s/(0x[[:xdigit:]]+)[)]/\&wch)/i;
++        }
++        elsif (
++            $arg =~ /color_content\((screen\d+,)?\d+(,0x[[:xdigit:]]+){3}/i )
++        {
++            $arg =~ s/(,0x[[:xdigit:]]+){3}[)]/,\&r,\&g,\&b)/i;
++        }
++        elsif ( $arg =~ /pair_content\((screen\d+,)?\d+(,0x[[:xdigit:]]+){2}/i )
++        {
++            $arg =~ s/(,0x[[:xdigit:]]+){2}[)]/,\&fg,\&bg)/i;
++        }
++    }
++    if ( &has_addr($arg) and $arg =~ /called\s+\{/ ) {
++        my $func = $arg;
++        chomp $func;
++        $func =~ s/^.*called\s+\{([[:alnum:]_]+)\(.*$/$1/;
++        if ( defined $known_p1{$func} ) {
++            my $addr = $arg;
++            my $type = $known_p1{$func};
++            chomp $addr;
++            $addr =~ s/^[^(]+\((0x[[:xdigit:]]+).*/$1/i;
++            if ( $type == 1 ) {
++                $scr_addr{$addr} = ++$scr_nums;
++                $arg = &transaddr($arg);
++            }
++            elsif ( $type == 2 ) {
++                $win_addr{$addr} = ++$win_nums;
++                $arg = &transaddr($arg);
++            }
++            elsif ( $type == 4 ) {
++                $trm_addr{$addr} = ++$trm_nums;
++                $arg = &transaddr($arg);
++            }
++        }
+     }
+ 
+     return $arg;
+@@ -132,6 +479,9 @@
+                 }
+                 $awaiting = "";
+             }
++            elsif ( $_ =~ /^(\+ )*called \{set_curterm\((0x[[:xdigit:]]+)\)/ ) {
++                $trm_addr{$2} = ++$trm_nums unless defined $trm_addr{$2};
++            }
+             elsif ( $_ =~ /^(\+ )*called \{_nc_add_to_try\((0x[[:xdigit:]]+),/ )
+             {
+                 $try_addr{$2} = ++$try_nums unless defined $try_addr{$2};
